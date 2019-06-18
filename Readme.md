@@ -8,6 +8,7 @@ Rust template project for monorepo
 ```shell
 git commit --amend --message "🎂 Project initialized!" --date "2019-6-12"
 ```
+git subtree add --prefix=projects/jupyter_client https://github.com/jupyter/jupyter_client.git master
 
 ## Emoji Comment
 
