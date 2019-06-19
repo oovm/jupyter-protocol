@@ -35,7 +35,7 @@ impl Header {
 
 fn msg_id() -> String {
     let u = uuid::Uuid::new_v4();
-    format!("{}", u.to_hyphenated())
+    format!("{}", u.as_hyphenated())
 }
 
 #[cfg(test)]

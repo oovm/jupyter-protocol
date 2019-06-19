@@ -22,7 +22,7 @@ pub(crate) struct WireMessage<M: Mac + Debug> {
     pub(crate) auth: M,
 }
 
-impl<M: Mac + Debug> WireMessage<M> {
+impl<M: Mac + Debug + Clone> WireMessage<M> {
     pub(crate) fn from_raw_response(raw: Vec<Vec<u8>>, auth: M) -> Result<Self> {
         trace!("raw response: {:?}", raw);
         let delim_idx = raw

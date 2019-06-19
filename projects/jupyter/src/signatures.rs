@@ -15,10 +15,10 @@ impl SignComputable for Vec<Vec<u8>> {
         M: Mac,
     {
         for msg in self {
-            auth.input(msg);
+            auth.update(msg);
         }
-        let result = auth.result();
-        let code = result.code();
+        let result = auth.finalize();
+        let code = result.into_bytes();
         let encoded = hex::encode(code);
         encoded
     }
@@ -30,10 +30,10 @@ impl<'a> SignComputable for Vec<&'a [u8]> {
         M: Mac,
     {
         for msg in self {
-            auth.input(msg);
+            auth.update(msg);
         }
-        let result = auth.result();
-        let code = result.code();
+        let result = auth.finalize();
+        let code = result.into_bytes();
         let encoded = hex::encode(code);
         encoded
     }
@@ -44,10 +44,10 @@ impl<'a> SignComputable for &'a [&'a [u8]] {
         M: Mac,
     {
         for msg in *self {
-            auth.input(msg);
+            auth.update(msg);
         }
-        let result = auth.result();
-        let code = result.code();
+        let result = auth.finalize();
+        let code = result.into_bytes();
         let encoded = hex::encode(code);
         encoded
     }
@@ -59,10 +59,10 @@ impl<'a> SignComputable for &'a [Vec<u8>] {
         M: Mac,
     {
         for msg in *self {
-            auth.input(msg);
+            auth.update(msg);
         }
-        let result = auth.result();
-        let code = result.code();
+        let result = auth.finalize();
+        let code = result.into_bytes();
         let encoded = hex::encode(code);
         encoded
     }

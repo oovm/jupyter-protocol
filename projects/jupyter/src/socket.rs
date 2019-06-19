@@ -48,14 +48,14 @@ impl Socket {
         Ok(Socket(socket))
     }
 
-    pub(crate) fn send_wire<M: Mac + Debug>(&self, wire: WireMessage<M>) -> Result<()> {
+    pub(crate) fn send_wire<M: Mac + Debug + Clone>(&self, wire: WireMessage<M>) -> Result<()> {
         let packets = wire.into_packets()?;
         let slices: Vec<_> = packets.iter().map(|v| v.as_slice()).collect();
         self.0.send_multipart(slices.as_slice(), 0)?;
         Ok(())
     }
 
-    pub(crate) fn recv_wire<M: Mac + Debug>(&self, auth: M) -> Result<WireMessage<M>> {
+    pub(crate) fn recv_wire<M: Mac + Debug + Clone>(&self, auth: M) -> Result<WireMessage<M>> {
         let raw_response = self.0.recv_multipart(0)?;
         WireMessage::from_raw_response(raw_response, auth.clone())
     }

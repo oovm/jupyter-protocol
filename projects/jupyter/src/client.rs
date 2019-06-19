@@ -135,7 +135,7 @@ impl Client {
         R: Read,
     {
         let config: ConnectionConfig = ConnectionConfig::from_reader(reader)?;
-        let auth = HmacSha256::new_varkey(config.key.as_bytes())
+        let auth = HmacSha256::new_from_slice(config.key.as_bytes())
             .map_err(|e| format_err!("Error constructing HMAC: {:?}", e))?;
 
         let ctx = zmq::Context::new();
