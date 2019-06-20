@@ -30,4 +30,4 @@ ariadne = "0.1.5"
 zeromq = { version = "0.3.3", default_features = false, features = [ "tokio-runtime", "tcp-transport" ] }
 
 [features]
-default = ["mimalloc"]
+default = []
