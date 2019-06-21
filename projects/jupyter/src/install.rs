@@ -13,6 +13,7 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 
 const LOGO_32X32: &[u8] = include_bytes!("../third_party/rust/rust-logo-32x32.png");
 const LOGO_64X64: &[u8] = include_bytes!("../third_party/rust/rust-logo-64x64.png");
@@ -22,6 +23,14 @@ const LINT_JS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/lin
 const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/lint.css");
 const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
+
+// call jupyter-lab
+pub(crate) fn open() -> Result<()> {
+     Command::new("jupyter-lab")
+        .spawn()
+        .expect("jupyter-lab command failed to start");
+    Ok(())
+}
 
 pub(crate) fn install() -> Result<()> {
     let kernel_dir = get_kernel_dir()?;

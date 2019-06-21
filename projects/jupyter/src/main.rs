@@ -37,6 +37,8 @@ fn main() -> Result<()> {
             }
             "--install" => return install::install(),
             "--uninstall" => return install::uninstall(),
+            "--open" => return install::open(),
+
             "--help" => {}
             x => bail!("Unrecognised option {}", x),
         }
