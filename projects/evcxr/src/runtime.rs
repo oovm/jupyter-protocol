@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::errors::bail;
-use crate::errors::Error;
+use crate::errors::JupyterErrorKind;
 use once_cell::sync::OnceCell;
 use regex::Regex;
 use std::io;
@@ -58,7 +58,7 @@ impl Runtime {
         std::process::exit(0);
     }
 
-    fn handle_line(&mut self, line: &io::Result<String>) -> Result<(), Error> {
+    fn handle_line(&mut self, line: &io::Result<String>) -> Result<(), JupyterErrorKind> {
         let line = line.as_ref()?;
         static LOAD_AND_RUN: OnceCell<Regex> = OnceCell::new();
         let load_and_run =
@@ -66,11 +66,11 @@ impl Runtime {
         if let Some(captures) = load_and_run.captures(line) {
             self.load_and_run(&captures[1], &captures[2])
         } else {
-            bail!("Unrecognised line: {}", line);
+            panic!("Unrecognised line: {}", line);
         }
     }
 
-    fn load_and_run(&mut self, so_path: &str, fn_name: &str) -> Result<(), Error> {
+    fn load_and_run(&mut self, so_path: &str, fn_name: &str) -> Result<(), JupyterErrorKind> {
         use std::os::raw::c_void;
         let shared_object = unsafe { libloading::Library::new(so_path) }?;
         unsafe {

@@ -17,6 +17,7 @@ use json::JsonValue;
 use json::{self};
 use std::fmt;
 use std::{self};
+use std::fmt::Formatter;
 use uuid::Uuid;
 
 struct RawMessage {
@@ -56,7 +57,7 @@ impl RawMessage {
             raw_message.digest(&mut mac);
             use hmac::Mac;
             if let Err(error) = mac.verify(GenericArray::from_slice(&hex::decode(&hmac)?)) {
-                bail!("{}", error);
+                panic!("{}", error);
             }
         }
 
@@ -120,7 +121,7 @@ impl JupyterMessage {
         }
 
         if raw_message.jparts.len() < 4 {
-            bail!("Insufficient message parts {}", raw_message.jparts.len());
+            panic!("Insufficient message parts {}", raw_message.jparts.len());
         }
 
         Ok(JupyterMessage {
@@ -227,7 +228,7 @@ impl JupyterMessage {
 }
 
 impl fmt::Debug for JupyterMessage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "\nHEADER {}", self.header.pretty(2))?;
         writeln!(f, "PARENT_HEADER {}", self.parent_header.pretty(2))?;
         writeln!(f, "METADATA {}", self.metadata.pretty(2))?;

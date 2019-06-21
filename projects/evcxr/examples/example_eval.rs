@@ -5,10 +5,10 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use evcxr::Error;
+use evcxr::JupyterErrorKind;
 use evcxr::EvalContext;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), JupyterErrorKind> {
     // You must call ```evcxr::runtime_hook()``` at the top of main, otherwise
     // the library becomes a fork-bomb.
     evcxr::runtime_hook();

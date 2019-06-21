@@ -17,7 +17,7 @@ use crate::code_block::{self};
 use crate::crash_guard::CrashGuard;
 use crate::errors::bail;
 use crate::errors::CompilationError;
-use crate::errors::Error;
+use crate::errors::JupyterErrorKind;
 use crate::errors::Span;
 use crate::errors::SpannedMessage;
 use crate::eval_context::ContextState;
@@ -39,7 +39,7 @@ pub struct CommandContext {
 }
 
 impl CommandContext {
-    pub fn new() -> Result<(CommandContext, EvalContextOutputs), Error> {
+    pub fn new() -> Result<(CommandContext, EvalContextOutputs), JupyterErrorKind> {
         let (eval_context, eval_context_outputs) = EvalContext::new()?;
         let command_context = CommandContext::with_eval_context(eval_context);
         Ok((command_context, eval_context_outputs))
@@ -59,11 +59,11 @@ impl CommandContext {
         (Self::with_eval_context(eval_context), outputs)
     }
 
-    pub fn execute(&mut self, to_run: &str) -> Result<EvalOutputs, Error> {
+    pub fn execute(&mut self, to_run: &str) -> Result<EvalOutputs, JupyterErrorKind> {
         self.execute_with_callbacks(to_run, &mut EvalCallbacks::default())
     }
 
-    pub fn check(&mut self, code: &str) -> Result<Vec<CompilationError>, Error> {
+    pub fn check(&mut self, code: &str) -> Result<Vec<CompilationError>, JupyterErrorKind> {
         let (user_code, code_info) = CodeBlock::from_original_user_code(code);
         let (non_command_code, state, errors) = self.prepare_for_analysis(user_code)?;
         if !errors.is_empty() {
@@ -95,7 +95,7 @@ impl CommandContext {
         &mut self,
         to_run: &str,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         let mut state = self.eval_context.state();
         state.clear_non_debug_relevant_fields();
         let mut guard = CrashGuard::new(|| {
@@ -120,7 +120,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
         &mut self,
         to_run: &str,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         use std::time::Instant;
         let mut eval_outputs = EvalOutputs::new();
         let start = Instant::now();
@@ -151,15 +151,15 @@ Panic detected. Here's some useful information if you're filing a bug report.
                 }
                 Ok(eval_outputs)
             }
-            Err(Error::CompilationErrors(errors)) => {
+            Err(JupyterErrorKind::CompilationErrors(errors)) => {
                 self.last_errors = errors.clone();
-                Err(Error::CompilationErrors(errors))
+                Err(JupyterErrorKind::CompilationErrors(errors))
             }
             x => x,
         }
     }
 
-    pub fn set_opt_level(&mut self, level: &str) -> Result<(), Error> {
+    pub fn set_opt_level(&mut self, level: &str) -> Result<(), JupyterErrorKind> {
         self.eval_context.set_opt_level(level)
     }
 
@@ -225,7 +225,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
         Ok(completions)
     }
 
-    fn load_config(&mut self, quiet: bool) -> Result<EvalOutputs, Error> {
+    fn load_config(&mut self, quiet: bool) -> Result<EvalOutputs, JupyterErrorKind> {
         let mut outputs = EvalOutputs::new();
         if let Some(config_dir) = crate::config_dir() {
             let config_file = config_dir.join("init.evcxr");
@@ -258,9 +258,9 @@ Panic detected. Here's some useful information if you're filing a bug report.
         segment: &Segment,
         state: &mut ContextState,
         args: &Option<String>,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         self.process_command(command, segment, state, args, false)
-            .map_err(|err| Error::CompilationErrors(vec![err]))
+            .map_err(|err| JupyterErrorKind::CompilationErrors(vec![err]))
     }
 
     fn process_command(
@@ -528,14 +528,14 @@ Panic detected. Here's some useful information if you're filing a bug report.
                 "Print explanation of last error",
                 |ctx, _state, _args| {
                     if ctx.last_errors.is_empty() {
-                        bail!("No last error to explain");
+                        panic!("No last error to explain");
                     } else {
                         let mut all_explanations = String::new();
                         for error in &ctx.last_errors {
                             if let Some(explanation) = error.explanation() {
                                 all_explanations.push_str(explanation);
                             } else {
-                                bail!("Sorry, last error has no explanation");
+                                panic!("Sorry, last error has no explanation");
                             }
                         }
                         text_output(all_explanations)
@@ -552,7 +552,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
                         write!(errors_out, "{}", error.json)?;
                         errors_out.push('\n');
                     }
-                    bail!(errors_out);
+                    panic!("{}", errors_out);
                 },
             ),
             AvailableCommand::new(":help", "Print command help", |_ctx, _state, _args| {
@@ -601,11 +601,11 @@ Panic detected. Here's some useful information if you're filing a bug report.
         out
     }
 
-    fn var_type(&self, args: &Option<String>) -> Result<EvalOutputs, Error> {
+    fn var_type(&self, args: &Option<String>) -> Result<EvalOutputs, JupyterErrorKind> {
         let args = if let Some(x) = args {
             x.trim()
         } else {
-            bail!("Variable name required")
+            panic!("Variable name required")
         };
 
         let mut out = None;
@@ -620,7 +620,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
             let out = format!("{args}: {out}");
             Ok(EvalOutputs::text_html(out.clone(), out))
         } else {
-            bail!("Variable does not exist: {}", args)
+            panic!("Variable does not exist: {}", args)
         }
     }
 }
@@ -628,10 +628,10 @@ Panic detected. Here's some useful information if you're filing a bug report.
 fn process_dep_command(
     state: &mut ContextState,
     args: &Option<String>,
-) -> Result<EvalOutputs, Error> {
+) -> Result<EvalOutputs, JupyterErrorKind> {
     use regex::Regex;
     let Some(args) = args else {
-        bail!(":dep requires arguments")
+        panic!(":dep requires arguments")
     };
     static DEP_RE: OnceCell<Regex> = OnceCell::new();
     let dep_re = DEP_RE.get_or_init(|| Regex::new("^([^= ]+) *(?:= *(.+))?$").unwrap());
@@ -646,11 +646,11 @@ fn process_dep_command(
         }
         Ok(EvalOutputs::new())
     } else {
-        bail!("Invalid :dep command. Expected: name = ... or just name");
+        panic!("Invalid :dep command. Expected: name = ... or just name");
     }
 }
 
-type CallbackFn = dyn Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, Error>
+type CallbackFn = dyn Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, JupyterErrorKind>
     + 'static
     + Sync
     + Send;
@@ -671,7 +671,7 @@ impl AvailableCommand {
                 &mut CommandContext,
                 &mut ContextState,
                 &Option<String>,
-            ) -> Result<EvalOutputs, Error>
+            ) -> Result<EvalOutputs, JupyterErrorKind>
             + 'static
             + Sync
             + Send,
@@ -690,7 +690,7 @@ impl AvailableCommand {
                 &mut CommandContext,
                 &mut ContextState,
                 &Option<String>,
-            ) -> Result<EvalOutputs, Error>
+            ) -> Result<EvalOutputs, JupyterErrorKind>
             + 'static
             + Sync
             + Send,
@@ -715,7 +715,7 @@ fn html_escape(input: &str, out: &mut String) {
     }
 }
 
-fn text_output<T: Into<String>>(text: T) -> Result<EvalOutputs, Error> {
+fn text_output<T: Into<String>>(text: T) -> Result<EvalOutputs, JupyterErrorKind> {
     let mut outputs = EvalOutputs::new();
     let mut content = text.into();
     content.push('\n');

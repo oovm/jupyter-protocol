@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::errors::bail;
-use crate::errors::Error;
+use crate::errors::JupyterErrorKind;
 use crate::runtime;
 use std::io::BufReader;
 use std::process;
@@ -29,12 +29,12 @@ impl ChildProcess {
     pub(crate) fn new(
         mut command: std::process::Command,
         stderr_sender: crossbeam_channel::Sender<String>,
-    ) -> Result<ChildProcess, Error> {
+    ) -> Result<ChildProcess, JupyterErrorKind> {
         // Avoid a fork bomb. We could call runtime_hook here but then all the work that we did up
         // to this point would be wasted. Also, it's possible that we could already have started
         // threads, which could get messy.
         if std::env::var(runtime::EVCXR_IS_RUNTIME_VAR).is_ok() {
-            bail!("Our current binary doesn't call runtime_hook()");
+            panic!("Our current binary doesn't call runtime_hook()");
         }
         command
             .env(runtime::EVCXR_IS_RUNTIME_VAR, "1")
@@ -53,11 +53,11 @@ impl ChildProcess {
         command: Arc<Mutex<std::process::Command>>,
         process_handle: Option<Arc<Mutex<std::process::Child>>>,
         stderr_sender: Arc<Mutex<crossbeam_channel::Sender<String>>>,
-    ) -> Result<ChildProcess, Error> {
+    ) -> Result<ChildProcess, JupyterErrorKind> {
         let process = command.lock().unwrap().spawn();
         let mut process = match process {
             Ok(c) => c,
-            Err(error) => bail!("Failed to run '{:?}': {:?}", command, error),
+            Err(error) => panic!("Failed to run '{:?}': {:?}", command, error),
         };
 
         let stdin = process.stdin.take();
@@ -111,7 +111,7 @@ impl ChildProcess {
     }
 
     /// Terminates this process if it hasn't already, then restarts
-    pub(crate) fn restart(&mut self) -> Result<ChildProcess, Error> {
+    pub(crate) fn restart(&mut self) -> Result<ChildProcess, JupyterErrorKind> {
         // If the process hasn't already terminated for some reason, kill it.
         let mut process = self.process_handle.lock().unwrap();
         if let Ok(None) = process.try_wait() {
@@ -129,7 +129,7 @@ impl ChildProcess {
         )
     }
 
-    pub(crate) fn send(&mut self, command: &str) -> Result<(), Error> {
+    pub(crate) fn send(&mut self, command: &str) -> Result<(), JupyterErrorKind> {
         use std::io::Write;
         writeln!(self.stdin.as_mut().unwrap(), "{command}")
             .map_err(|_| self.get_termination_error())?;
@@ -137,14 +137,14 @@ impl ChildProcess {
         Ok(())
     }
 
-    pub(crate) fn recv_line(&mut self) -> Result<String, Error> {
+    pub(crate) fn recv_line(&mut self) -> Result<String, JupyterErrorKind> {
         Ok(self
             .stdout
             .next()
             .ok_or_else(|| self.get_termination_error())??)
     }
 
-    fn get_termination_error(&mut self) -> Error {
+    fn get_termination_error(&mut self) -> JupyterErrorKind {
         // Wait until the stderr handling thread has released its lock on stderr_sender, which it
         // will do when there's nothing more to read from stderr. We don't need to keep the lock,
         // just wait until we can aquire it, then drop it straight away.
@@ -154,13 +154,13 @@ impl ChildProcess {
             content.push_str(&line);
             content.push('\n');
         }
-        Error::SubprocessTerminated(match self.process_handle.lock().unwrap().wait() {
+        JupyterErrorKind::SubprocessTerminated(match self.process_handle.lock().unwrap().wait() {
             Ok(exit_status) => {
                 #[cfg(target_os = "macos")]
                 {
                     use std::os::unix::process::ExitStatusExt;
                     if Some(9) == exit_status.signal() {
-                        return Error::SubprocessTerminated(
+                        return JupyterErrorKind::SubprocessTerminated(
                             "Subprocess terminated with signal 9. This is known \
                             to happen when evcxr is installed via a Homebrew shell \
                             under emulation. Try installing rustup and evcxr without \

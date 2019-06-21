@@ -28,7 +28,7 @@ pub(crate) fn get_library_names(config: &Config) -> Result<Vec<String>> {
     if output.status.success() {
         library_names_from_metadata(std::str::from_utf8(&output.stdout)?)
     } else {
-        bail!(
+        panic!(
             "cargo metadata failed with output:\n{}{}",
             std::str::from_utf8(&output.stdout)?,
             std::str::from_utf8(&output.stderr)?,
@@ -82,7 +82,7 @@ pub(crate) fn validate_dep(dep: &str, dep_config: &str, config: &Config) -> Resu
         if suggest_offline_mode {
             message.push("\nTip: Enable offline mode with `:offline 1`".to_owned());
         }
-        bail!(message.join("\n"));
+        panic!("{}", message.join("\n"));
     }
 }
 
@@ -137,7 +137,7 @@ macro_rules! prism {
         if let $pattern(x) = $rhs {
             x
         } else {
-            bail!("Parse error in Cargo.toml: {}", $msg)
+            panic!("Parse error in Cargo.toml: {}", $msg)
         }
     };
 }
@@ -160,9 +160,9 @@ pub fn parse_crate_name(path: &str) -> Result<String> {
         let name = prism!(Value::String, name, "expected 'name' to be a string");
         Ok(name.clone())
     } else if let Some(_workspace) = package.get("workspace") {
-        bail!("Workspaces are not supported");
+        panic!("Workspaces are not supported");
     } else {
-        bail!("Unexpected Cargo.toml format: not package or workspace")
+        panic!("Unexpected Cargo.toml format: not package or workspace")
     }
 }
 

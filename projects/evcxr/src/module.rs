@@ -8,7 +8,7 @@
 use crate::code_block::CodeBlock;
 use crate::errors::bail;
 use crate::errors::CompilationError;
-use crate::errors::Error;
+use crate::errors::JupyterErrorKind;
 use crate::eval_context::Config;
 use crate::eval_context::ContextState;
 use once_cell::sync::OnceCell;
@@ -28,14 +28,14 @@ fn shared_object_name_from_crate_name(crate_name: &str) -> String {
     }
 }
 
-fn create_dir(dir: &Path) -> Result<(), Error> {
+fn create_dir(dir: &Path) -> Result<(), JupyterErrorKind> {
     if let Err(err) = fs::create_dir_all(dir) {
-        bail!("Error creating directory '{:?}': {}", dir, err);
+        panic!("Error creating directory '{:?}': {}", dir, err);
     }
     Ok(())
 }
 
-fn write_file(dir: &Path, basename: &str, contents: &str) -> Result<(), Error> {
+fn write_file(dir: &Path, basename: &str, contents: &str) -> Result<(), JupyterErrorKind> {
     create_dir(dir)?;
     let filename = dir.join(basename);
     // If the file contents is already correct, then skip writing it again. This
@@ -48,7 +48,7 @@ fn write_file(dir: &Path, basename: &str, contents: &str) -> Result<(), Error> {
         return Ok(());
     }
     if let Err(err) = fs::write(&filename, contents) {
-        bail!("Error writing '{:?}': {}", filename, err);
+        panic!("Error writing '{:?}': {}", filename, err);
     }
     Ok(())
 }
@@ -60,7 +60,7 @@ fn write_file(dir: &Path, basename: &str, contents: &str) -> Result<(), Error> {
 /// On Linux either renaming or copying works, but renaming should be more
 /// efficient, so we do that.
 #[cfg(windows)]
-fn rename_or_copy_so_file(src: &Path, dest: &Path) -> Result<(), Error> {
+fn rename_or_copy_so_file(src: &Path, dest: &Path) -> Result<(), JupyterErrorKind> {
     // Copy file by reading and writing instead of using std::fs::copy. The src
     // is a hard-linked file and we want to make extra sure that we end up with
     // a completely independent copy.
@@ -70,15 +70,15 @@ fn rename_or_copy_so_file(src: &Path, dest: &Path) -> Result<(), Error> {
         Ok(())
     }
     if let Err(err) = alt_copy(src, dest) {
-        bail!("Error copying '{:?}' to '{:?}': {}", src, dest, err);
+        panic!("Error copying '{:?}' to '{:?}': {}", src, dest, err);
     }
     Ok(())
 }
 
 #[cfg(not(windows))]
-fn rename_or_copy_so_file(src: &Path, dest: &Path) -> Result<(), Error> {
+fn rename_or_copy_so_file(src: &Path, dest: &Path) -> Result<(), JupyterErrorKind> {
     if let Err(err) = fs::rename(src, dest) {
-        bail!("Error renaming '{:?}' to '{:?}': {}", src, dest, err);
+        panic!("Error renaming '{:?}' to '{:?}': {}", src, dest, err);
     }
     Ok(())
 }
@@ -92,7 +92,7 @@ pub(crate) struct Module {
 const CRATE_NAME: &str = "ctx";
 
 impl Module {
-    pub(crate) fn new(tmpdir: PathBuf) -> Result<Module, Error> {
+    pub(crate) fn new(tmpdir: PathBuf) -> Result<Module, JupyterErrorKind> {
         let module = Module {
             tmpdir,
             build_num: 0,
@@ -127,7 +127,7 @@ impl Module {
     }
 
     // Writes Cargo.toml. Should be called before compile.
-    pub(crate) fn write_cargo_toml(&self, state: &ContextState) -> Result<(), Error> {
+    pub(crate) fn write_cargo_toml(&self, state: &ContextState) -> Result<(), JupyterErrorKind> {
         write_file(
             self.crate_dir(),
             "Cargo.toml",
@@ -136,7 +136,7 @@ impl Module {
     }
 
     // Writes .cargo/config.toml. Should be called before compile.
-    pub(crate) fn write_config_toml(&self, state: &ContextState) -> Result<(), Error> {
+    pub(crate) fn write_config_toml(&self, state: &ContextState) -> Result<(), JupyterErrorKind> {
         let dot_config_dir = self.crate_dir().join(".cargo");
         fs::create_dir_all(dot_config_dir.as_path())?;
         write_file(
@@ -150,7 +150,7 @@ impl Module {
         &mut self,
         code_block: &CodeBlock,
         config: &Config,
-    ) -> Result<Vec<CompilationError>, Error> {
+    ) -> Result<Vec<CompilationError>, JupyterErrorKind> {
         self.write_code(code_block)?;
         let output = config
             .cargo_command("check")
@@ -159,7 +159,7 @@ impl Module {
 
         let cargo_output = match output {
             Ok(out) => out,
-            Err(err) => bail!("Error running 'cargo check': {}", err),
+            Err(err) => panic!("Error running 'cargo check': {}", err),
         };
         let (errors, _non_json_error) = errors_from_cargo_output(&cargo_output, code_block);
         Ok(errors)
@@ -169,10 +169,10 @@ impl Module {
         &mut self,
         code_block: &CodeBlock,
         config: &Config,
-    ) -> Result<SoFile, Error> {
+    ) -> Result<SoFile, JupyterErrorKind> {
         let mut command = config.cargo_command("rustc");
         if config.time_passes && config.toolchain != "nightly" {
-            bail!("time_passes option requires nightly compiler");
+            panic!("time_passes option requires nightly compiler");
         }
 
         command
@@ -219,7 +219,7 @@ impl Module {
         })
     }
 
-    fn write_code(&self, code_block: &CodeBlock) -> Result<(), Error> {
+    fn write_code(&self, code_block: &CodeBlock) -> Result<(), JupyterErrorKind> {
         write_file(&self.src_dir(), "lib.rs", &code_block.code_string())?;
         self.maybe_bump_lib_mtime();
         Ok(())
@@ -294,7 +294,7 @@ offline = {}
 fn run_cargo(
     mut command: std::process::Command,
     code_block: &CodeBlock,
-) -> Result<std::process::Output, Error> {
+) -> Result<std::process::Output, JupyterErrorKind> {
     use std::io::{BufRead, Read};
 
     let mb_child = command
@@ -303,7 +303,7 @@ fn run_cargo(
         .spawn();
     let mut child = match mb_child {
         Ok(out) => out,
-        Err(err) => bail!("Error running 'cargo rustc': {}", err),
+        Err(err) => panic!("Error running 'cargo rustc': {}", err),
     };
 
     // Collect stdout in a parallel thread
@@ -311,7 +311,7 @@ fn run_cargo(
     let output_thread = std::thread::spawn(move || {
         let mut buf = Vec::new();
         stdout.read_to_end(&mut buf)?;
-        Ok::<_, Error>(buf)
+        Ok::<_, JupyterErrorKind>(buf)
     });
 
     // Collect stderr synchronously
@@ -338,9 +338,9 @@ fn run_cargo(
         let (errors, non_json_error) = errors_from_cargo_output(&cargo_output, code_block);
         if errors.is_empty() {
             if let Some(error) = non_json_error {
-                bail!(Error::Message(error));
+                panic!("{}", JupyterErrorKind::Message(error));
             } else {
-                bail!(Error::Message(format!(
+                panic!("{}", JupyterErrorKind::Message(format!(
                     "Compilation failed, but no parsable errors were found. STDERR:\n\
                      {}\nSTDOUT:{}\n",
                     String::from_utf8_lossy(&cargo_output.stderr),
@@ -348,7 +348,7 @@ fn run_cargo(
                 )));
             }
         } else {
-            bail!(Error::CompilationErrors(errors));
+            panic!("{}", JupyterErrorKind::CompilationErrors(errors));
         }
     }
 }
@@ -409,10 +409,10 @@ pub(crate) struct SoFile {
     pub(crate) path: PathBuf,
 }
 
-fn get_host_target() -> Result<String, Error> {
+fn get_host_target() -> Result<String, JupyterErrorKind> {
     let output = match Command::new("rustc").arg("-Vv").output() {
         Ok(o) => o,
-        Err(error) => bail!("Failed to run rustc: {}", error),
+        Err(error) => panic!("Failed to run rustc: {}", error),
     };
     let stdout = std::str::from_utf8(&output.stdout)?;
     let stderr = std::str::from_utf8(&output.stderr)?;
@@ -421,7 +421,7 @@ fn get_host_target() -> Result<String, Error> {
             return Ok(host.to_owned());
         }
     }
-    bail!(
+    panic!(
         "rustc -Vv didn't output a host line.\n{}\n{}",
         stdout,
         stderr

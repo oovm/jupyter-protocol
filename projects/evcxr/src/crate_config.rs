@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::errors::bail;
-use crate::errors::Error;
+use crate::errors::JupyterErrorKind;
 use once_cell::sync::OnceCell;
 use regex::Regex;
 use std::path::Path;
@@ -21,7 +21,7 @@ pub(crate) struct ExternalCrate {
     pub(crate) config: String,
 }
 
-fn make_paths_absolute(config: String) -> Result<String, Error> {
+fn make_paths_absolute(config: String) -> Result<String, JupyterErrorKind> {
     // Perhaps not the nicest way to do this. Using a toml parser would possibly
     // be nicer. At the time this was written that wasn't an option due to a
     // compiler bug that prevented us from using any crate that used custom
@@ -41,7 +41,7 @@ fn make_paths_absolute(config: String) -> Result<String, Error> {
                         + &captures[3]);
                 }
                 Err(err) => {
-                    bail!("{}: {:?}", err, path);
+                    panic!("{}: {:?}", err, path);
                 }
             }
         }
@@ -77,7 +77,7 @@ fn escape_toml_string(string: &str) -> String {
 }
 
 impl ExternalCrate {
-    pub(crate) fn new(name: String, config: String) -> Result<ExternalCrate, Error> {
+    pub(crate) fn new(name: String, config: String) -> Result<ExternalCrate, JupyterErrorKind> {
         let config = make_paths_absolute(config)?;
         Ok(ExternalCrate { name, config })
     }

@@ -311,14 +311,14 @@ impl RustAnalyzer {
                     });
                     if let Some(previous_range) = range.as_ref() {
                         if *previous_range != indel.delete {
-                            bail!("Different completions wanted to replace different parts of the text");
+                            panic!("Different completions wanted to replace different parts of the text");
                         }
                     } else {
                         range = Some(indel.delete)
                     }
                 }
                 if indels.next().is_some() {
-                    bail!("Completion unexpectedly provided more than one insertion/deletion");
+                    panic!("Completion unexpectedly provided more than one insertion/deletion");
                 }
             }
         }

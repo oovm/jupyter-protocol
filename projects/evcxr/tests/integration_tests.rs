@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use evcxr::CommandContext;
-use evcxr::Error;
+use evcxr::JupyterErrorKind;
 use evcxr::EvalContext;
 use evcxr::EvalContextOutputs;
 use once_cell::sync::OnceCell;
@@ -27,7 +27,7 @@ fn eval_and_unwrap(ctxt: &mut CommandContext, code: &str) -> HashMap<String, Str
                 ctxt.last_source().unwrap()
             );
             match err {
-                Error::CompilationErrors(errors) => {
+                JupyterErrorKind::CompilationErrors(errors) => {
                     for error in errors {
                         println!("{}", error.rendered());
                     }
@@ -159,7 +159,7 @@ fn save_and_restore_variables() {
     assert_eq!(eval!(e, a), text_plain("42"));
     // Try to change a mutable variable and check that the error we get is what we expect.
     match e.execute("b = 2;") {
-        Err(Error::CompilationErrors(errors)) => {
+        Err(JupyterErrorKind::CompilationErrors(errors)) => {
             if errors.len() != 1 {
                 println!("{:#?}", errors);
             }
@@ -202,7 +202,7 @@ fn missing_semicolon_on_let_stmt() {
     let mut e = new_context();
     eval_and_unwrap(&mut e, "mod foo {pub mod bar { pub struct Baz {} }}");
     match e.execute("let v1 = foo::bar::Baz {}") {
-        Err(Error::CompilationErrors(e)) => {
+        Err(JupyterErrorKind::CompilationErrors(e)) => {
             assert!(e.first().unwrap().message().contains(';'));
         }
         x => {
@@ -305,7 +305,7 @@ fn function_panics_without_variable_preserving() {
     "#,
     );
     let result = e.execute(stringify!(panic!("Intentional panic {}", b);));
-    if let Err(Error::SubprocessTerminated(message)) = result {
+    if let Err(JupyterErrorKind::SubprocessTerminated(message)) = result {
         assert!(message.contains("Subprocess terminated"));
     } else {
         panic!("Unexpected result: {:?}", result);
@@ -489,7 +489,7 @@ fn continue_execution_after_bad_use_statement() {
     let mut e = new_context();
     // First make sure we get the error we expect.
     match e.execute("use foobar;") {
-        Err(Error::CompilationErrors(errors)) => {
+        Err(JupyterErrorKind::CompilationErrors(errors)) => {
             assert_eq!(errors.len(), 1);
             assert_eq!(errors[0].code(), Some("E0432"));
         }
@@ -506,7 +506,7 @@ fn error_from_macro_expansion() {
     // coming from "<format macros>" with expansion information leading to the user code. Make sure
     // we ignore the span from non-user code and use the expansion info correctly.
     match e.execute("let mut s = String::new(); s.push_str(format!(\"\"));") {
-        Err(Error::CompilationErrors(errors)) => {
+        Err(JupyterErrorKind::CompilationErrors(errors)) => {
             assert_eq!(errors.len(), 1);
             assert_eq!(errors[0].code(), Some("E0308")); // mismatched types
             let mut lines = std::collections::HashSet::new();
@@ -571,7 +571,7 @@ fn abort_and_restart() {
         let a = 42i32;
     );
     let result = e.execute(stringify!(std::process::abort();));
-    if let Err(Error::SubprocessTerminated(message)) = result {
+    if let Err(JupyterErrorKind::SubprocessTerminated(message)) = result {
         #[cfg(not(windows))]
         {
             if !message.starts_with("Subprocess terminated with status: signal: 6") {
@@ -637,7 +637,7 @@ fn reserved_words() {
 fn unnamable_type_closure() {
     let mut e = new_context();
     let result = e.execute(stringify!(let v = || {42};));
-    if let Err(Error::Message(message)) = result {
+    if let Err(JupyterErrorKind::Message(message)) = result {
         if !(message.starts_with("The variable") && message.contains("cannot be persisted")) {
             panic!("Unexpected error: {:?}", message);
         }
@@ -655,7 +655,7 @@ fn unnamable_type_impl_trait() {
         pub fn foo() -> impl Bar {42}
         let v = foo();
     ));
-    if let Err(Error::Message(message)) = result {
+    if let Err(JupyterErrorKind::Message(message)) = result {
         if !(message.starts_with("The variable `v` has type")
             && message.contains("cannot be persisted"))
         {

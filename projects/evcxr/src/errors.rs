@@ -5,6 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error::Error;
 use crate::code_block::count_columns;
 use crate::code_block::CodeBlock;
 use crate::code_block::CodeKind;
@@ -17,10 +18,61 @@ use json::JsonValue;
 use json::{self};
 use ra_ap_ide::TextRange;
 use ra_ap_ide::TextSize;
-use std::fmt;
-use std::fmt::Write as _;
-use std::io;
+
+use std::fmt::{Debug, Display, Formatter, Write as _};
+
 use std::ops::Range;
+
+pub type JupyterResult<T> = Result<T, JupyterError>;
+
+#[derive(Debug, Clone)]
+pub struct JupyterError {
+    kind: JupyterErrorKind
+}
+
+#[derive(Debug, Clone)]
+pub enum JupyterErrorKind {
+    CompilationErrors(Vec<CompilationError>),
+    TypeRedefinedVariablesLost(Vec<String>),
+    Message(String),
+    SubprocessTerminated(String),
+}
+
+impl Error for JupyterErrorKind {}
+
+impl Display for JupyterErrorKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JupyterErrorKind::CompilationErrors(errors) => {
+                for error in errors {
+                    write!(f, "{}", error.message())?;
+                }
+            }
+            JupyterErrorKind::TypeRedefinedVariablesLost(variables) => {
+                write!(
+                    f,
+                    "A type redefinition resulted in the following variables being lost: {}",
+                    variables.join(", ")
+                )?;
+            }
+            JupyterErrorKind::Message(message) | JupyterErrorKind::SubprocessTerminated(message) => {
+                write!(f, "{message}")?
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Error for JupyterError {
+
+}
+
+impl Display for JupyterError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct CompilationError {
@@ -546,90 +598,58 @@ impl SpannedMessage {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Error {
-    CompilationErrors(Vec<CompilationError>),
-    TypeRedefinedVariablesLost(Vec<String>),
-    Message(String),
-    SubprocessTerminated(String),
-}
 
-impl std::error::Error for Error {}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::CompilationErrors(errors) => {
-                for error in errors {
-                    write!(f, "{}", error.message())?;
-                }
-            }
-            Error::TypeRedefinedVariablesLost(variables) => {
-                write!(
-                    f,
-                    "A type redefinition resulted in the following variables being lost: {}",
-                    variables.join(", ")
-                )?;
-            }
-            Error::Message(message) | Error::SubprocessTerminated(message) => {
-                write!(f, "{message}")?
-            }
-        }
-        Ok(())
-    }
-}
-
-impl From<std::fmt::Error> for Error {
+impl From<std::fmt::Error> for JupyterErrorKind {
     fn from(error: std::fmt::Error) -> Self {
-        Error::Message(error.to_string())
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error::Message(error.to_string())
+impl From<std::io::Error> for JupyterErrorKind {
+    fn from(error: std::io::Error) -> Self {
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 
-impl From<json::Error> for Error {
+impl From<json::Error> for JupyterErrorKind {
     fn from(error: json::Error) -> Self {
-        Error::Message(error.to_string())
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 
-impl<'a> From<&'a io::Error> for Error {
-    fn from(error: &'a io::Error) -> Self {
-        Error::Message(error.to_string())
+impl<'a> From<&'a std::io::Error> for JupyterErrorKind {
+    fn from(error: &'a std::io::Error) -> Self {
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 
-impl From<std::str::Utf8Error> for Error {
+impl From<std::str::Utf8Error> for JupyterErrorKind {
     fn from(error: std::str::Utf8Error) -> Self {
-        Error::Message(error.to_string())
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 
-impl From<String> for Error {
+impl From<String> for JupyterErrorKind {
     fn from(message: String) -> Self {
-        Error::Message(message)
+        JupyterErrorKind::Message(message)
     }
 }
 
-impl<'a> From<&'a str> for Error {
+impl<'a> From<&'a str> for JupyterErrorKind {
     fn from(message: &str) -> Self {
-        Error::Message(message.to_owned())
+        JupyterErrorKind::Message(message.to_owned())
     }
 }
 
-impl From<anyhow::Error> for Error {
+impl From<anyhow::Error> for JupyterErrorKind {
     fn from(error: anyhow::Error) -> Self {
-        Error::Message(error.to_string())
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 
-impl From<libloading::Error> for Error {
+impl From<libloading::Error> for JupyterErrorKind {
     fn from(error: libloading::Error) -> Self {
-        Error::Message(error.to_string())
+        JupyterErrorKind::Message(error.to_string())
     }
 }
 

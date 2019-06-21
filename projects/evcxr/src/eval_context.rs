@@ -14,7 +14,7 @@ use crate::code_block::UserCodeInfo;
 use crate::crate_config::ExternalCrate;
 use crate::errors::bail;
 use crate::errors::CompilationError;
-use crate::errors::Error;
+use crate::errors::JupyterErrorKind;
 use crate::errors::Span;
 use crate::errors::SpannedMessage;
 use crate::evcxr_internal_runtime;
@@ -127,12 +127,12 @@ impl Config {
         }
     }
 
-    pub fn set_sccache(&mut self, enabled: bool) -> Result<(), Error> {
+    pub fn set_sccache(&mut self, enabled: bool) -> Result<(), JupyterErrorKind> {
         if enabled {
             if let Ok(path) = which::which("sccache") {
                 self.sccache = Some(path);
             } else {
-                bail!("Couldn't find sccache. Try running `cargo install sccache`.");
+                panic!("Couldn't find sccache. Try running `cargo install sccache`.");
             }
         } else {
             self.sccache = None;
@@ -171,7 +171,7 @@ struct ErrorFormat {
 static ERROR_FORMATS: &[ErrorFormat] = &[
     ErrorFormat {
         format_str: "{}",
-        format_trait: "std::fmt::Display",
+        format_trait: "std::Display",
     },
     ErrorFormat {
         format_str: "{:?}",
@@ -264,7 +264,7 @@ impl<'a> Default for EvalCallbacks<'a> {
 }
 
 impl EvalContext {
-    pub fn new() -> Result<(EvalContext, EvalContextOutputs), Error> {
+    pub fn new() -> Result<(EvalContext, EvalContextOutputs), JupyterErrorKind> {
         fix_path();
 
         let current_exe = std::env::current_exe()?;
@@ -314,7 +314,7 @@ impl EvalContext {
 
     pub fn with_subprocess_command(
         mut subprocess_command: std::process::Command,
-    ) -> Result<(EvalContext, EvalContextOutputs), Error> {
+    ) -> Result<(EvalContext, EvalContextOutputs), JupyterErrorKind> {
         let mut opt_tmpdir = None;
         let tmpdir_path;
         if let Ok(from_env) = std::env::var("EVCXR_TMPDIR") {
@@ -374,7 +374,7 @@ impl EvalContext {
     }
 
     /// Evaluates the supplied Rust code.
-    pub fn eval(&mut self, code: &str) -> Result<EvalOutputs, Error> {
+    pub fn eval(&mut self, code: &str) -> Result<EvalOutputs, JupyterErrorKind> {
         self.eval_with_state(code, self.state())
     }
 
@@ -382,7 +382,7 @@ impl EvalContext {
         &mut self,
         code: &str,
         state: ContextState,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         let (user_code, code_info) = CodeBlock::from_original_user_code(code);
         self.eval_with_callbacks(user_code, state, &code_info, &mut EvalCallbacks::default())
     }
@@ -392,7 +392,7 @@ impl EvalContext {
         user_code: CodeBlock,
         mut state: ContextState,
         code_info: &UserCodeInfo,
-    ) -> Result<Vec<CompilationError>, Error> {
+    ) -> Result<Vec<CompilationError>, JupyterErrorKind> {
         state.config.display_final_expression = false;
         state.config.expand_use_statements = false;
         let user_code = state.apply(user_code, &code_info.nodes)?;
@@ -408,7 +408,7 @@ impl EvalContext {
         mut state: ContextState,
         code_info: &UserCodeInfo,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         if user_code.is_empty()
             && !self
                 .committed_state
@@ -421,18 +421,18 @@ impl EvalContext {
         let code_out = state.apply(user_code.clone(), &code_info.nodes)?;
 
         let mut outputs = match self.run_statements(code_out, &mut state, &mut phases, callbacks) {
-            error @ Err(Error::SubprocessTerminated(_)) => {
+            error @ Err(JupyterErrorKind::SubprocessTerminated(_)) => {
                 self.restart_child_process()?;
                 return error;
             }
-            Err(Error::CompilationErrors(errors)) => {
+            Err(JupyterErrorKind::CompilationErrors(errors)) => {
                 let mut errors = state.apply_custom_errors(errors, &user_code, code_info);
                 // If we have any errors in user code then remove all errors that aren't from user
                 // code.
                 if errors.iter().any(|error| error.is_from_user_code()) {
                     errors.retain(|error| error.is_from_user_code())
                 }
-                return Err(Error::CompilationErrors(errors));
+                return Err(JupyterErrorKind::CompilationErrors(errors));
             }
             error @ Err(_) => return error,
             Ok(x) => x,
@@ -491,7 +491,7 @@ impl EvalContext {
         self.module.last_source()
     }
 
-    pub fn set_opt_level(&mut self, level: &str) -> Result<(), Error> {
+    pub fn set_opt_level(&mut self, level: &str) -> Result<(), JupyterErrorKind> {
         self.committed_state.set_opt_level(level)
     }
 
@@ -503,7 +503,7 @@ impl EvalContext {
         self.committed_state.set_preserve_vars_on_panic(value);
     }
 
-    pub fn set_error_format(&mut self, value: &str) -> Result<(), Error> {
+    pub fn set_error_format(&mut self, value: &str) -> Result<(), JupyterErrorKind> {
         self.committed_state.set_error_format(value)
     }
 
@@ -524,7 +524,7 @@ impl EvalContext {
     // Clears all state, while keeping tmpdir. This allows us to effectively
     // restart, but without having to recompile any external crates we'd already
     // compiled. Config is preserved.
-    pub fn clear(&mut self) -> Result<(), Error> {
+    pub fn clear(&mut self) -> Result<(), JupyterErrorKind> {
         self.committed_state = self.cleared_state();
         self.restart_child_process()
     }
@@ -543,7 +543,7 @@ impl EvalContext {
         self.child_process.process_handle()
     }
 
-    fn restart_child_process(&mut self) -> Result<(), Error> {
+    fn restart_child_process(&mut self) -> Result<(), JupyterErrorKind> {
         self.committed_state.variable_states.clear();
         self.committed_state.stored_variable_states.clear();
         self.child_process = self.child_process.restart()?;
@@ -570,7 +570,7 @@ impl EvalContext {
         state: &mut ContextState,
         phases: &mut PhaseDetailsBuilder,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         self.write_cargo_toml(state)?;
         self.fix_variable_types(state, state.analysis_code(user_code.clone()))?;
         // In some circumstances we may need a few tries before we get the code right. Note that
@@ -595,7 +595,7 @@ impl EvalContext {
                     return Ok(execution_artifacts.output);
                 }
 
-                Err(Error::CompilationErrors(errors)) => {
+                Err(JupyterErrorKind::CompilationErrors(errors)) => {
                     // If we failed to compile, attempt to deal with the first
                     // round of compilation errors by adjusting variable types,
                     // whether they've been moved into the catch_unwind block
@@ -625,10 +625,10 @@ impl EvalContext {
                             callbacks,
                         )?;
                     }
-                    return Err(Error::CompilationErrors(errors));
+                    return Err(JupyterErrorKind::CompilationErrors(errors));
                 }
 
-                Err(Error::TypeRedefinedVariablesLost(variables)) => {
+                Err(JupyterErrorKind::TypeRedefinedVariablesLost(variables)) => {
                     for variable in &variables {
                         state.variable_states.remove(variable);
                         state.stored_variable_states.remove(variable);
@@ -649,7 +649,7 @@ impl EvalContext {
         compilation_mode: CompilationMode,
         phases: &mut PhaseDetailsBuilder,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<ExecutionArtifacts, Error> {
+    ) -> Result<ExecutionArtifacts, JupyterErrorKind> {
         let code = state.code_to_compile(user_code, compilation_mode);
         let so_file = self.module.compile(&code, &state.config)?;
 
@@ -676,7 +676,7 @@ impl EvalContext {
         &mut self,
         state: &mut ContextState,
         code: CodeBlock,
-    ) -> Result<(), Error> {
+    ) -> Result<(), JupyterErrorKind> {
         self.analyzer.set_source(code.code_string())?;
         for (
             variable_name,
@@ -692,7 +692,7 @@ impl EvalContext {
             }
             let type_name = match type_name {
                 TypeName::Named(x) => x,
-                TypeName::Closure => bail!(
+                TypeName::Closure => panic!(
                     "The variable `{}` is a closure, which cannot be persisted.\n\
                      You can however persist closures if you box them. e.g.:\n\
                      let f: Box<dyn Fn()> = Box::new(|| {{println!(\"foo\")}});\n\
@@ -700,7 +700,7 @@ impl EvalContext {
                      the variable by wrapping your code in braces.",
                     variable_name
                 ),
-                TypeName::Unknown => bail!(
+                TypeName::Unknown => panic!(
                     "Couldn't automatically determine type of variable `{}`.\n\
                      Please give it an explicit type.",
                     variable_name
@@ -728,7 +728,7 @@ impl EvalContext {
         state: &mut ContextState,
         so_file: &SoFile,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<EvalOutputs, Error> {
+    ) -> Result<EvalOutputs, JupyterErrorKind> {
         let mut output = EvalOutputs::new();
         // TODO: We should probably send an OsString not a String. Otherwise
         // things won't work if the path isn't UTF-8 - apparently that's a thing
@@ -805,7 +805,7 @@ impl EvalContext {
                     variable_state.move_state != VariableMoveState::New
                 });
         } else if !lost_variables.is_empty() {
-            return Err(Error::TypeRedefinedVariablesLost(lost_variables));
+            return Err(JupyterErrorKind::TypeRedefinedVariablesLost(lost_variables));
         }
         Ok(output)
     }
@@ -816,7 +816,7 @@ impl EvalContext {
         user_code: &mut CodeBlock,
         state: &mut ContextState,
         fixed_errors: &mut HashSet<&'static str>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), JupyterErrorKind> {
         for code_origin in &error.code_origins {
             match code_origin {
                 CodeKind::PackVariable { variable_name } => {
@@ -830,7 +830,7 @@ impl EvalContext {
                         fixed_errors.insert("Variable moved");
                     } else if error.code() == Some("E0603") {
                         if let Some(variable_state) = state.variable_states.remove(variable_name) {
-                            bail!(
+                            panic!(
                                 "Failed to determine type of variable `{}`. rustc suggested type \
                              {}, but that's private. Sometimes adding an extern crate will help \
                              rustc suggest the correct public type name, or you can give an \
@@ -878,7 +878,7 @@ impl EvalContext {
                         // add a semicolon currently uses syn. So ideally we'd replace uses of syn
                         // with rust-analyzer before adding new parse-tree based rules. But PRs that
                         // just use syn to determine when to add a semicolon would also be OK.
-                        bail!("Looks like you're missing a semicolon");
+                        panic!("Looks like you're missing a semicolon");
                     }
                 }
                 _ => {}
@@ -888,8 +888,8 @@ impl EvalContext {
     }
 }
 
-fn non_persistable_type_error(variable_name: &str, actual_type: &str) -> Result<(), Error> {
-    bail!(
+fn non_persistable_type_error(variable_name: &str, actual_type: &str) -> Result<(), JupyterErrorKind> {
+    panic!(
         "The variable `{}` has type `{}` which cannot be persisted.\n\
              You might be able to fix this by creating a `Box<dyn YourType>`. e.g.\n\
              let v: Box<dyn core::fmt::Debug> = Box::new(foo());\n\
@@ -1094,7 +1094,7 @@ impl ContextState {
         self.config.offline_mode = value;
     }
 
-    pub fn set_sccache(&mut self, enabled: bool) -> Result<(), Error> {
+    pub fn set_sccache(&mut self, enabled: bool) -> Result<(), JupyterErrorKind> {
         self.config.set_sccache(enabled)
     }
 
@@ -1102,14 +1102,14 @@ impl ContextState {
         self.config.sccache()
     }
 
-    pub fn set_error_format(&mut self, format_str: &str) -> Result<(), Error> {
+    pub fn set_error_format(&mut self, format_str: &str) -> Result<(), JupyterErrorKind> {
         for format in ERROR_FORMATS {
             if format.format_str == format_str {
                 self.config.error_fmt = format;
                 return Ok(());
             }
         }
-        bail!(
+        panic!(
             "Unsupported error format string. Available options: {}",
             ERROR_FORMATS
                 .iter()
@@ -1159,9 +1159,9 @@ impl ContextState {
         &self.config.opt_level
     }
 
-    pub fn set_opt_level(&mut self, level: &str) -> Result<(), Error> {
+    pub fn set_opt_level(&mut self, level: &str) -> Result<(), JupyterErrorKind> {
         if level.is_empty() {
-            bail!("Optimization level cannot be an empty string");
+            panic!("Optimization level cannot be an empty string");
         }
         self.config.opt_level = level.to_owned();
         Ok(())
@@ -1197,7 +1197,7 @@ impl ContextState {
     }
 
     /// Adds a crate dependency with the specified name and configuration.
-    pub fn add_dep(&mut self, dep: &str, dep_config: &str) -> Result<(), Error> {
+    pub fn add_dep(&mut self, dep: &str, dep_config: &str) -> Result<(), JupyterErrorKind> {
         // Avoid repeating dep validation once we're already added it.
         if let Some(existing) = self.external_deps.get(dep) {
             if existing.config == dep_config {
@@ -1211,7 +1211,7 @@ impl ContextState {
     }
 
     /// Adds a crate dependency at the specified local path
-    pub fn add_local_dep(&mut self, dep: &str) -> Result<(), Error> {
+    pub fn add_local_dep(&mut self, dep: &str) -> Result<(), JupyterErrorKind> {
         let name = cargo_metadata::parse_crate_name(dep)?;
         self.add_dep(&name, &format!("{{ path = \"{}\" }}", dep))
     }
@@ -1593,7 +1593,7 @@ impl ContextState {
     /// Applies `user_code` to this state object, returning the updated user
     /// code. Things like use-statements will be removed from the returned code,
     /// as they will have been stored in `self`.
-    fn apply(&mut self, user_code: CodeBlock, nodes: &[SyntaxNode]) -> Result<CodeBlock, Error> {
+    fn apply(&mut self, user_code: CodeBlock, nodes: &[SyntaxNode]) -> Result<CodeBlock, JupyterErrorKind> {
         for variable_state in self.variable_states.values_mut() {
             variable_state.move_state = VariableMoveState::Available;
         }

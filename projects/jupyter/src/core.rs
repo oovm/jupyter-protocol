@@ -494,13 +494,13 @@ impl Server {
 
     async fn emit_errors(
         &self,
-        errors: &evcxr::Error,
+        errors: &evcxr::JupyterErrorKind,
         parent_message: &JupyterMessage,
         source: &str,
         execution_count: u32,
     ) -> Result<()> {
         match errors {
-            evcxr::Error::CompilationErrors(errors) => {
+            evcxr::JupyterErrorKind::CompilationErrors(errors) => {
                 for error in errors {
                     let message = format!("{}", error.message().bright_red());
                     if error.is_from_user_code() {
@@ -748,7 +748,7 @@ fn byte_offset_to_grapheme_offset(code: &str, target_byte_offset: usize) -> Resu
             break;
         }
         if byte_offset > target_byte_offset {
-            bail!(
+            panic!(
                 "Byte offset {} is not on a grapheme boundary in '{}'",
                 target_byte_offset,
                 code

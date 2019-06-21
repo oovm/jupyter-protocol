@@ -28,7 +28,7 @@ mod statement_splitter;
 mod use_trees;
 
 pub use crate::command_context::CommandContext;
-pub use crate::errors::Error;
+pub use crate::errors::JupyterErrorKind;
 pub use crate::errors::{CompilationError, Theme};
 pub use crate::eval_context::EvalCallbacks;
 pub use crate::eval_context::EvalContext;

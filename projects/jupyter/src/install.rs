@@ -106,7 +106,7 @@ fn get_kernel_dir() -> Result<PathBuf> {
     } else if let Some(dir) = get_user_kernel_dir() {
         dir
     } else {
-        bail!("Couldn't get XDG data directory");
+        panic!("Couldn't get XDG data directory");
     };
     Ok(jupyter_dir.join("kernels").join("rust"))
 }
