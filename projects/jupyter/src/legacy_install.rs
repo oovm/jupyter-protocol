@@ -5,15 +5,13 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
-use std::env;
-use std::fs;
-use std::io::Write;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
+use anyhow::{anyhow, bail, Result};
+use std::{
+    env, fs,
+    io::Write,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 const LOGO_32X32: &[u8] = include_bytes!("../third_party/rust/rust-logo-32x32.png");
 const LOGO_64X64: &[u8] = include_bytes!("../third_party/rust/rust-logo-64x64.png");
@@ -24,21 +22,11 @@ const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/li
 const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 
-// call jupyter-lab
-pub(crate) fn open() -> Result<()> {
-     Command::new("jupyter-lab")
-        .spawn()
-        .expect("jupyter-lab command failed to start");
-    Ok(())
-}
-
 pub(crate) fn install() -> Result<()> {
     let kernel_dir = get_kernel_dir()?;
     fs::create_dir_all(&kernel_dir)?;
     let current_exe_path = env::current_exe()?;
-    let current_exe = current_exe_path
-        .to_str()
-        .ok_or_else(|| anyhow!("current exe path isn't valid UTF-8"))?;
+    let current_exe = current_exe_path.to_str().ok_or_else(|| anyhow!("current exe path isn't valid UTF-8"))?;
     let kernel_json = object! {
         "argv" => array![current_exe, "--control_file", "{connection_file}"],
         "display_name" => "Rust",
@@ -103,9 +91,11 @@ pub(crate) fn uninstall() -> Result<()> {
 fn get_kernel_dir() -> Result<PathBuf> {
     let jupyter_dir = if let Ok(dir) = env::var("JUPYTER_PATH") {
         PathBuf::from(dir)
-    } else if let Some(dir) = get_user_kernel_dir() {
+    }
+    else if let Some(dir) = get_user_kernel_dir() {
         dir
-    } else {
+    }
+    else {
         panic!("Couldn't get XDG data directory");
     };
     Ok(jupyter_dir.join("kernels").join("rust"))

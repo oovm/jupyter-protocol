@@ -10,7 +10,8 @@ edition = "2021"
 rust-version = "1.57"
 
 [dependencies]
-clap = { version = "4.2.7", features = ["derive"] }
+clap = "4.2.7"
+clap_derive = "4.2.0"
 evcxr = { version = "=0.14.2", path = "../evcxr" }
 json = "0.12.4"
 anyhow = "1.0.33"

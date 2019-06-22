@@ -8,21 +8,23 @@
 #[macro_use]
 extern crate json;
 
-use std::error::Error;
-use std::fmt::{Debug, Display, Formatter};
-use std::path::PathBuf;
-use anyhow::anyhow;
-use anyhow::bail;
-use anyhow::Result;
-
+use anyhow::{anyhow, bail, Result};
+use std::{
+    error::Error,
+    fmt::{Debug, Display, Formatter},
+    path::PathBuf,
+};
+mod commands;
+pub use crate::commands::*;
 mod connection;
 mod control_file;
 mod core;
-mod install;
 mod jupyter_message;
+mod legacy_install;
 
-use clap::{Parser, Subcommand};
-
+use clap::Parser;
+use clap_derive::{Parser, Subcommand};
+use evcxr::JupyterResult;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -36,31 +38,24 @@ pub struct JupyterApplication {
     #[arg(short, long, action = clap::ArgAction::Count)]
     debug: u8,
     #[command(subcommand)]
-    command: Option<JupyterCommands>,
+    command: JupyterCommands,
 }
 
 #[derive(Subcommand)]
 enum JupyterCommands {
-    /// does testing things
-    Test {
-        /// lists test values
-        #[arg(short, long)]
-        list: bool,
-    },
+    Open(Box<OpenAction>),
     Install(Box<InstallAction>),
     Uninstall(Box<UninstallAction>),
 }
 
-#[derive(Parser)]
-pub struct InstallAction {
-    /// Optional name to operate on
-    name: Option<String>,
-}
-
-#[derive(Parser)]
-pub struct UninstallAction {
-    /// Optional name to operate on
-    name: Option<String>,
+impl JupyterApplication {
+    pub fn run(&self) -> JupyterResult<()> {
+        match &self.command {
+            JupyterCommands::Open(v) => v.run(),
+            JupyterCommands::Install(v) => v.run(),
+            JupyterCommands::Uninstall(v) => v.run(),
+        }
+    }
 }
 
 fn run(control_file_name: &str) -> Result<()> {
@@ -68,12 +63,9 @@ fn run(control_file_name: &str) -> Result<()> {
     core::Server::run(&config)
 }
 
-
-
-
-
 fn main() -> JupyterResult<()> {
-    let cli = JupyterApplication::parse();
+    let app = JupyterApplication::parse();
+    app.run()
     // evcxr::runtime_hook();
     // let mut args = std::env::args();
     // let bin = args.next().unwrap();
@@ -85,8 +77,6 @@ fn main() -> JupyterResult<()> {
     //             }
     //             return run(&args.next().ok_or_else(|| anyhow!("Missing control file"))?);
     //         }
-    //         "--install" => return install::install(),
-    //         "--uninstall" => return install::uninstall(),
     //         "--open" => return install::open(),
     //
     //         "--help" => {}
@@ -95,5 +85,4 @@ fn main() -> JupyterResult<()> {
     // }
     // println!("To install, run:\n  {} --install", bin);
     // println!("To uninstall, run:\n  {} --uninstall", bin);
-    Ok(())
 }
