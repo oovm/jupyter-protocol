@@ -5,19 +5,13 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use crate::code_block::{count_columns, CodeBlock, CodeKind, CommandCall, Segment, UserCodeInfo};
+use ariadne::{Color, ColorGenerator, Label, Report, ReportKind};
+use json::{
+    JsonValue, {self},
+};
+use ra_ap_ide::{TextRange, TextSize};
 use std::error::Error;
-use crate::code_block::count_columns;
-use crate::code_block::CodeBlock;
-use crate::code_block::CodeKind;
-use crate::code_block::CommandCall;
-use crate::code_block::Segment;
-use crate::code_block::UserCodeInfo;
-use ariadne::Color;
-use ariadne::{ColorGenerator, Label, Report, ReportKind};
-use json::JsonValue;
-use json::{self};
-use ra_ap_ide::TextRange;
-use ra_ap_ide::TextSize;
 
 use std::fmt::{Debug, Display, Formatter, Write as _};
 
@@ -27,7 +21,7 @@ pub type JupyterResult<T> = Result<T, JupyterError>;
 
 #[derive(Debug, Clone)]
 pub struct JupyterError {
-    kind: JupyterErrorKind
+    kind: JupyterErrorKind,
 }
 
 #[derive(Debug, Clone)]
@@ -49,30 +43,21 @@ impl Display for JupyterErrorKind {
                 }
             }
             JupyterErrorKind::TypeRedefinedVariablesLost(variables) => {
-                write!(
-                    f,
-                    "A type redefinition resulted in the following variables being lost: {}",
-                    variables.join(", ")
-                )?;
+                write!(f, "A type redefinition resulted in the following variables being lost: {}", variables.join(", "))?;
             }
-            JupyterErrorKind::Message(message) | JupyterErrorKind::SubprocessTerminated(message) => {
-                write!(f, "{message}")?
-            }
+            JupyterErrorKind::Message(message) | JupyterErrorKind::SubprocessTerminated(message) => write!(f, "{message}")?,
         }
         Ok(())
     }
 }
 
-impl Error for JupyterError {
-
-}
+impl Error for JupyterError {}
 
 impl Display for JupyterError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         todo!()
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct CompilationError {
@@ -91,32 +76,19 @@ pub enum Theme {
 
 fn span_to_byte_range(source: &str, span: &Span) -> Range<usize> {
     fn line_and_number_to_byte_offset(source: &str, line_number: usize, column: usize) -> usize {
-        source
-            .lines()
-            .take(line_number - 1)
-            .map(|x| x.len())
-            .sum::<usize>()
-            + column
-            + line_number
-            - 2
+        source.lines().take(line_number - 1).map(|x| x.len()).sum::<usize>() + column + line_number - 2
     }
     line_and_number_to_byte_offset(source, span.start_line, span.start_column)
         ..line_and_number_to_byte_offset(source, span.end_line, span.end_column)
 }
 
 impl CompilationError {
-    pub fn build_report(
-        &self,
-        file_name: String,
-        source: String,
-        theme: Theme,
-    ) -> Option<Report<(String, Range<usize>)>> {
+    pub fn build_report(&self, file_name: String, source: String, theme: Theme) -> Option<Report<(String, Range<usize>)>> {
         let error = self;
         if !source.is_ascii() {
             return None;
         }
-        let mut builder =
-            Report::build(ReportKind::Error, file_name.clone(), 0).with_message(error.message());
+        let mut builder = Report::build(ReportKind::Error, file_name.clone(), 0).with_message(error.message());
         let mut next_color = {
             let mut colors = ColorGenerator::new();
             move || {
@@ -125,7 +97,8 @@ impl CompilationError {
                         Theme::Light => 255 - x,
                         Theme::Dark => x,
                     })
-                } else {
+                }
+                else {
                     unreachable!()
                 }
             }
@@ -134,11 +107,7 @@ impl CompilationError {
             builder = builder.with_code(code);
         }
         let mut notes = String::new();
-        for spanned_message in error
-            .spanned_messages()
-            .iter()
-            .chain(error.help_spanned().iter())
-        {
+        for spanned_message in error.spanned_messages().iter().chain(error.help_spanned().iter()) {
             if let Some(span) = &spanned_message.span {
                 if spanned_message.label.is_empty() {
                     continue;
@@ -149,13 +118,15 @@ impl CompilationError {
                         .with_color(next_color())
                         .with_order(10),
                 );
-            } else {
+            }
+            else {
                 notes.push_str(&spanned_message.label);
             }
         }
         if let Some(evcxr_notes) = evcxr_specific_notes(error) {
             builder.set_note(evcxr_notes);
-        } else if !notes.is_empty() {
+        }
+        else if !notes.is_empty() {
             builder.set_note(notes);
         }
         Some(builder.finish())
@@ -164,9 +135,7 @@ impl CompilationError {
 
 fn evcxr_specific_notes(error: &CompilationError) -> Option<&'static str> {
     Some(match error.code()? {
-        "E0384" | "E0596" => {
-            "You can change an existing variable to mutable like: `let mut x = x;`"
-        }
+        "E0384" | "E0596" => "You can change an existing variable to mutable like: `let mut x = x;`",
         _ => return None,
     })
 }
@@ -184,15 +153,10 @@ fn spans_in_local_source(span: &JsonValue) -> Option<&JsonValue> {
     None
 }
 
-fn get_code_origins_for_span<'a>(
-    span: &JsonValue,
-    code_block: &'a CodeBlock,
-) -> Vec<(&'a CodeKind, usize)> {
+fn get_code_origins_for_span<'a>(span: &JsonValue, code_block: &'a CodeBlock) -> Vec<(&'a CodeKind, usize)> {
     let mut code_origins = Vec::new();
     if let Some(span) = spans_in_local_source(span) {
-        if let (Some(line_start), Some(line_end)) =
-            (span["line_start"].as_usize(), span["line_end"].as_usize())
-        {
+        if let (Some(line_start), Some(line_end)) = (span["line_start"].as_usize(), span["line_end"].as_usize()) {
             for line in line_start..=line_end {
                 code_origins.push(code_block.origin_for_line(line));
             }
@@ -205,11 +169,7 @@ fn get_code_origins<'a>(json: &JsonValue, code_block: &'a CodeBlock) -> Vec<&'a 
     let mut code_origins = Vec::new();
     if let JsonValue::Array(spans) = &json["spans"] {
         for span in spans {
-            code_origins.extend(
-                get_code_origins_for_span(span, code_block)
-                    .iter()
-                    .map(|(origin, _)| origin),
-            );
+            code_origins.extend(get_code_origins_for_span(span, code_block).iter().map(|(origin, _)| origin));
         }
     }
     code_origins
@@ -227,14 +187,13 @@ impl CompilationError {
         if let JsonValue::Array(children) = &json["children"] {
             for child in children {
                 let child_origins = get_code_origins(child, code_block);
-                if !code_origins.iter().any(|k| k.is_user_supplied())
-                    && child_origins.iter().any(|k| k.is_user_supplied())
-                {
+                if !code_origins.iter().any(|k| k.is_user_supplied()) && child_origins.iter().any(|k| k.is_user_supplied()) {
                     // Use the child instead of the top-level error.
                     user_error_json = Some(child.clone());
                     code_origins = child_origins;
                     break;
-                } else {
+                }
+                else {
                     code_origins.extend(child_origins);
                 }
             }
@@ -256,11 +215,9 @@ impl CompilationError {
             spanned_messages: build_spanned_messages(&json, code_block),
             spanned_helps: {
                 if let JsonValue::Array(children) = &json["children"] {
-                    children
-                        .iter()
-                        .flat_map(|x| build_spanned_messages(x, code_block))
-                        .collect()
-                } else {
+                    children.iter().flat_map(|x| build_spanned_messages(x, code_block)).collect()
+                }
+                else {
                     vec![]
                 }
             },
@@ -274,21 +231,15 @@ impl CompilationError {
     pub(crate) fn fill_lines(&mut self, code_info: &UserCodeInfo) {
         for spanned_message in self.spanned_messages.iter_mut() {
             if let Some(span) = &spanned_message.span {
-                spanned_message.lines.extend(
-                    code_info.original_lines[span.start_line - 1..span.end_line]
-                        .iter()
-                        .map(|line| (*line).to_owned()),
-                );
+                spanned_message
+                    .lines
+                    .extend(code_info.original_lines[span.start_line - 1..span.end_line].iter().map(|line| (*line).to_owned()));
             }
         }
     }
 
     /// Returns a synthesized error that spans the specified portion of `segment`.
-    pub(crate) fn from_segment_span(
-        segment: &Segment,
-        spanned_message: SpannedMessage,
-        message: String,
-    ) -> CompilationError {
+    pub(crate) fn from_segment_span(segment: &Segment, spanned_message: SpannedMessage, message: String) -> CompilationError {
         CompilationError {
             spanned_messages: vec![spanned_message],
             spanned_helps: vec![],
@@ -336,7 +287,8 @@ impl CompilationError {
                 }
                 _ => return None,
             })
-        } else {
+        }
+        else {
             None
         }
     }
@@ -373,9 +325,7 @@ impl CompilationError {
                     }
                     child["message"].as_str().map(|s| {
                         let mut message = s.to_owned();
-                        if let Some(replacement) =
-                            child["spans"][0]["suggested_replacement"].as_str()
-                        {
+                        if let Some(replacement) = child["spans"][0]["suggested_replacement"].as_str() {
                             use std::fmt::Write;
                             write!(message, "\n\n{}", replacement.trim_end()).unwrap();
                         }
@@ -383,7 +333,8 @@ impl CompilationError {
                     })
                 })
                 .collect()
-        } else {
+        }
+        else {
             vec![]
         }
     }
@@ -416,11 +367,7 @@ fn build_spanned_messages(json: &JsonValue, code_block: &CodeBlock) -> Vec<Spann
     if let JsonValue::Array(spans) = &json["spans"] {
         if !only_one_span || spans.len() == 1 {
             for span_json in spans {
-                output_spans.push(SpannedMessage::from_json(
-                    span_json,
-                    code_block,
-                    level_label.clone(),
-                ));
+                output_spans.push(SpannedMessage::from_json(span_json, code_block, level_label.clone()));
             }
         }
     }
@@ -449,40 +396,17 @@ pub struct Span {
 }
 
 impl Span {
-    pub(crate) fn from_command(
-        command: &CommandCall,
-        start_column: usize,
-        end_column: usize,
-    ) -> Span {
-        Span {
-            start_line: command.line_number,
-            start_column,
-            end_line: command.line_number,
-            end_column,
-        }
+    pub(crate) fn from_command(command: &CommandCall, start_column: usize, end_column: usize) -> Span {
+        Span { start_line: command.line_number, start_column, end_line: command.line_number, end_column }
     }
 
     pub(crate) fn from_segment(segment: &Segment, range: TextRange) -> Option<Span> {
         if let CodeKind::OriginalUserCode(meta) = &segment.kind {
-            let (start_line, start_column) = line_and_column(
-                &segment.code,
-                range.start(),
-                meta.column_offset,
-                meta.start_line,
-            );
-            let (end_line, end_column) = line_and_column(
-                &segment.code,
-                range.end(),
-                meta.column_offset,
-                meta.start_line,
-            );
-            Some(Span {
-                start_line,
-                start_column,
-                end_line,
-                end_column,
-            })
-        } else {
+            let (start_line, start_column) = line_and_column(&segment.code, range.start(), meta.column_offset, meta.start_line);
+            let (end_line, end_column) = line_and_column(&segment.code, range.end(), meta.column_offset, meta.start_line);
+            Some(Span { start_line, start_column, end_line, end_column })
+        }
+        else {
             None
         }
     }
@@ -490,12 +414,7 @@ impl Span {
 
 /// Returns the line and column number of `position` within `text`. Line and column numbers are
 /// 1-based.
-fn line_and_column(
-    text: &str,
-    position: TextSize,
-    first_line_column_offset: usize,
-    start_line: usize,
-) -> (usize, usize) {
+fn line_and_column(text: &str, position: TextSize, first_line_column_offset: usize, start_line: usize) -> (usize, usize) {
     let text = &text[..usize::from(position)];
     let line = text.lines().count();
     let mut column = text.lines().last().map(count_columns).unwrap_or(0) + 1;
@@ -515,16 +434,10 @@ pub struct SpannedMessage {
 }
 
 impl SpannedMessage {
-    fn from_json(
-        span_json: &JsonValue,
-        code_block: &CodeBlock,
-        fallback_label: Option<String>,
-    ) -> SpannedMessage {
-        let span = if let (Some(file_name), Some(start_column), Some(end_column)) = (
-            span_json["file_name"].as_str(),
-            span_json["column_start"].as_usize(),
-            span_json["column_end"].as_usize(),
-        ) {
+    fn from_json(span_json: &JsonValue, code_block: &CodeBlock, fallback_label: Option<String>) -> SpannedMessage {
+        let span = if let (Some(file_name), Some(start_column), Some(end_column)) =
+            (span_json["file_name"].as_str(), span_json["column_start"].as_usize(), span_json["column_end"].as_usize())
+        {
             if file_name.ends_with("lib.rs") {
                 let origins = get_code_origins_for_span(span_json, code_block);
                 if let (
@@ -534,29 +447,22 @@ impl SpannedMessage {
                 {
                     Some(Span {
                         start_line: start.start_line + start_line_offset,
-                        start_column: start_column
-                            + (if *start_line_offset == 0 {
-                                start.column_offset
-                            } else {
-                                0
-                            }),
+                        start_column: start_column + (if *start_line_offset == 0 { start.column_offset } else { 0 }),
                         end_line: end.start_line + end_line_offset,
-                        end_column: end_column
-                            + (if *end_line_offset == 0 {
-                                end.column_offset
-                            } else {
-                                0
-                            }),
+                        end_column: end_column + (if *end_line_offset == 0 { end.column_offset } else { 0 }),
                     })
-                } else {
+                }
+                else {
                     // Spans within generated code won't mean anything to the user, suppress
                     // them.
                     None
                 }
-            } else {
+            }
+            else {
                 None
             }
-        } else {
+        }
+        else {
             None
         };
         if span.is_none() {
@@ -572,20 +478,11 @@ impl SpannedMessage {
                 }
             }
         }
-        let mut label = span_json["label"]
-            .as_str()
-            .map(|s| s.to_owned())
-            .or(fallback_label)
-            .unwrap_or_default();
+        let mut label = span_json["label"].as_str().map(|s| s.to_owned()).or(fallback_label).unwrap_or_default();
         if let Some(replace) = span_json["suggested_replacement"].as_str() {
             let _ = write!(&mut label, ": `{replace}`");
         }
-        SpannedMessage {
-            span,
-            lines: Vec::new(),
-            label,
-            is_primary: span_json["is_primary"].as_bool().unwrap_or(false),
-        }
+        SpannedMessage { span, lines: Vec::new(), label, is_primary: span_json["is_primary"].as_bool().unwrap_or(false) }
     }
 
     pub(crate) fn from_segment_span(segment: &Segment, span: Span) -> SpannedMessage {
@@ -598,7 +495,6 @@ impl SpannedMessage {
     }
 }
 
-
 impl From<std::fmt::Error> for JupyterErrorKind {
     fn from(error: std::fmt::Error) -> Self {
         JupyterErrorKind::Message(error.to_string())
@@ -608,6 +504,12 @@ impl From<std::fmt::Error> for JupyterErrorKind {
 impl From<std::io::Error> for JupyterErrorKind {
     fn from(error: std::io::Error) -> Self {
         JupyterErrorKind::Message(error.to_string())
+    }
+}
+
+impl From<std::io::Error> for JupyterError {
+    fn from(error: std::io::Error) -> Self {
+        JupyterError { kind: JupyterErrorKind::from(error) }
     }
 }
 

@@ -28,7 +28,7 @@ pub(crate) fn install() -> Result<()> {
     let current_exe_path = env::current_exe()?;
     let current_exe = current_exe_path.to_str().ok_or_else(|| anyhow!("current exe path isn't valid UTF-8"))?;
     let kernel_json = object! {
-        "argv" => array![current_exe, "--control_file", "{connection_file}"],
+        "argv" => array![current_exe, "start", "--control-file", "{connection_file}"],
         "display_name" => "Rust",
         "language" => "rust",
         "interrupt_mode" => "message",
