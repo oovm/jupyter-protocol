@@ -10,8 +10,8 @@
 // https://github.com/rust-lang/rust/issues/45601 - but that's now long fixed
 // and we've dropped support for old version for rustc prior to the fix.
 
-use anyhow::anyhow;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use evcxr::JupyterResult;
 use std::fs;
 
 #[derive(Debug, Clone)]
@@ -28,16 +28,15 @@ pub(crate) struct Control {
 
 macro_rules! parse_to_var {
     ($control_json:expr, $name:ident, $convert:ident) => {
-        let $name = $control_json[stringify!($name)]
-            .$convert()
-            .ok_or_else(|| anyhow!("Missing JSON field {}", stringify!($name)))?;
+        let $name =
+            $control_json[stringify!($name)].$convert().ok_or_else(|| anyhow!("Missing JSON field {}", stringify!($name)))?;
     };
 }
 
 impl Control {
-    pub(crate) fn parse_file(file_name: &str) -> Result<Control> {
+    pub(crate) fn parse_file(file_name: &str) -> JupyterResult<Control> {
         let control_file_contents = fs::read_to_string(file_name)?;
-        let control_json = json::parse(&control_file_contents)?;
+        let control_json = json::parse(&control_file_contents).unwrap();
         parse_to_var!(control_json, control_port, as_u16);
         parse_to_var!(control_json, shell_port, as_u16);
         parse_to_var!(control_json, stdin_port, as_u16);

@@ -5,20 +5,14 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::connection::Connection;
-use crate::control_file;
-use crate::jupyter_message::JupyterMessage;
-use anyhow::bail;
-use anyhow::Result;
+use crate::{connection::Connection, control_file, jupyter_message::JupyterMessage};
+use anyhow::{bail, Result};
 use ariadne::sources;
 use colored::*;
 use crossbeam_channel::Select;
-use evcxr::CommandContext;
-use evcxr::Theme;
+use evcxr::{CommandContext, JupyterResult, Theme};
 use json::JsonValue;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
@@ -39,7 +33,7 @@ struct ShutdownReceiver {
 }
 
 impl Server {
-    pub(crate) fn run(config: &control_file::Control) -> Result<()> {
+    pub(crate) fn run(config: &control_file::Control) -> JupyterResult<()> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             // We only technically need 1 thread. However we've observed that
             // when using vscode's jupyter extension, we can get requests on the
@@ -58,20 +52,16 @@ impl Server {
         runtime.block_on(async {
             let shutdown_receiver = Self::start(config, handle).await?;
             shutdown_receiver.wait_for_shutdown().await;
-            let result: Result<()> = Ok(());
+            let result: JupyterResult<()> = Ok(());
             result
         })?;
         Ok(())
     }
 
-    async fn start(
-        config: &control_file::Control,
-        tokio_handle: tokio::runtime::Handle,
-    ) -> Result<ShutdownReceiver> {
+    async fn start(config: &control_file::Control, tokio_handle: tokio::runtime::Handle) -> Result<ShutdownReceiver> {
         let mut heartbeat = bind_socket::<zeromq::RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<zeromq::RouterSocket>(config, config.shell_port).await?;
-        let control_socket =
-            bind_socket::<zeromq::RouterSocket>(config, config.control_port).await?;
+        let control_socket = bind_socket::<zeromq::RouterSocket>(config, config.control_port).await?;
         let stdin_socket = bind_socket::<zeromq::RouterSocket>(config, config.stdin_port).await?;
         let iopub_socket = bind_socket::<zeromq::PubSocket>(config, config.iopub_port).await?;
         let iopub = Arc::new(Mutex::new(iopub_socket));
@@ -87,8 +77,7 @@ impl Server {
         };
 
         let (execution_sender, mut execution_receiver) = tokio::sync::mpsc::unbounded_channel();
-        let (execution_response_sender, mut execution_response_receiver) =
-            tokio::sync::mpsc::unbounded_channel();
+        let (execution_response_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
 
         tokio::spawn(async move {
             if let Err(error) = Self::handle_hb(&mut heartbeat).await {
@@ -111,14 +100,8 @@ impl Server {
             let context = context.clone();
             let server = server.clone();
             tokio::spawn(async move {
-                let result = server
-                    .handle_shell(
-                        shell_socket,
-                        &execution_sender,
-                        &mut execution_response_receiver,
-                        context,
-                    )
-                    .await;
+                let result =
+                    server.handle_shell(shell_socket, &execution_sender, &mut execution_response_receiver, context).await;
                 if let Err(error) = result {
                     eprintln!("shell error: {error:?}");
                 }
@@ -127,13 +110,8 @@ impl Server {
         {
             let server = server.clone();
             tokio::spawn(async move {
-                let result = server
-                    .handle_execution_requests(
-                        &context,
-                        &mut execution_receiver,
-                        &execution_response_sender,
-                    )
-                    .await;
+                let result =
+                    server.handle_execution_requests(&context, &mut execution_receiver, &execution_response_sender).await;
                 if let Err(error) = result {
                     eprintln!("execution error: {error:?}");
                 }
@@ -146,9 +124,7 @@ impl Server {
                 shutdown_receiver.clone(),
             )
             .await;
-        Ok(ShutdownReceiver {
-            recv: shutdown_receiver,
-        })
+        Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
 
     async fn signal_shutdown(&mut self) {
@@ -156,14 +132,10 @@ impl Server {
     }
 
     async fn handle_hb(connection: &mut Connection<zeromq::RepSocket>) -> Result<()> {
-        use zeromq::SocketRecv;
-        use zeromq::SocketSend;
+        use zeromq::{SocketRecv, SocketSend};
         loop {
             connection.socket.recv().await?;
-            connection
-                .socket
-                .send(zeromq::ZmqMessage::from(b"ping".to_vec()))
-                .await?;
+            connection.socket.send(zeromq::ZmqMessage::from(b"ping".to_vec())).await?;
         }
     }
 
@@ -207,11 +179,7 @@ impl Server {
                         input_reader: &|input_request| {
                             server.tokio_handle.block_on(async {
                                 server
-                                    .request_input(
-                                        &message,
-                                        &input_request.prompt,
-                                        input_request.is_password,
-                                    )
+                                    .request_input(&message, &input_request.prompt, input_request.is_password)
                                     .await
                                     .unwrap_or_default()
                             })
@@ -237,7 +205,8 @@ impl Server {
                         for (k, v) in output.content_by_mime_type {
                             if k.contains("json") {
                                 data.insert(k, json::parse(&v).unwrap_or_else(|_| json::from(v)));
-                            } else {
+                            }
+                            else {
                                 data.insert(k, json::from(v));
                             }
                         }
@@ -257,10 +226,7 @@ impl Server {
                         let mut data: HashMap<String, JsonValue> = HashMap::new();
                         data.insert(
                             "text/html".into(),
-                            json::from(format!(
-                                "<span style=\"color: rgba(0,0,0,0.4);\">Took {}ms</span>",
-                                ms
-                            )),
+                            json::from(format!("<span style=\"color: rgba(0,0,0,0.4);\">Took {}ms</span>", ms)),
                         );
                         message
                             .new_message("execute_result")
@@ -278,8 +244,7 @@ impl Server {
                     }))?;
                 }
                 Err(errors) => {
-                    self.emit_errors(&errors, &message, message.code(), execution_count)
-                        .await?;
+                    self.emit_errors(&errors, &message, message.code(), execution_count).await?;
                     execution_reply_sender.send(message.new_reply().with_content(object! {
                         "status" => "error",
                         "execution_count" => execution_count
@@ -289,29 +254,19 @@ impl Server {
         }
     }
 
-    async fn request_input(
-        &self,
-        current_request: &JupyterMessage,
-        prompt: &str,
-        password: bool,
-    ) -> Option<String> {
+    async fn request_input(&self, current_request: &JupyterMessage, prompt: &str, password: bool) -> Option<String> {
         if current_request.get_content()["allow_stdin"].as_bool() != Some(true) {
             return None;
         }
         let mut stdin = self.stdin.lock().await;
-        let stdin_request = current_request
-            .new_reply()
-            .with_message_type("input_request")
-            .with_content(object! {
-                "prompt" => prompt,
-                "password" => password,
-            });
+        let stdin_request = current_request.new_reply().with_message_type("input_request").with_content(object! {
+            "prompt" => prompt,
+            "password" => password,
+        });
         stdin_request.send(&mut *stdin).await.ok()?;
 
         let input_response = JupyterMessage::read(&mut *stdin).await.ok()?;
-        input_response.get_content()["value"]
-            .as_str()
-            .map(|value| value.to_owned())
+        input_response.get_content()["value"].as_str().map(|value| value.to_owned())
     }
 
     async fn handle_shell<S: zeromq::SocketRecv + zeromq::SocketSend>(
@@ -323,14 +278,7 @@ impl Server {
     ) -> Result<()> {
         loop {
             let message = JupyterMessage::read(&mut connection).await?;
-            self.handle_shell_message(
-                message,
-                &mut connection,
-                execution_channel,
-                execution_reply_receiver,
-                &context,
-            )
-            .await?;
+            self.handle_shell_message(message, &mut connection, execution_channel, execution_reply_receiver, &context).await?;
         }
     }
 
@@ -350,52 +298,42 @@ impl Server {
             .with_content(object! {"execution_state" => "busy"})
             .send(&mut *self.iopub.lock().await)
             .await?;
-        let idle = message
-            .new_message("status")
-            .with_content(object! {"execution_state" => "idle"});
+        let idle = message.new_message("status").with_content(object! {"execution_state" => "idle"});
         if message.message_type() == "kernel_info_request" {
-            message
-                .new_reply()
-                .with_content(kernel_info())
-                .send(connection)
-                .await?;
-        } else if message.message_type() == "is_complete_request" {
-            message
-                .new_reply()
-                .with_content(object! {"status" => "complete"})
-                .send(connection)
-                .await?;
-        } else if message.message_type() == "execute_request" {
+            message.new_reply().with_content(kernel_info()).send(connection).await?;
+        }
+        else if message.message_type() == "is_complete_request" {
+            message.new_reply().with_content(object! {"status" => "complete"}).send(connection).await?;
+        }
+        else if message.message_type() == "execute_request" {
             execution_channel.send(message)?;
             if let Some(reply) = execution_reply_receiver.recv().await {
                 reply.send(connection).await?;
             }
-        } else if message.message_type() == "comm_open" {
+        }
+        else if message.message_type() == "comm_open" {
             comm_open(message, context, Arc::clone(&self.iopub)).await?;
-        } else if message.message_type() == "comm_msg"
-            || message.message_type() == "comm_info_request"
-        {
+        }
+        else if message.message_type() == "comm_msg" || message.message_type() == "comm_info_request" {
             // We don't handle this yet.
-        } else if message.message_type() == "complete_request" {
-            let reply = message.new_reply().with_content(
-                match handle_completion_request(context, message).await {
-                    Ok(response_content) => response_content,
-                    Err(error) => object! {
-                        "status" => "error",
-                        "ename" => error.to_string(),
-                        "evalue" => "",
-                    },
+        }
+        else if message.message_type() == "complete_request" {
+            let reply = message.new_reply().with_content(match handle_completion_request(context, message).await {
+                Ok(response_content) => response_content,
+                Err(error) => object! {
+                    "status" => "error",
+                    "ename" => error.to_string(),
+                    "evalue" => "",
                 },
-            );
+            });
             reply.send(connection).await?;
-        } else if message.message_type() == "history_request" {
+        }
+        else if message.message_type() == "history_request" {
             // We don't yet support history requests, but we don't want to print
             // a message in jupyter console.
-        } else {
-            eprintln!(
-                "Got unrecognized message type on shell channel: {}",
-                message.message_type()
-            );
+        }
+        else {
+            eprintln!("Got unrecognized message type on shell channel: {}", message.message_type());
         }
         idle.send(&mut *self.iopub.lock().await).await?;
         Ok(())
@@ -409,13 +347,7 @@ impl Server {
         loop {
             let message = JupyterMessage::read(&mut connection).await?;
             match message.message_type() {
-                "kernel_info_request" => {
-                    message
-                        .new_reply()
-                        .with_content(kernel_info())
-                        .send(&mut connection)
-                        .await?
-                }
+                "kernel_info_request" => message.new_reply().with_content(kernel_info()).send(&mut connection).await?,
                 "shutdown_request" => self.signal_shutdown().await,
                 "interrupt_request" => {
                     let process_handle = process_handle.clone();
@@ -428,10 +360,7 @@ impl Server {
                     message.new_reply().send(&mut connection).await?;
                 }
                 _ => {
-                    eprintln!(
-                        "Got unrecognized message type on control channel: {}",
-                        message.message_type()
-                    );
+                    eprintln!("Got unrecognized message type on control channel: {}", message.message_type());
                 }
             }
         }
@@ -506,16 +435,13 @@ impl Server {
                     if error.is_from_user_code() {
                         let file_name = format!("command_{}", execution_count);
                         let mut traceback = Vec::new();
-                        if let Some(report) =
-                            error.build_report(file_name.clone(), source.to_string(), Theme::Light)
-                        {
+                        if let Some(report) = error.build_report(file_name.clone(), source.to_string(), Theme::Light) {
                             let mut s = Vec::new();
-                            report
-                                .write(sources([(file_name, source.to_string())]), &mut s)
-                                .unwrap();
+                            report.write(sources([(file_name, source.to_string())]), &mut s).unwrap();
                             let s = String::from_utf8_lossy(&s);
                             traceback = s.lines().map(|x| x.to_string()).collect::<Vec<_>>();
-                        } else {
+                        }
+                        else {
                             for spanned_message in error.spanned_messages() {
                                 for line in &spanned_message.lines {
                                     traceback.push(line.clone());
@@ -528,12 +454,9 @@ impl Server {
                                     for _ in span.start_column..span.end_column {
                                         carrots.push('^');
                                     }
-                                    traceback.push(format!(
-                                        "{} {}",
-                                        carrots.bright_red(),
-                                        spanned_message.label.bright_blue()
-                                    ));
-                                } else {
+                                    traceback.push(format!("{} {}", carrots.bright_red(), spanned_message.label.bright_blue()));
+                                }
+                                else {
                                     traceback.push(spanned_message.label.clone());
                                 }
                             }
@@ -551,7 +474,8 @@ impl Server {
                             })
                             .send(&mut *self.iopub.lock().await)
                             .await?;
-                    } else {
+                    }
+                    else {
                         parent_message
                             .new_message("error")
                             .with_content(object! {
@@ -611,28 +535,19 @@ async fn comm_open(
                     .await
                     .unwrap();
             }
-            message
-                .comm_close_message()
-                .send(&mut *iopub.lock().await)
-                .await
-                .unwrap();
+            message.comm_close_message().send(&mut *iopub.lock().await).await.unwrap();
         });
         Ok(())
-    } else {
+    }
+    else {
         // Unrecognised comm target, just close the comm.
-        message
-            .comm_close_message()
-            .send(&mut *iopub.lock().await)
-            .await
+        message.comm_close_message().send(&mut *iopub.lock().await).await
     }
 }
 
 async fn cargo_check(code: String, context: Arc<std::sync::Mutex<CommandContext>>) -> JsonValue {
-    let problems = tokio::task::spawn_blocking(move || {
-        context.lock().unwrap().check(&code).unwrap_or_default()
-    })
-    .await
-    .unwrap_or_default();
+    let problems =
+        tokio::task::spawn_blocking(move || context.lock().unwrap().check(&code).unwrap_or_default()).await.unwrap_or_default();
     let problems_json: Vec<JsonValue> = problems
         .iter()
         .filter_map(|problem| {
@@ -665,10 +580,7 @@ async fn cargo_check(code: String, context: Arc<std::sync::Mutex<CommandContext>
     }
 }
 
-async fn bind_socket<S: zeromq::Socket>(
-    config: &control_file::Control,
-    port: u16,
-) -> Result<Connection<S>> {
+async fn bind_socket<S: zeromq::Socket>(config: &control_file::Control, port: u16) -> Result<Connection<S>> {
     let endpoint = format!("{}://{}:{}", config.transport, config.ip, port);
     let mut socket = S::new();
     socket.bind(&endpoint).await?;
@@ -710,15 +622,9 @@ async fn handle_completion_request(
     let context = Arc::clone(context);
     tokio::task::spawn_blocking(move || {
         let code = message.code();
-        let completions = context.lock().unwrap().completions(
-            code,
-            grapheme_offset_to_byte_offset(code, message.cursor_pos()),
-        )?;
-        let matches: Vec<String> = completions
-            .completions
-            .into_iter()
-            .map(|completion| completion.code)
-            .collect();
+        let completions =
+            context.lock().unwrap().completions(code, grapheme_offset_to_byte_offset(code, message.cursor_pos()))?;
+        let matches: Vec<String> = completions.completions.into_iter().map(|completion| completion.code).collect();
         Ok(object! {
             "status" => "ok",
             "matches" => matches,
@@ -742,17 +648,12 @@ fn grapheme_offset_to_byte_offset(code: &str, grapheme_offset: usize) -> usize {
 /// Returns the grapheme offset of the grapheme that starts at
 fn byte_offset_to_grapheme_offset(code: &str, target_byte_offset: usize) -> Result<usize> {
     let mut grapheme_offset = 0;
-    for (byte_offset, _) in unicode_segmentation::UnicodeSegmentation::grapheme_indices(code, true)
-    {
+    for (byte_offset, _) in unicode_segmentation::UnicodeSegmentation::grapheme_indices(code, true) {
         if byte_offset == target_byte_offset {
             break;
         }
         if byte_offset > target_byte_offset {
-            panic!(
-                "Byte offset {} is not on a grapheme boundary in '{}'",
-                target_byte_offset,
-                code
-            );
+            panic!("Byte offset {} is not on a grapheme boundary in '{}'", target_byte_offset, code);
         }
         grapheme_offset += 1;
     }
