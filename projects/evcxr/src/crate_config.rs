@@ -5,7 +5,6 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::errors::bail;
 use crate::errors::JupyterErrorKind;
 use once_cell::sync::OnceCell;
 use regex::Regex;
@@ -85,40 +84,24 @@ impl ExternalCrate {
 
 #[cfg(test)]
 mod tests {
-    use super::escape_toml_string;
-    use super::ExternalCrate;
+    use super::{escape_toml_string, ExternalCrate};
     use std::path::Path;
 
     #[test]
     fn test_escape_toml_string() {
         let string = "test \" \\ \\u1234 \u{10FFFF}";
-        assert_eq!(
-            escape_toml_string(string),
-            "test \\\" \\\\ \\\\u1234 \u{10FFFF}"
-        );
+        assert_eq!(escape_toml_string(string), "test \\\" \\\\ \\\\u1234 \u{10FFFF}");
 
         let string = "\u{0000} \u{0008} \t \n \u{000C} \r \u{001F} \u{007F}";
-        assert_eq!(
-            escape_toml_string(string),
-            r#"\u0000 \b \t \n \f \r \u001F \u007F"#
-        );
+        assert_eq!(escape_toml_string(string), r#"\u0000 \b \t \n \f \r \u001F \u007F"#);
     }
 
     #[test]
     fn make_paths_absolute() {
-        let krate =
-            ExternalCrate::new("foo".to_owned(), "{ path = \"src/testdata\" }".to_owned()).unwrap();
+        let krate = ExternalCrate::new("foo".to_owned(), "{ path = \"src/testdata\" }".to_owned()).unwrap();
         assert_eq!(krate.name, "foo");
 
-        let expected_path_string = &escape_toml_string(
-            &Path::new("src/testdata")
-                .canonicalize()
-                .unwrap()
-                .to_string_lossy(),
-        );
-        assert_eq!(
-            krate.config,
-            format!("{{ path = \"{expected_path_string}\" }}")
-        );
+        let expected_path_string = &escape_toml_string(&Path::new("src/testdata").canonicalize().unwrap().to_string_lossy());
+        assert_eq!(krate.config, format!("{{ path = \"{expected_path_string}\" }}"));
     }
 }

@@ -5,12 +5,12 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
+use evcxr::JupyterResult;
 use std::{
     env, fs,
     io::Write,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 const LOGO_32X32: &[u8] = include_bytes!("../third_party/rust/rust-logo-32x32.png");
@@ -25,14 +25,8 @@ const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 pub(crate) fn install() -> Result<()> {
     let kernel_dir = get_kernel_dir()?;
     fs::create_dir_all(&kernel_dir)?;
-    let current_exe_path = env::current_exe()?;
-    let current_exe = current_exe_path.to_str().ok_or_else(|| anyhow!("current exe path isn't valid UTF-8"))?;
-    let kernel_json = object! {
-        "argv" => array![current_exe, "start", "--control-file", "{connection_file}"],
-        "display_name" => "Rust",
-        "language" => "rust",
-        "interrupt_mode" => "message",
-    };
+    let kernel_config = KernelConfig::new("rust", "Rust")?;
+    let kernel_json = to_string_pretty(&kernel_config)?;
     let kernel_json_filename = kernel_dir.join("kernel.json");
     println!("Writing {}", kernel_json_filename.to_string_lossy());
     kernel_json.write_pretty(&mut fs::File::create(kernel_json_filename)?, 2)?;

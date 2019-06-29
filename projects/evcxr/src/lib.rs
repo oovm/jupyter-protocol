@@ -34,6 +34,7 @@ pub use crate::{
     runtime::runtime_hook,
 };
 pub use rust_analyzer::Completions;
+pub use serde_json::Value as JsonValue;
 
 /// Return the directory that evcxr tools should use for their configuration.
 ///

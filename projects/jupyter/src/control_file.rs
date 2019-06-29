@@ -10,7 +10,7 @@
 // https://github.com/rust-lang/rust/issues/45601 - but that's now long fixed
 // and we've dropped support for old version for rustc prior to the fix.
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use evcxr::JupyterResult;
 use std::fs;
 

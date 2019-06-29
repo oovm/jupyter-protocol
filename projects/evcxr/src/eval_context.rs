@@ -5,45 +5,33 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::cargo_metadata;
-use crate::child_process::ChildProcess;
-use crate::code_block::CodeBlock;
-use crate::code_block::CodeKind;
-use crate::code_block::Segment;
-use crate::code_block::UserCodeInfo;
-use crate::crate_config::ExternalCrate;
-use crate::errors::bail;
-use crate::errors::CompilationError;
-use crate::errors::JupyterErrorKind;
-use crate::errors::Span;
-use crate::errors::SpannedMessage;
-use crate::evcxr_internal_runtime;
-use crate::item;
-use crate::module::Module;
-use crate::module::SoFile;
-use crate::runtime;
-use crate::rust_analyzer::Completions;
-use crate::rust_analyzer::RustAnalyzer;
-use crate::rust_analyzer::TypeName;
-use crate::rust_analyzer::VariableInfo;
-use crate::use_trees::Import;
+use crate::{
+    cargo_metadata,
+    child_process::ChildProcess,
+    code_block::{CodeBlock, CodeKind, Segment, UserCodeInfo},
+    crate_config::ExternalCrate,
+};
+
+use crate::{
+    errors::{CompilationError, JupyterErrorKind, Span, SpannedMessage},
+    evcxr_internal_runtime, item,
+    module::{Module, SoFile},
+    runtime,
+    rust_analyzer::{Completions, RustAnalyzer, TypeName, VariableInfo},
+    use_trees::Import,
+};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 use ra_ap_ide::TextRange;
-use ra_ap_syntax::ast;
-use ra_ap_syntax::AstNode;
-use ra_ap_syntax::SyntaxKind;
-use ra_ap_syntax::SyntaxNode;
+use ra_ap_syntax::{ast, AstNode, SyntaxKind, SyntaxNode};
 use regex::Regex;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::time::Duration;
-use std::time::Instant;
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+    process::Command,
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 pub struct EvalContext {
     // Order is important here. We need to drop child_process before _tmpdir,
@@ -99,7 +87,8 @@ fn create_initial_config(crate_dir: PathBuf) -> Config {
     // https://github.com/rui314/mold/issues/132
     if !cfg!(target_os = "macos") && which::which("mold").is_ok() {
         config.linker = "mold".to_owned();
-    } else if !cfg!(target_os = "macos") && which::which("lld").is_ok() {
+    }
+    else if !cfg!(target_os = "macos") && which::which("lld").is_ok() {
         config.linker = "lld".to_owned();
     }
     config
@@ -131,10 +120,12 @@ impl Config {
         if enabled {
             if let Ok(path) = which::which("sccache") {
                 self.sccache = Some(path);
-            } else {
+            }
+            else {
                 panic!("Couldn't find sccache. Try running `cargo install sccache`.");
             }
-        } else {
+        }
+        else {
             self.sccache = None;
         }
         Ok(())
@@ -145,11 +136,7 @@ impl Config {
     }
 
     pub(crate) fn cargo_command(&self, command_name: &str) -> Command {
-        let mut command = if self.linker == "mold" {
-            Command::new("mold")
-        } else {
-            Command::new(&self.cargo_path)
-        };
+        let mut command = if self.linker == "mold" { Command::new("mold") } else { Command::new(&self.cargo_path) };
         if self.linker == "mold" {
             command.arg("-run").arg(&self.cargo_path);
         }
@@ -169,24 +156,16 @@ struct ErrorFormat {
 }
 
 static ERROR_FORMATS: &[ErrorFormat] = &[
-    ErrorFormat {
-        format_str: "{}",
-        format_trait: "std::Display",
-    },
-    ErrorFormat {
-        format_str: "{:?}",
-        format_trait: "std::fmt::Debug",
-    },
-    ErrorFormat {
-        format_str: "{:#?}",
-        format_trait: "std::fmt::Debug",
-    },
+    ErrorFormat { format_str: "{}", format_trait: "std::Display" },
+    ErrorFormat { format_str: "{:?}", format_trait: "std::fmt::Debug" },
+    ErrorFormat { format_str: "{:#?}", format_trait: "std::fmt::Debug" },
 ];
 
 const SEND_TEXT_PLAIN_DEF: &str = stringify!(
     fn evcxr_send_text_plain(text: &str) {
-        use std::io::Write;
-        use std::io::{self};
+        use std::io::{
+            Write, {self},
+        };
         fn try_send_text(text: &str) -> io::Result<()> {
             let stdout = io::stdout();
             let mut output = stdout.lock();
@@ -213,10 +192,12 @@ const GET_TYPE_NAME_DEF: &str = stringify!(
             if !is_skipping {
                 if c == ':' {
                     is_skipping = true;
-                } else {
+                }
+                else {
                     r.push(c);
                 }
-            } else {
+            }
+            else {
                 if !c.is_alphanumeric() && c != '_' && c != ':' {
                     is_skipping = false;
                     r.push(c);
@@ -257,9 +238,7 @@ fn default_input_reader(_: InputRequest) -> String {
 
 impl<'a> Default for EvalCallbacks<'a> {
     fn default() -> Self {
-        EvalCallbacks {
-            input_reader: &default_input_reader,
-        }
+        EvalCallbacks { input_reader: &default_input_reader }
     }
 }
 
@@ -282,10 +261,7 @@ impl EvalContext {
 
         let mut sysroot_command = std::process::Command::new("rustc");
         sysroot_command.arg("--print").arg("sysroot");
-        path_var_value.push(format!(
-            "{}\\bin;",
-            String::from_utf8_lossy(&sysroot_command.output().unwrap().stdout).trim()
-        ));
+        path_var_value.push(format!("{}\\bin;", String::from_utf8_lossy(&sysroot_command.output().unwrap().stdout).trim()));
         path_var_value.push(std::env::var("PATH").unwrap_or_default());
 
         command.env("PATH", path_var_value);
@@ -296,16 +272,9 @@ impl EvalContext {
 
     #[doc(hidden)]
     pub fn new_for_testing() -> (EvalContext, EvalContextOutputs) {
-        let testing_runtime_path = std::env::current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("testing_runtime");
+        let testing_runtime_path = std::env::current_exe().unwrap().parent().unwrap().parent().unwrap().join("testing_runtime");
         let (mut context, outputs) =
-            EvalContext::with_subprocess_command(std::process::Command::new(testing_runtime_path))
-                .unwrap();
+            EvalContext::with_subprocess_command(std::process::Command::new(testing_runtime_path)).unwrap();
         let mut state = context.state();
         state.set_offline_mode(true);
         context.commit_state(state);
@@ -319,7 +288,8 @@ impl EvalContext {
         let tmpdir_path;
         if let Ok(from_env) = std::env::var("EVCXR_TMPDIR") {
             tmpdir_path = PathBuf::from(from_env);
-        } else {
+        }
+        else {
             let tmpdir = tempfile::tempdir()?;
             tmpdir_path = PathBuf::from(tmpdir.path());
             opt_tmpdir = Some(tmpdir);
@@ -344,13 +314,11 @@ impl EvalContext {
             analyzer,
             initial_config,
         };
-        let outputs = EvalContextOutputs {
-            stdout: stdout_receiver,
-            stderr: stderr_receiver,
-        };
+        let outputs = EvalContextOutputs { stdout: stdout_receiver, stderr: stderr_receiver };
         if context.committed_state.linker() == "lld" && context.eval("42").is_err() {
             context.committed_state.set_linker("system".to_owned());
-        } else {
+        }
+        else {
             // We need to eval something anyway, otherwise rust-analyzer crashes when trying to get
             // completions. Not 100% sure. Just writing Cargo.toml isn't sufficient.
             if let Err(error) = context.eval("42") {
@@ -378,11 +346,7 @@ impl EvalContext {
         self.eval_with_state(code, self.state())
     }
 
-    pub fn eval_with_state(
-        &mut self,
-        code: &str,
-        state: ContextState,
-    ) -> Result<EvalOutputs, JupyterErrorKind> {
+    pub fn eval_with_state(&mut self, code: &str, state: ContextState) -> Result<EvalOutputs, JupyterErrorKind> {
         let (user_code, code_info) = CodeBlock::from_original_user_code(code);
         self.eval_with_callbacks(user_code, state, &code_info, &mut EvalCallbacks::default())
     }
@@ -409,11 +373,7 @@ impl EvalContext {
         code_info: &UserCodeInfo,
         callbacks: &mut EvalCallbacks,
     ) -> Result<EvalOutputs, JupyterErrorKind> {
-        if user_code.is_empty()
-            && !self
-                .committed_state
-                .state_change_can_fail_compilation(&state)
-        {
+        if user_code.is_empty() && !self.committed_state.state_change_can_fail_compilation(&state) {
             self.commit_state(state);
             return Ok(EvalOutputs::default());
         }
@@ -480,9 +440,7 @@ impl EvalContext {
         completions.end_offset = code.output_offset_to_user_offset(completions.end_offset)?;
         // Filter internal identifiers.
         completions.completions.retain(|c| {
-            c.code != "evcxr_variable_store"
-                && c.code != "evcxr_internal_runtime"
-                && c.code != "evcxr_analysis_wrapper"
+            c.code != "evcxr_variable_store" && c.code != "evcxr_internal_runtime" && c.code != "evcxr_analysis_wrapper"
         });
         Ok(completions)
     }
@@ -508,17 +466,11 @@ impl EvalContext {
     }
 
     pub fn variables_and_types(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.committed_state
-            .variable_states
-            .iter()
-            .map(|(v, t)| (v.as_str(), t.type_name.as_str()))
+        self.committed_state.variable_states.iter().map(|(v, t)| (v.as_str(), t.type_name.as_str()))
     }
 
     pub fn defined_item_names(&self) -> impl Iterator<Item = &str> {
-        self.committed_state
-            .items_by_name
-            .keys()
-            .map(String::as_str)
+        self.committed_state.items_by_name.keys().map(String::as_str)
     }
 
     // Clears all state, while keeping tmpdir. This allows us to effectively
@@ -583,13 +535,7 @@ impl EvalContext {
         // information we need without relying on compilation errors. See if we can get rid of this.
         loop {
             // Try to compile and run the code.
-            let result = self.try_run_statements(
-                user_code.clone(),
-                state,
-                state.compilation_mode(),
-                phases,
-                callbacks,
-            );
+            let result = self.try_run_statements(user_code.clone(), state, state.compilation_mode(), phases, callbacks);
             match result {
                 Ok(execution_artifacts) => {
                     return Ok(execution_artifacts.output);
@@ -617,13 +563,7 @@ impl EvalContext {
                         // catch_unwind to try and get a better error message. e.g. we don't want the
                         // user to see messages like "cannot borrow immutable captured outer variable in
                         // an `FnOnce` closure `a` as mutable".
-                        self.try_run_statements(
-                            user_code,
-                            state,
-                            CompilationMode::NoCatchExpectError,
-                            phases,
-                            callbacks,
-                        )?;
+                        self.try_run_statements(user_code, state, CompilationMode::NoCatchExpectError, phases, callbacks)?;
                     }
                     return Err(JupyterErrorKind::CompilationErrors(errors));
                 }
@@ -656,9 +596,7 @@ impl EvalContext {
         if compilation_mode == CompilationMode::NoCatchExpectError {
             // Uh-oh, caller was expecting an error, return OK and the caller can return the
             // original error.
-            return Ok(ExecutionArtifacts {
-                output: EvalOutputs::new(),
-            });
+            return Ok(ExecutionArtifacts { output: EvalOutputs::new() });
         }
         phases.phase_complete("Final compile");
 
@@ -672,19 +610,10 @@ impl EvalContext {
         Ok(())
     }
 
-    fn fix_variable_types(
-        &mut self,
-        state: &mut ContextState,
-        code: CodeBlock,
-    ) -> Result<(), JupyterErrorKind> {
+    fn fix_variable_types(&mut self, state: &mut ContextState, code: CodeBlock) -> Result<(), JupyterErrorKind> {
         self.analyzer.set_source(code.code_string())?;
-        for (
-            variable_name,
-            VariableInfo {
-                type_name,
-                is_mutable,
-            },
-        ) in self.analyzer.top_level_variables("evcxr_analysis_wrapper")
+        for (variable_name, VariableInfo { type_name, is_mutable }) in
+            self.analyzer.top_level_variables("evcxr_analysis_wrapper")
         {
             // We don't want to try to store evcxr_variable_store into itself, so we ignore it.
             if variable_name == "evcxr_variable_store" {
@@ -734,19 +663,14 @@ impl EvalContext {
         // things won't work if the path isn't UTF-8 - apparently that's a thing
         // on some platforms.
         let fn_name = state.current_user_fn_name();
-        self.child_process.send(&format!(
-            "LOAD_AND_RUN {} {}",
-            so_file.path.to_string_lossy(),
-            fn_name,
-        ))?;
+        self.child_process.send(&format!("LOAD_AND_RUN {} {}", so_file.path.to_string_lossy(), fn_name,))?;
 
         state.build_num += 1;
 
         let mut got_panic = false;
         let mut lost_variables = Vec::new();
         static MIME_OUTPUT: OnceCell<Regex> = OnceCell::new();
-        let mime_output =
-            MIME_OUTPUT.get_or_init(|| Regex::new("EVCXR_BEGIN_CONTENT ([^ ]+)").unwrap());
+        let mime_output = MIME_OUTPUT.get_or_init(|| Regex::new("EVCXR_BEGIN_CONTENT ([^ ]+)").unwrap());
         loop {
             let line = self.child_process.recv_line()?;
             if line == runtime::EVCXR_EXECUTION_COMPLETE {
@@ -754,27 +678,23 @@ impl EvalContext {
             }
             if line == PANIC_NOTIFICATION {
                 got_panic = true;
-            } else if line.starts_with(evcxr_input::GET_CMD) {
+            }
+            else if line.starts_with(evcxr_input::GET_CMD) {
                 let is_password = line.starts_with(evcxr_input::GET_CMD_PASSWORD);
                 let prompt = line.split(':').nth(1).unwrap_or_default().to_owned();
-                self.child_process
-                    .send(&(callbacks.input_reader)(InputRequest {
-                        prompt,
-                        is_password,
-                    }))?;
-            } else if line == evcxr_internal_runtime::USER_ERROR_OCCURRED {
+                self.child_process.send(&(callbacks.input_reader)(InputRequest { prompt, is_password }))?;
+            }
+            else if line == evcxr_internal_runtime::USER_ERROR_OCCURRED {
                 // A question mark operator in user code triggered an early
                 // return. Any newly defined variables won't have been stored.
                 state
                     .variable_states
-                    .retain(|_variable_name, variable_state| {
-                        variable_state.move_state != VariableMoveState::New
-                    });
-            } else if let Some(variable_name) =
-                line.strip_prefix(evcxr_internal_runtime::VARIABLE_CHANGED_TYPE)
-            {
+                    .retain(|_variable_name, variable_state| variable_state.move_state != VariableMoveState::New);
+            }
+            else if let Some(variable_name) = line.strip_prefix(evcxr_internal_runtime::VARIABLE_CHANGED_TYPE) {
                 lost_variables.push(variable_name.to_owned());
-            } else if let Some(captures) = mime_output.captures(&line) {
+            }
+            else if let Some(captures) = mime_output.captures(&line) {
                 let mime_type = captures[1].to_owned();
                 let mut content = String::new();
                 loop {
@@ -792,19 +712,17 @@ impl EvalContext {
                     content.push_str(&line);
                 }
                 output.content_by_mime_type.insert(mime_type, content);
-            } else {
+            }
+            else {
                 // Note, errors sending are ignored, since it just means the
                 // user of the library has dropped the Receiver.
                 let _ = self.stdout_sender.send(line);
             }
         }
         if got_panic {
-            state
-                .variable_states
-                .retain(|_variable_name, variable_state| {
-                    variable_state.move_state != VariableMoveState::New
-                });
-        } else if !lost_variables.is_empty() {
+            state.variable_states.retain(|_variable_name, variable_state| variable_state.move_state != VariableMoveState::New);
+        }
+        else if !lost_variables.is_empty() {
             return Err(JupyterErrorKind::TypeRedefinedVariablesLost(lost_variables));
         }
         Ok(output)
@@ -824,28 +742,25 @@ impl EvalContext {
                         // Use of moved value.
                         state.variable_states.remove(variable_name);
                         fixed_errors.insert("Captured value");
-                    } else if error.code() == Some("E0425") {
+                    }
+                    else if error.code() == Some("E0425") {
                         // cannot find value in scope.
                         state.variable_states.remove(variable_name);
                         fixed_errors.insert("Variable moved");
-                    } else if error.code() == Some("E0603") {
+                    }
+                    else if error.code() == Some("E0603") {
                         if let Some(variable_state) = state.variable_states.remove(variable_name) {
                             panic!(
                                 "Failed to determine type of variable `{}`. rustc suggested type \
                              {}, but that's private. Sometimes adding an extern crate will help \
                              rustc suggest the correct public type name, or you can give an \
                              explicit type.",
-                                variable_name,
-                                variable_state.type_name
+                                variable_name, variable_state.type_name
                             );
                         }
-                    } else if error.code() == Some("E0562")
-                        || (error.code().is_none() && error.code_origins.len() == 1)
-                    {
-                        return non_persistable_type_error(
-                            variable_name,
-                            &state.variable_states[variable_name].type_name,
-                        );
+                    }
+                    else if error.code() == Some("E0562") || (error.code().is_none() && error.code_origins.len() == 1) {
+                        return non_persistable_type_error(variable_name, &state.variable_states[variable_name].type_name);
                     }
                 }
                 CodeKind::WithFallback(fallback) => {
@@ -863,13 +778,13 @@ impl EvalContext {
                             self.write_cargo_toml(state)?;
                         }
                         fixed_errors.insert("Enabled async mode");
-                    } else if error.code() == Some("E0277") && !state.allow_question_mark {
+                    }
+                    else if error.code() == Some("E0277") && !state.allow_question_mark {
                         state.allow_question_mark = true;
                         fixed_errors.insert("Allow question mark");
-                    } else if error.code() == Some("E0658")
-                        && error
-                            .message()
-                            .contains("`let` expressions in this position are experimental")
+                    }
+                    else if error.code() == Some("E0658")
+                        && error.message().contains("`let` expressions in this position are experimental")
                     {
                         // PR to add a semicolon is welcome. Ideally we'd not do so here though. It
                         // should really be done based on the parse tree of the code. We currently
@@ -895,8 +810,7 @@ fn non_persistable_type_error(variable_name: &str, actual_type: &str) -> Result<
              let v: Box<dyn core::fmt::Debug> = Box::new(foo());\n\
              Alternatively, you can prevent evcxr from attempting to persist\n\
              the variable by wrapping your code in braces.",
-        variable_name,
-        actual_type
+        variable_name, actual_type
     );
 }
 
@@ -910,7 +824,8 @@ fn fix_path() {
                     if let Some(mut path) = std::env::var_os("PATH") {
                         if cfg!(windows) {
                             path.push(";");
-                        } else {
+                        }
+                        else {
                             path.push(":");
                         }
                         path.push(bin_dir);
@@ -924,9 +839,7 @@ fn fix_path() {
 
 /// Returns whether a type is fully specified. i.e. it doesn't contain any '_'.
 fn type_is_fully_specified(ty: &ast::Type) -> bool {
-    !AstNode::syntax(ty)
-        .descendants()
-        .any(|n| n.kind() == SyntaxKind::INFER_TYPE)
+    !AstNode::syntax(ty).descendants().any(|n| n.kind() == SyntaxKind::INFER_TYPE)
 }
 
 #[derive(Debug)]
@@ -942,18 +855,12 @@ struct PhaseDetailsBuilder {
 
 impl PhaseDetailsBuilder {
     fn new() -> PhaseDetailsBuilder {
-        PhaseDetailsBuilder {
-            start: Instant::now(),
-            phases: Vec::new(),
-        }
+        PhaseDetailsBuilder { start: Instant::now(), phases: Vec::new() }
     }
 
     fn phase_complete(&mut self, name: &str) {
         let new_start = Instant::now();
-        self.phases.push(PhaseDetails {
-            name: name.to_owned(),
-            duration: new_start.duration_since(self.start),
-        });
+        self.phases.push(PhaseDetails { name: name.to_owned(), duration: new_start.duration_since(self.start) });
         self.start = new_start;
     }
 }
@@ -967,19 +874,13 @@ pub struct EvalOutputs {
 
 impl EvalOutputs {
     pub fn new() -> EvalOutputs {
-        EvalOutputs {
-            content_by_mime_type: HashMap::new(),
-            timing: None,
-            phases: Vec::new(),
-        }
+        EvalOutputs { content_by_mime_type: HashMap::new(), timing: None, phases: Vec::new() }
     }
 
     pub fn text_html(text: String, html: String) -> EvalOutputs {
         let mut out = EvalOutputs::new();
-        out.content_by_mime_type
-            .insert("text/plain".to_owned(), text);
-        out.content_by_mime_type
-            .insert("text/html".to_owned(), html);
+        out.content_by_mime_type.insert("text/plain".to_owned(), text);
+        out.content_by_mime_type.insert("text/html".to_owned(), html);
         out
     }
 
@@ -993,10 +894,7 @@ impl EvalOutputs {
 
     pub fn merge(&mut self, mut other: EvalOutputs) {
         for (mime_type, content) in other.content_by_mime_type {
-            self.content_by_mime_type
-                .entry(mime_type)
-                .or_default()
-                .push_str(&content);
+            self.content_by_mime_type.entry(mime_type).or_default().push_str(&content);
         }
         self.timing = match (self.timing.take(), other.timing) {
             (Some(t1), Some(t2)) => Some(t1 + t2),
@@ -1111,11 +1009,7 @@ impl ContextState {
         }
         panic!(
             "Unsupported error format string. Available options: {}",
-            ERROR_FORMATS
-                .iter()
-                .map(|f| f.format_str)
-                .collect::<Vec<_>>()
-                .join(", ")
+            ERROR_FORMATS.iter().map(|f| f.format_str).collect::<Vec<_>>().join(", ")
         );
     }
 
@@ -1242,25 +1136,13 @@ impl ContextState {
     }
 
     /// Customizes errors based on their origins.
-    fn customize_error(
-        &self,
-        error: CompilationError,
-        user_code: &CodeBlock,
-    ) -> Option<CompilationError> {
+    fn customize_error(&self, error: CompilationError, user_code: &CodeBlock) -> Option<CompilationError> {
         for origin in &error.code_origins {
             if let CodeKind::PackVariable { variable_name } = origin {
-                if let Some(definition_span) = &self.variable_states[variable_name].definition_span
-                {
-                    if let Some(segment) =
-                        user_code.segment_with_index(definition_span.segment_index)
-                    {
+                if let Some(definition_span) = &self.variable_states[variable_name].definition_span {
+                    if let Some(segment) = user_code.segment_with_index(definition_span.segment_index) {
                         if let Some(span) = Span::from_segment(segment, definition_span.range) {
-                            return self.replacement_for_pack_variable_error(
-                                variable_name,
-                                span,
-                                segment,
-                                &error,
-                            );
+                            return self.replacement_for_pack_variable_error(variable_name, span, segment, &error);
                         }
                     }
                 }
@@ -1293,11 +1175,7 @@ impl ContextState {
                 return Some(error.clone());
             }
         };
-        Some(CompilationError::from_segment_span(
-            segment,
-            SpannedMessage::from_segment_span(segment, variable_span),
-            message,
-        ))
+        Some(CompilationError::from_segment_span(segment, SpannedMessage::from_segment_span(segment, variable_span), message))
     }
 
     /// Returns whether transitioning to `new_state` might cause compilation
@@ -1306,29 +1184,18 @@ impl ContextState {
     /// change cannot cause compilation failures, so compilation can be skipped
     /// if there is otherwise no code to execute.
     fn state_change_can_fail_compilation(&self, new_state: &ContextState) -> bool {
-        (self.extern_crate_stmts != new_state.extern_crate_stmts
-            && !new_state.extern_crate_stmts.is_empty())
-            || (self.external_deps != new_state.external_deps
-                && !new_state.external_deps.is_empty())
-            || (self.items_by_name != new_state.items_by_name
-                && !new_state.items_by_name.is_empty())
+        (self.extern_crate_stmts != new_state.extern_crate_stmts && !new_state.extern_crate_stmts.is_empty())
+            || (self.external_deps != new_state.external_deps && !new_state.external_deps.is_empty())
+            || (self.items_by_name != new_state.items_by_name && !new_state.items_by_name.is_empty())
             || (self.config.sccache != new_state.config.sccache)
     }
 
     pub(crate) fn format_cargo_deps(&self) -> String {
-        self.external_deps
-            .values()
-            .map(|krate| format!("{} = {}\n", krate.name, krate.config))
-            .collect::<Vec<_>>()
-            .join("")
+        self.external_deps.values().map(|krate| format!("{} = {}\n", krate.name, krate.config)).collect::<Vec<_>>().join("")
     }
 
     fn compilation_mode(&self) -> CompilationMode {
-        if self.config.preserve_vars_on_panic {
-            CompilationMode::RunAndCatchPanics
-        } else {
-            CompilationMode::NoCatch
-        }
+        if self.config.preserve_vars_on_panic { CompilationMode::RunAndCatchPanics } else { CompilationMode::NoCatch }
     }
 
     /// Returns code suitable for analysis purposes. Doesn't attempt to preserve runtime behavior.
@@ -1342,36 +1209,22 @@ impl ContextState {
             .generated("#[allow(unused_variables)]")
             .generated("async fn evcxr_analysis_wrapper(");
         for (var_name, state) in &self.stored_variable_states {
-            code = code.generated(format!(
-                "{}{}: {},",
-                if state.is_mut { "mut " } else { "" },
-                var_name,
-                state.type_name
-            ));
+            code = code.generated(format!("{}{}: {},", if state.is_mut { "mut " } else { "" }, var_name, state.type_name));
         }
-        code = code
-            .generated(") -> Result<(), EvcxrUserCodeError> {")
-            .add_all(user_code);
+        code = code.generated(") -> Result<(), EvcxrUserCodeError> {").add_all(user_code);
 
         // Pack variable statements in analysis mode are a lot simpler than in compiled mode. We
         // just call a function that enforces that the variable doesn't contain any non-static
         // lifetimes.
         for var_name in self.variable_states.keys() {
-            code.pack_variable(
-                var_name.clone(),
-                format!("evcxr_variable_store({var_name});"),
-            );
+            code.pack_variable(var_name.clone(), format!("evcxr_variable_store({var_name});"));
         }
 
         code = code.generated("Ok(())").generated("}");
         code
     }
 
-    fn code_to_compile(
-        &self,
-        user_code: CodeBlock,
-        compilation_mode: CompilationMode,
-    ) -> CodeBlock {
+    fn code_to_compile(&self, user_code: CodeBlock, compilation_mode: CompilationMode) -> CodeBlock {
         let mut code = CodeBlock::new()
             .generated("#![allow(unused_imports, unused_mut, dead_code)]")
             .add_all(self.attributes_code())
@@ -1379,14 +1232,12 @@ impl ContextState {
         let has_user_code = !user_code.is_empty();
         if has_user_code {
             code = code.add_all(self.wrap_user_code(user_code, compilation_mode));
-        } else {
+        }
+        else {
             // TODO: Add a mechanism to load a crate without any function to call then remove this.
             code = code
                 .generated("#[no_mangle]")
-                .generated(format!(
-                    "pub extern \"C\" fn {}(",
-                    self.current_user_fn_name()
-                ))
+                .generated(format!("pub extern \"C\" fn {}(", self.current_user_fn_name()))
                 .generated("mut x: *mut std::os::raw::c_void) -> *mut std::os::raw::c_void {x}");
         }
         code
@@ -1422,19 +1273,11 @@ impl ContextState {
         "#,
             self.config.error_fmt.format_trait,
             self.config.error_fmt.format_str,
-            if for_analysis {
-                ""
-            } else {
-                "println!(\"{}\", evcxr_internal_runtime::USER_ERROR_OCCURRED);"
-            }
+            if for_analysis { "" } else { "println!(\"{}\", evcxr_internal_runtime::USER_ERROR_OCCURRED);" }
         ))
     }
 
-    fn wrap_user_code(
-        &self,
-        mut user_code: CodeBlock,
-        compilation_mode: CompilationMode,
-    ) -> CodeBlock {
+    fn wrap_user_code(&self, mut user_code: CodeBlock, compilation_mode: CompilationMode) -> CodeBlock {
         let needs_variable_store = !self.variable_states.is_empty()
             || !self.stored_variable_states.is_empty()
             || self.async_mode
@@ -1449,44 +1292,39 @@ impl ContextState {
                 .generated(include_str!("evcxr_internal_runtime.rs"))
                 .generated("}");
         }
-        code = code.generated("#[no_mangle]").generated(format!(
-            "pub extern \"C\" fn {}(",
-            self.current_user_fn_name()
-        ));
+        code = code.generated("#[no_mangle]").generated(format!("pub extern \"C\" fn {}(", self.current_user_fn_name()));
         if needs_variable_store {
             code = code
                 .generated("mut evcxr_variable_store: *mut evcxr_internal_runtime::VariableStore)")
                 .generated("  -> *mut evcxr_internal_runtime::VariableStore {")
                 .generated("if evcxr_variable_store.is_null() {")
-                .generated(
-                    "  evcxr_variable_store = evcxr_internal_runtime::create_variable_store();",
-                )
+                .generated("  evcxr_variable_store = evcxr_internal_runtime::create_variable_store();")
                 .generated("}")
                 .generated("let evcxr_variable_store = unsafe {&mut *evcxr_variable_store};")
                 .add_all(self.check_variable_statements())
                 .add_all(self.load_variable_statements());
             user_code = user_code.add_all(self.store_variable_statements(VariableMoveState::New));
-        } else {
+        }
+        else {
             code = code.generated("evcxr_variable_store: *mut u8) -> *mut u8 {");
         }
         if self.async_mode {
             user_code = CodeBlock::new()
-                .generated(stringify!(evcxr_variable_store
-                    .lazy_arc("evcxr_tokio_runtime", || std::sync::Mutex::new(
-                        tokio::runtime::Runtime::new().unwrap()
-                    ))
-                    .lock()
-                    .unwrap()))
+                .generated(stringify!(
+                    evcxr_variable_store
+                        .lazy_arc("evcxr_tokio_runtime", || std::sync::Mutex::new(tokio::runtime::Runtime::new().unwrap()))
+                        .lock()
+                        .unwrap()
+                ))
                 .generated(".block_on(async {")
                 .add_all(user_code);
             if self.allow_question_mark {
-                user_code = CodeBlock::new()
-                    .generated("let _ =")
-                    .add_all(user_code)
-                    .generated("Ok::<(), EvcxrUserCodeError>(())");
+                user_code =
+                    CodeBlock::new().generated("let _ =").add_all(user_code).generated("Ok::<(), EvcxrUserCodeError>(())");
             }
             user_code = user_code.generated("});")
-        } else if self.allow_question_mark {
+        }
+        else if self.allow_question_mark {
             user_code = CodeBlock::new()
                 .generated("let _ = (|| -> std::result::Result<(), EvcxrUserCodeError> {")
                 .add_all(user_code)
@@ -1505,7 +1343,8 @@ impl ContextState {
                     .generated("  Err(_) => {")
                     .generated(format!("    println!(\"{PANIC_NOTIFICATION}\");"))
                     .generated("}}");
-            } else {
+            }
+            else {
                 code = code
                     .generated("if std::panic::catch_unwind(||{")
                     .add_all(user_code)
@@ -1513,7 +1352,8 @@ impl ContextState {
                     .generated(format!("    println!(\"{PANIC_NOTIFICATION}\");"))
                     .generated("}");
             }
-        } else {
+        }
+        else {
             code = code.add_all(user_code);
         }
         if needs_variable_store {
@@ -1604,7 +1444,8 @@ impl ContextState {
         for (statement_index, segment) in user_code.segments.into_iter().enumerate() {
             let node = if let CodeKind::OriginalUserCode(meta) = &segment.kind {
                 &nodes[meta.node_index]
-            } else {
+            }
+            else {
                 code_out = code_out.with_segment(segment);
                 continue;
             };
@@ -1613,12 +1454,11 @@ impl ContextState {
                     self.record_new_locals(pat, let_stmt.ty(), &segment, node.text_range());
                     code_out = code_out.with_segment(segment);
                 }
-            } else if ast::Attr::can_cast(node.kind()) {
-                self.attributes.insert(
-                    node.text().to_string(),
-                    CodeBlock::new().with_segment(segment),
-                );
-            } else if ast::Expr::can_cast(node.kind()) {
+            }
+            else if ast::Attr::can_cast(node.kind()) {
+                self.attributes.insert(node.text().to_string(), CodeBlock::new().with_segment(segment));
+            }
+            else if ast::Expr::can_cast(node.kind()) {
                 if statement_index == num_statements - 1 {
                     if self.config.display_final_expression {
                         code_out = code_out.code_with_fallback(
@@ -1631,39 +1471,37 @@ impl ContextState {
                             // If that fails, we try debug format.
                             if self.config.display_types {
                                 CodeBlock::new()
-                                .generated(SEND_TEXT_PLAIN_DEF)
-                                .generated(GET_TYPE_NAME_DEF)
-                                .generated("{ let r = &(")
-                                .with_segment(segment)
-                                .generated(format!(
-                                    "); evcxr_send_text_plain(&format!(\": {{}} = {}\", evcxr_get_type_name(r), r)); }};",
-                                    self.config.output_format
-                                ))
-                            } else {
+                                    .generated(SEND_TEXT_PLAIN_DEF)
+                                    .generated(GET_TYPE_NAME_DEF)
+                                    .generated("{ let r = &(")
+                                    .with_segment(segment)
+                                    .generated(format!(
+                                        "); evcxr_send_text_plain(&format!(\": {{}} = {}\", evcxr_get_type_name(r), r)); }};",
+                                        self.config.output_format
+                                    ))
+                            }
+                            else {
                                 CodeBlock::new()
-                                .generated(SEND_TEXT_PLAIN_DEF)
-                                .generated(format!(
-                                    "evcxr_send_text_plain(&format!(\"{}\",&(\n",
-                                    self.config.output_format
-                                ))
-                                .with_segment(segment)
-                                .generated(")));")
-                                },
-                            );
-                    } else {
-                        code_out = code_out
-                            .generated("let _ = ")
-                            .with_segment(segment)
-                            .generated(";");
+                                    .generated(SEND_TEXT_PLAIN_DEF)
+                                    .generated(format!("evcxr_send_text_plain(&format!(\"{}\",&(\n", self.config.output_format))
+                                    .with_segment(segment)
+                                    .generated(")));")
+                            },
+                        );
                     }
-                } else {
+                    else {
+                        code_out = code_out.generated("let _ = ").with_segment(segment).generated(";");
+                    }
+                }
+                else {
                     // We got an expression, but it wasn't the last statement,
                     // so don't try to print it. Yes, this is possible. For
                     // example `for x in y {}` is an expression. See the test
                     // non_semi_statements.
                     code_out = code_out.with_segment(segment);
                 }
-            } else if let Some(item) = ast::Item::cast(node.clone()) {
+            }
+            else if let Some(item) = ast::Item::cast(node.clone()) {
                 match item {
                     ast::Item::ExternCrate(extern_crate) => {
                         if let Some(crate_name) = extern_crate.name_ref() {
@@ -1671,21 +1509,17 @@ impl ContextState {
                             if !self.dependency_lib_names()?.contains(&crate_name) {
                                 self.external_deps
                                     .entry(crate_name.clone())
-                                    .or_insert_with(|| {
-                                        ExternalCrate::new(crate_name.clone(), "\"*\"".to_owned())
-                                            .unwrap()
-                                    });
+                                    .or_insert_with(|| ExternalCrate::new(crate_name.clone(), "\"*\"".to_owned()).unwrap());
                             }
-                            self.extern_crate_stmts
-                                .insert(crate_name, segment.code.clone());
+                            self.extern_crate_stmts.insert(crate_name, segment.code.clone());
                         }
                     }
                     ast::Item::MacroRules(macro_rules) => {
                         if let Some(name) = ast::HasName::name(&macro_rules) {
                             let item_block = CodeBlock::new().with_segment(segment);
-                            self.items_by_name
-                                .insert(name.text().to_string(), item_block);
-                        } else {
+                            self.items_by_name.insert(name.text().to_string(), item_block);
+                        }
+                        else {
                             code_out = code_out.with_segment(segment);
                         }
                     }
@@ -1697,21 +1531,16 @@ impl ContextState {
                                 // deduplicate / replace those items. It doesn't however preserve
                                 // traceability back to the original user's code, so isn't so useful
                                 // for analysis purposes.
-                                crate::use_trees::use_tree_names_do(&use_tree, &mut |import| {
-                                    match import {
-                                        Import::Unnamed(code) => {
-                                            self.unnamed_items
-                                                .push(CodeBlock::new().other_user_code(code));
-                                        }
-                                        Import::Named { name, code } => {
-                                            self.items_by_name.insert(
-                                                name,
-                                                CodeBlock::new().other_user_code(code),
-                                            );
-                                        }
+                                crate::use_trees::use_tree_names_do(&use_tree, &mut |import| match import {
+                                    Import::Unnamed(code) => {
+                                        self.unnamed_items.push(CodeBlock::new().other_user_code(code));
+                                    }
+                                    Import::Named { name, code } => {
+                                        self.items_by_name.insert(name, CodeBlock::new().other_user_code(code));
                                     }
                                 });
-                            } else {
+                            }
+                            else {
                                 // This mode finds all names that the use statement expands to, then
                                 // removes any previous definitions of those names and then adds the
                                 // original user code as-is. This allows error reporting on the
@@ -1724,10 +1553,10 @@ impl ContextState {
                                         self.items_by_name.remove(&name);
                                     }
                                 });
-                                self.unnamed_items
-                                    .push(CodeBlock::new().with_segment(segment));
+                                self.unnamed_items.push(CodeBlock::new().with_segment(segment));
                             }
-                        } else {
+                        }
+                        else {
                             // No use-tree probably means something is malformed, just put it into
                             // the output as-is so that we can get proper error reporting.
                             code_out = code_out.with_segment(segment);
@@ -1736,10 +1565,10 @@ impl ContextState {
                     item => {
                         let item_block = CodeBlock::new().with_segment(segment);
                         if let Some(item_name) = item::item_name(&item) {
-                            *self.items_by_name.entry(item_name.to_owned()).or_default() =
-                                item_block;
+                            *self.items_by_name.entry(item_name.to_owned()).or_default() = item_block;
                             previous_item_name = Some(item_name);
-                        } else if let Some(item_name) = &previous_item_name {
+                        }
+                        else if let Some(item_name) = &previous_item_name {
                             // unwrap below should never fail because we put
                             // that key in the map on a previous iteration,
                             // otherwise we wouldn't have had a value in
@@ -1748,12 +1577,14 @@ impl ContextState {
                                 .get_mut(item_name)
                                 .unwrap()
                                 .modify(move |block_for_name| block_for_name.add_all(item_block));
-                        } else {
+                        }
+                        else {
                             self.unnamed_items.push(item_block);
                         }
                     }
                 }
-            } else {
+            }
+            else {
                 code_out = code_out.with_segment(segment);
             }
         }
@@ -1764,13 +1595,7 @@ impl ContextState {
         cargo_metadata::get_library_names(&self.config)
     }
 
-    fn record_new_locals(
-        &mut self,
-        pat: ast::Pat,
-        opt_ty: Option<ast::Type>,
-        segment: &Segment,
-        let_stmt_range: TextRange,
-    ) {
+    fn record_new_locals(&mut self, pat: ast::Pat, opt_ty: Option<ast::Type>, segment: &Segment, let_stmt_range: TextRange) {
         match pat {
             ast::Pat::IdentPat(ident) => self.record_local(ident, opt_ty, segment, let_stmt_range),
             ast::Pat::RecordPat(ref pat_struct) => {
@@ -1825,10 +1650,7 @@ impl ContextState {
                     move_state: VariableMoveState::New,
                     definition_span: segment.sequence.map(|segment_index| {
                         let range = name.syntax().text_range() - let_stmt_range.start();
-                        UserCodeSpan {
-                            segment_index,
-                            range,
-                        }
+                        UserCodeSpan { segment_index, range }
                     }),
                 },
             );
@@ -1885,8 +1707,7 @@ fn replace_reserved_words_in_type(ty: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use ra_ap_syntax::ast::HasAttrs;
-    use ra_ap_syntax::SourceFile;
+    use ra_ap_syntax::{ast::HasAttrs, SourceFile};
 
     use super::*;
 
@@ -1918,10 +1739,8 @@ mod tests {
         let user_code = state.apply(user_code, &code_info.nodes).unwrap();
         let final_code = state.code_to_compile(user_code, CompilationMode::NoCatch);
         let source_file = SourceFile::parse(&final_code.code_string()).ok().unwrap();
-        let mut attrs: Vec<String> = source_file
-            .attrs()
-            .map(|attr| attr.syntax().text().to_string().replace(' ', ""))
-            .collect();
+        let mut attrs: Vec<String> =
+            source_file.attrs().map(|attr| attr.syntax().text().to_string().replace(' ', "")).collect();
         attrs.sort();
         assert_eq!(
             attrs,

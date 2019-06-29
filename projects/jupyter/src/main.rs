@@ -5,15 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#[macro_use]
-extern crate json;
-
-use anyhow::{anyhow, bail, Result};
-use std::{
-    error::Error,
-    fmt::{Debug, Display, Formatter},
-    path::PathBuf,
-};
+use std::path::PathBuf;
 mod commands;
 pub use crate::commands::*;
 mod connection;

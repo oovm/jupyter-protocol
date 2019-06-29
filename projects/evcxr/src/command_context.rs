@@ -5,28 +5,21 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
-use crate::code_block::CodeBlock;
-use crate::code_block::CodeKind;
-use crate::code_block::CommandCall;
-use crate::code_block::Segment;
-use crate::code_block::{self};
-use crate::crash_guard::CrashGuard;
-use crate::errors::bail;
-use crate::errors::CompilationError;
-use crate::errors::JupyterErrorKind;
-use crate::errors::Span;
-use crate::errors::SpannedMessage;
-use crate::eval_context::ContextState;
-use crate::eval_context::EvalCallbacks;
-use crate::rust_analyzer::Completion;
-use crate::rust_analyzer::Completions;
-use crate::EvalContext;
-use crate::EvalContextOutputs;
-use crate::EvalOutputs;
+use crate::{
+    code_block::{
+        CodeBlock, CodeKind, CommandCall, Segment, {self},
+    },
+    crash_guard::CrashGuard,
+    errors::{CompilationError, JupyterErrorKind, Span, SpannedMessage},
+    eval_context::{ContextState, EvalCallbacks},
+    rust_analyzer::{Completion, Completions},
+    EvalContext, EvalContextOutputs, EvalOutputs,
+};
 use anyhow::Result;
 use once_cell::sync::OnceCell;
 
@@ -46,11 +39,7 @@ impl CommandContext {
     }
 
     pub fn with_eval_context(eval_context: EvalContext) -> CommandContext {
-        CommandContext {
-            print_timings: false,
-            eval_context,
-            last_errors: Vec::new(),
-        }
+        CommandContext { print_timings: false, eval_context, last_errors: Vec::new() }
     }
 
     #[doc(hidden)]
@@ -129,19 +118,13 @@ Panic detected. Here's some useful information if you're filing a bug report.
         let (user_code, code_info) = CodeBlock::from_original_user_code(to_run);
         for segment in user_code.segments {
             if let CodeKind::Command(command) = &segment.kind {
-                eval_outputs.merge(self.execute_command(
-                    command,
-                    &segment,
-                    &mut state,
-                    &command.args,
-                )?);
-            } else {
+                eval_outputs.merge(self.execute_command(command, &segment, &mut state, &command.args)?);
+            }
+            else {
                 non_command_code = non_command_code.with_segment(segment);
             }
         }
-        let result =
-            self.eval_context
-                .eval_with_callbacks(non_command_code, state, &code_info, callbacks);
+        let result = self.eval_context.eval_with_callbacks(non_command_code, state, &code_info, callbacks);
         let duration = start.elapsed();
         match result {
             Ok(m) => {
@@ -177,25 +160,20 @@ Panic detected. Here's some useful information if you're filing a bug report.
             return self.command_completions(segment, offset, position);
         }
         let (non_command_code, state, _errors) = self.prepare_for_analysis(user_code)?;
-        self.eval_context
-            .completions(non_command_code, state, &code_info.nodes, position)
+        self.eval_context.completions(non_command_code, state, &code_info.nodes, position)
     }
 
-    fn prepare_for_analysis(
-        &mut self,
-        user_code: CodeBlock,
-    ) -> Result<(CodeBlock, ContextState, Vec<CompilationError>)> {
+    fn prepare_for_analysis(&mut self, user_code: CodeBlock) -> Result<(CodeBlock, ContextState, Vec<CompilationError>)> {
         let mut non_command_code = CodeBlock::new();
         let mut state = self.eval_context.state();
         let mut errors = Vec::new();
         for segment in user_code.segments {
             if let CodeKind::Command(command) = &segment.kind {
-                if let Err(error) =
-                    self.process_command(command, &segment, &mut state, &command.args, true)
-                {
+                if let Err(error) = self.process_command(command, &segment, &mut state, &command.args, true) {
                     errors.push(error);
                 }
-            } else {
+            }
+            else {
                 non_command_code = non_command_code.with_segment(segment);
             }
         }
@@ -203,23 +181,13 @@ Panic detected. Here's some useful information if you're filing a bug report.
         Ok((non_command_code, state, errors))
     }
 
-    fn command_completions(
-        &self,
-        segment: &Segment,
-        offset: usize,
-        full_position: usize,
-    ) -> Result<Completions> {
+    fn command_completions(&self, segment: &Segment, offset: usize, full_position: usize) -> Result<Completions> {
         let existing = &segment.code[0..offset];
-        let mut completions = Completions {
-            start_offset: full_position - offset,
-            end_offset: full_position,
-            ..Completions::default()
-        };
+        let mut completions =
+            Completions { start_offset: full_position - offset, end_offset: full_position, ..Completions::default() };
         for cmd in Self::commands_by_name().keys() {
             if cmd.starts_with(existing) {
-                completions.completions.push(Completion {
-                    code: (*cmd).to_owned(),
-                })
+                completions.completions.push(Completion { code: (*cmd).to_owned() })
             }
         }
         Ok(completions)
@@ -259,8 +227,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
         state: &mut ContextState,
         args: &Option<String>,
     ) -> Result<EvalOutputs, JupyterErrorKind> {
-        self.process_command(command, segment, state, args, false)
-            .map_err(|err| JupyterErrorKind::CompilationErrors(vec![err]))
+        self.process_command(command, segment, state, args, false).map_err(|err| JupyterErrorKind::CompilationErrors(vec![err]))
     }
 
     fn process_command(
@@ -298,23 +265,17 @@ Panic detected. Here's some useful information if you're filing a bug report.
                 let end_column = code_block::count_columns(&segment.code);
                 CompilationError::from_segment_span(
                     segment,
-                    SpannedMessage::from_segment_span(
-                        segment,
-                        Span::from_command(command_call, start_column, end_column),
-                    ),
+                    SpannedMessage::from_segment_span(segment, Span::from_command(command_call, start_column, end_column)),
                     error.to_string(),
                 )
             })
-        } else {
+        }
+        else {
             Err(CompilationError::from_segment_span(
                 segment,
                 SpannedMessage::from_segment_span(
                     segment,
-                    Span::from_command(
-                        command_call,
-                        1,
-                        code_block::count_columns(&command_call.command) + 1,
-                    ),
+                    Span::from_command(command_call, 1, code_block::count_columns(&command_call.command) + 1),
                 ),
                 format!("Unrecognised command {}", command_call.command),
             ))
@@ -322,27 +283,18 @@ Panic detected. Here's some useful information if you're filing a bug report.
     }
 
     fn commands_by_name() -> &'static HashMap<&'static str, AvailableCommand> {
-        static COMMANDS_BY_NAME: OnceCell<HashMap<&'static str, AvailableCommand>> =
-            OnceCell::new();
-        COMMANDS_BY_NAME.get_or_init(|| {
-            CommandContext::create_commands()
-                .into_iter()
-                .map(|command| (command.name, command))
-                .collect()
-        })
+        static COMMANDS_BY_NAME: OnceCell<HashMap<&'static str, AvailableCommand>> = OnceCell::new();
+        COMMANDS_BY_NAME
+            .get_or_init(|| CommandContext::create_commands().into_iter().map(|command| (command.name, command)).collect())
     }
 
     fn create_commands() -> Vec<AvailableCommand> {
         vec![
-            AvailableCommand::new(
-                ":internal_debug",
-                "Toggle various internal debugging code",
-                |_ctx, state, _args| {
-                    let debug_mode = !state.debug_mode();
-                    state.set_debug_mode(debug_mode);
-                    text_output(format!("Internals debugging: {debug_mode}"))
-                },
-            ),
+            AvailableCommand::new(":internal_debug", "Toggle various internal debugging code", |_ctx, state, _args| {
+                let debug_mode = !state.debug_mode();
+                state.set_debug_mode(debug_mode);
+                text_output(format!("Internals debugging: {debug_mode}"))
+            }),
             AvailableCommand::new(
                 ":load_config",
                 "Reloads startup configuration files. Accepts optional flag `--quiet` to suppress logging.",
@@ -357,146 +309,81 @@ Panic detected. Here's some useful information if you're filing a bug report.
             AvailableCommand::new(":version", "Print Evcxr version", |_ctx, _state, _args| {
                 text_output(env!("CARGO_PKG_VERSION"))
             }),
-            AvailableCommand::new(
-                ":vars",
-                "List bound variables and their types",
-                |ctx, _state, _args| {
-                    Ok(EvalOutputs::text_html(
-                        ctx.vars_as_text(),
-                        ctx.vars_as_html(),
-                    ))
-                },
-            ),
-            AvailableCommand::new(
-                ":type",
-                "Show variable type",
-                |ctx, _state, args| {
-                    ctx.var_type(args)
-                },
-            ),
-            AvailableCommand::new(
-                ":t",
-                "Short version of :type",
-                |ctx, _state, args| {
-                    ctx.var_type(args)
-                },
-            ),
-            AvailableCommand::new(
-                ":preserve_vars_on_panic",
-                "Try to keep vars on panic (0/1)",
-                |_ctx, state, args| {
-                    state
-                        .set_preserve_vars_on_panic(args.as_ref().map(String::as_str) == Some("1"));
-                    text_output(format!(
-                        "Preserve vars on panic: {}",
-                        state.preserve_vars_on_panic()
-                    ))
-                },
-            ),
-            AvailableCommand::new(
-                ":clear",
-                "Clear all state, keeping compilation cache",
-                |ctx, state, _args| {
-                    ctx.eval_context.clear().map(|_| {
-                        *state = ctx.eval_context.state();
-                        EvalOutputs::new()
-                    })
-                },
-            )
+            AvailableCommand::new(":vars", "List bound variables and their types", |ctx, _state, _args| {
+                Ok(EvalOutputs::text_html(ctx.vars_as_text(), ctx.vars_as_html()))
+            }),
+            AvailableCommand::new(":type", "Show variable type", |ctx, _state, args| ctx.var_type(args)),
+            AvailableCommand::new(":t", "Short version of :type", |ctx, _state, args| ctx.var_type(args)),
+            AvailableCommand::new(":preserve_vars_on_panic", "Try to keep vars on panic (0/1)", |_ctx, state, args| {
+                state.set_preserve_vars_on_panic(args.as_ref().map(String::as_str) == Some("1"));
+                text_output(format!("Preserve vars on panic: {}", state.preserve_vars_on_panic()))
+            }),
+            AvailableCommand::new(":clear", "Clear all state, keeping compilation cache", |ctx, state, _args| {
+                ctx.eval_context.clear().map(|_| {
+                    *state = ctx.eval_context.state();
+                    EvalOutputs::new()
+                })
+            })
             .with_analysis_callback(|ctx, state, _args| {
                 *state = ctx.eval_context.cleared_state();
                 Ok(EvalOutputs::default())
             }),
-            AvailableCommand::new(
-                ":dep",
-                "Add dependency. e.g. :dep regex = \"1.0\"",
-                |_ctx, state, args| process_dep_command(state, args),
-            ),
+            AvailableCommand::new(":dep", "Add dependency. e.g. :dep regex = \"1.0\"", |_ctx, state, args| {
+                process_dep_command(state, args)
+            }),
             AvailableCommand::new(
                 ":last_compile_dir",
                 "Print the directory in which we last compiled",
-                |ctx, _state, _args| {
-                    text_output(format!("{:?}", ctx.eval_context.last_compile_dir()))
-                },
+                |ctx, _state, _args| text_output(format!("{:?}", ctx.eval_context.last_compile_dir())),
             ),
-            AvailableCommand::new(
-                ":opt",
-                "Set optimization level (0/1/2)",
-                |_ctx, state, args| {
-                    let new_level = if let Some(n) = args {
-                        n
-                    } else if state.opt_level() == "2" {
-                        "0"
-                    } else {
-                        "2"
-                    };
-                    state.set_opt_level(new_level)?;
-                    text_output(format!("Optimization: {}", state.opt_level()))
-                },
-            ),
-            AvailableCommand::new(
-                ":fmt",
-                "Set output formatter (default: {:?})",
-                |_ctx, state, args| {
-                    let new_format = if let Some(f) = args { f } else { "{:?}" };
-                    state.set_output_format(new_format.to_owned());
-                    text_output(format!("Output format: {}", state.output_format()))
-                },
-            ),
-            AvailableCommand::new(
-                ":types",
-                "Toggle printing of types",
-                |_ctx, state, _args| {
-                    state.set_display_types(!state.display_types());
-                    text_output(format!("Types: {}", state.display_types()))
-                },
-            ),
-            AvailableCommand::new(
-                ":efmt",
-                "Set the formatter for errors returned by ?",
-                |_ctx, state, args| {
-                    if let Some(f) = args {
-                        state.set_error_format(f)?;
-                    }
-                    text_output(format!(
-                        "Error format: {} (errors must implement {})",
-                        state.error_format(),
-                        state.error_format_trait()
-                    ))
-                },
-            ),
-            AvailableCommand::new(
-                ":toolchain",
-                "Set which toolchain to use (e.g. nightly)",
-                |_ctx, state, args| {
-                    if let Some(arg) = args {
-                        state.set_toolchain(arg);
-                    }
-                    text_output(format!("Toolchain: {}", state.toolchain()))
-                },
-            ),
-            AvailableCommand::new(
-                ":offline",
-                "Set offline mode when invoking cargo (0/1)",
-                |_ctx, state, args| {
-                    state.set_offline_mode(args.as_ref().map(String::as_str) == Some("1"));
-                    text_output(format!("Offline mode: {}", state.offline_mode()))
-                },
-            ),
-            AvailableCommand::new(
-                ":quit",
-                "Quit evaluation and exit",
-                |_ctx, _state, _args| std::process::exit(0),
-            )
-            .disable_in_analysis(),
-            AvailableCommand::new(
-                ":timing",
-                "Toggle printing of how long evaluations take",
-                |ctx, _state, _args| {
-                    ctx.print_timings = !ctx.print_timings;
-                    text_output(format!("Timing: {}", ctx.print_timings))
-                },
-            ),
+            AvailableCommand::new(":opt", "Set optimization level (0/1/2)", |_ctx, state, args| {
+                let new_level = if let Some(n) = args {
+                    n
+                }
+                else if state.opt_level() == "2" {
+                    "0"
+                }
+                else {
+                    "2"
+                };
+                state.set_opt_level(new_level)?;
+                text_output(format!("Optimization: {}", state.opt_level()))
+            }),
+            AvailableCommand::new(":fmt", "Set output formatter (default: {:?})", |_ctx, state, args| {
+                let new_format = if let Some(f) = args { f } else { "{:?}" };
+                state.set_output_format(new_format.to_owned());
+                text_output(format!("Output format: {}", state.output_format()))
+            }),
+            AvailableCommand::new(":types", "Toggle printing of types", |_ctx, state, _args| {
+                state.set_display_types(!state.display_types());
+                text_output(format!("Types: {}", state.display_types()))
+            }),
+            AvailableCommand::new(":efmt", "Set the formatter for errors returned by ?", |_ctx, state, args| {
+                if let Some(f) = args {
+                    state.set_error_format(f)?;
+                }
+                text_output(format!(
+                    "Error format: {} (errors must implement {})",
+                    state.error_format(),
+                    state.error_format_trait()
+                ))
+            }),
+            AvailableCommand::new(":toolchain", "Set which toolchain to use (e.g. nightly)", |_ctx, state, args| {
+                if let Some(arg) = args {
+                    state.set_toolchain(arg);
+                }
+                text_output(format!("Toolchain: {}", state.toolchain()))
+            }),
+            AvailableCommand::new(":offline", "Set offline mode when invoking cargo (0/1)", |_ctx, state, args| {
+                state.set_offline_mode(args.as_ref().map(String::as_str) == Some("1"));
+                text_output(format!("Offline mode: {}", state.offline_mode()))
+            }),
+            AvailableCommand::new(":quit", "Quit evaluation and exit", |_ctx, _state, _args| std::process::exit(0))
+                .disable_in_analysis(),
+            AvailableCommand::new(":timing", "Toggle printing of how long evaluations take", |ctx, _state, _args| {
+                ctx.print_timings = !ctx.print_timings;
+                text_output(format!("Timing: {}", ctx.print_timings))
+            }),
             AvailableCommand::new(
                 ":time_passes",
                 "Toggle printing of rustc pass times (requires nightly)",
@@ -505,43 +392,33 @@ Panic detected. Here's some useful information if you're filing a bug report.
                     text_output(format!("Time passes: {}", state.time_passes()))
                 },
             ),
-            AvailableCommand::new(
-                ":sccache",
-                "Set whether to use sccache (0/1).",
-                |_ctx, state, args| {
-                    state.set_sccache(args.as_ref().map(String::as_str) != Some("0"))?;
-                    text_output(format!("sccache: {}", state.sccache()))
-                },
-            ),
-            AvailableCommand::new(
-                ":linker",
-                "Set/print linker. Supported: system, lld, mold",
-                |_ctx, state, args| {
-                    if let Some(linker) = args {
-                        state.set_linker(linker.to_owned());
-                    }
-                    text_output(format!("linker: {}", state.linker()))
-                },
-            ),
-            AvailableCommand::new(
-                ":explain",
-                "Print explanation of last error",
-                |ctx, _state, _args| {
-                    if ctx.last_errors.is_empty() {
-                        panic!("No last error to explain");
-                    } else {
-                        let mut all_explanations = String::new();
-                        for error in &ctx.last_errors {
-                            if let Some(explanation) = error.explanation() {
-                                all_explanations.push_str(explanation);
-                            } else {
-                                panic!("Sorry, last error has no explanation");
-                            }
+            AvailableCommand::new(":sccache", "Set whether to use sccache (0/1).", |_ctx, state, args| {
+                state.set_sccache(args.as_ref().map(String::as_str) != Some("0"))?;
+                text_output(format!("sccache: {}", state.sccache()))
+            }),
+            AvailableCommand::new(":linker", "Set/print linker. Supported: system, lld, mold", |_ctx, state, args| {
+                if let Some(linker) = args {
+                    state.set_linker(linker.to_owned());
+                }
+                text_output(format!("linker: {}", state.linker()))
+            }),
+            AvailableCommand::new(":explain", "Print explanation of last error", |ctx, _state, _args| {
+                if ctx.last_errors.is_empty() {
+                    panic!("No last error to explain");
+                }
+                else {
+                    let mut all_explanations = String::new();
+                    for error in &ctx.last_errors {
+                        if let Some(explanation) = error.explanation() {
+                            all_explanations.push_str(explanation);
                         }
-                        text_output(all_explanations)
+                        else {
+                            panic!("Sorry, last error has no explanation");
+                        }
                     }
-                },
-            ),
+                    text_output(all_explanations)
+                }
+            }),
             AvailableCommand::new(
                 ":last_error_json",
                 "Print the last compilation error as JSON (for debugging)",
@@ -564,11 +441,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
                 commands.sort_by(|a, b| a.name.cmp(b.name));
                 for cmd in commands {
                     writeln!(text, "{:<17} {}", cmd.name, cmd.short_description).unwrap();
-                    writeln!(
-                        html,
-                        "<tr><td>{}</td><td>{}</td></tr>",
-                        cmd.name, cmd.short_description
-                    )?;
+                    writeln!(html, "<tr><td>{}</td><td>{}</td></tr>", cmd.name, cmd.short_description)?;
                 }
                 writeln!(html, "</table>")?;
                 Ok(EvalOutputs::text_html(text, html))
@@ -602,11 +475,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
     }
 
     fn var_type(&self, args: &Option<String>) -> Result<EvalOutputs, JupyterErrorKind> {
-        let args = if let Some(x) = args {
-            x.trim()
-        } else {
-            panic!("Variable name required")
-        };
+        let args = if let Some(x) = args { x.trim() } else { panic!("Variable name required") };
 
         let mut out = None;
         for (var, ty) in self.eval_context.variables_and_types() {
@@ -619,16 +488,14 @@ Panic detected. Here's some useful information if you're filing a bug report.
         if let Some(out) = out {
             let out = format!("{args}: {out}");
             Ok(EvalOutputs::text_html(out.clone(), out))
-        } else {
+        }
+        else {
             panic!("Variable does not exist: {}", args)
         }
     }
 }
 
-fn process_dep_command(
-    state: &mut ContextState,
-    args: &Option<String>,
-) -> Result<EvalOutputs, JupyterErrorKind> {
+fn process_dep_command(state: &mut ContextState, args: &Option<String>) -> Result<EvalOutputs, JupyterErrorKind> {
     use regex::Regex;
     let Some(args) = args else {
         panic!(":dep requires arguments")
@@ -638,14 +505,13 @@ fn process_dep_command(
     if let Some(captures) = dep_re.captures(args) {
         if captures[1].starts_with('.') || captures[1].starts_with('/') {
             state.add_local_dep(&captures[1])?;
-        } else {
-            state.add_dep(
-                &captures[1],
-                captures.get(2).map_or("\"*\"", |m| m.as_str()),
-            )?;
+        }
+        else {
+            state.add_dep(&captures[1], captures.get(2).map_or("\"*\"", |m| m.as_str()))?;
         }
         Ok(EvalOutputs::new())
-    } else {
+    }
+    else {
         panic!("Invalid :dep command. Expected: name = ... or just name");
     }
 }
@@ -667,33 +533,20 @@ impl AvailableCommand {
     fn new(
         name: &'static str,
         short_description: &'static str,
-        callback: impl Fn(
-                &mut CommandContext,
-                &mut ContextState,
-                &Option<String>,
-            ) -> Result<EvalOutputs, JupyterErrorKind>
-            + 'static
-            + Sync
-            + Send,
+        callback: impl Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, JupyterErrorKind>
+        + 'static
+        + Sync
+        + Send,
     ) -> AvailableCommand {
-        AvailableCommand {
-            name,
-            short_description,
-            callback: Box::new(callback),
-            analysis_callback: None,
-        }
+        AvailableCommand { name, short_description, callback: Box::new(callback), analysis_callback: None }
     }
 
     fn with_analysis_callback(
         mut self,
-        callback: impl Fn(
-                &mut CommandContext,
-                &mut ContextState,
-                &Option<String>,
-            ) -> Result<EvalOutputs, JupyterErrorKind>
-            + 'static
-            + Sync
-            + Send,
+        callback: impl Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, JupyterErrorKind>
+        + 'static
+        + Sync
+        + Send,
     ) -> Self {
         self.analysis_callback = Some(Box::new(callback));
         self
@@ -719,8 +572,6 @@ fn text_output<T: Into<String>>(text: T) -> Result<EvalOutputs, JupyterErrorKind
     let mut outputs = EvalOutputs::new();
     let mut content = text.into();
     content.push('\n');
-    outputs
-        .content_by_mime_type
-        .insert("text/plain".to_owned(), content);
+    outputs.content_by_mime_type.insert("text/plain".to_owned(), content);
     Ok(outputs)
 }

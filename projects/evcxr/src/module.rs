@@ -5,25 +5,28 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::code_block::CodeBlock;
-use crate::errors::bail;
-use crate::errors::CompilationError;
-use crate::errors::JupyterErrorKind;
-use crate::eval_context::Config;
-use crate::eval_context::ContextState;
+use crate::{
+    code_block::CodeBlock,
+    errors::{CompilationError, JupyterErrorKind},
+    eval_context::{Config, ContextState},
+};
 use once_cell::sync::OnceCell;
 use regex::Regex;
-use std::fs;
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
+use serde_json::from_str;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn shared_object_name_from_crate_name(crate_name: &str) -> String {
     if cfg!(target_os = "macos") {
         format!("lib{crate_name}.dylib")
-    } else if cfg!(target_os = "windows") {
+    }
+    else if cfg!(target_os = "windows") {
         format!("{crate_name}.dll")
-    } else {
+    }
+    else {
         format!("lib{crate_name}.so")
     }
 }
@@ -41,10 +44,7 @@ fn write_file(dir: &Path, basename: &str, contents: &str) -> Result<(), JupyterE
     // If the file contents is already correct, then skip writing it again. This
     // is mostly to avoid rewriting Cargo.toml which should change relatively
     // little.
-    if fs::read_to_string(&filename)
-        .map(|c| c == contents)
-        .unwrap_or(false)
-    {
+    if fs::read_to_string(&filename).map(|c| c == contents).unwrap_or(false) {
         return Ok(());
     }
     if let Err(err) = fs::write(&filename, contents) {
@@ -93,11 +93,7 @@ const CRATE_NAME: &str = "ctx";
 
 impl Module {
     pub(crate) fn new(tmpdir: PathBuf) -> Result<Module, JupyterErrorKind> {
-        let module = Module {
-            tmpdir,
-            build_num: 0,
-            target: get_host_target()?,
-        };
+        let module = Module { tmpdir, build_num: 0, target: get_host_target()? };
         Ok(module)
     }
 
@@ -110,8 +106,7 @@ impl Module {
     }
 
     fn so_path(&self) -> PathBuf {
-        self.deps_dir()
-            .join(shared_object_name_from_crate_name(CRATE_NAME))
+        self.deps_dir().join(shared_object_name_from_crate_name(CRATE_NAME))
     }
 
     fn src_dir(&self) -> PathBuf {
@@ -128,34 +123,19 @@ impl Module {
 
     // Writes Cargo.toml. Should be called before compile.
     pub(crate) fn write_cargo_toml(&self, state: &ContextState) -> Result<(), JupyterErrorKind> {
-        write_file(
-            self.crate_dir(),
-            "Cargo.toml",
-            &self.get_cargo_toml_contents(state),
-        )
+        write_file(self.crate_dir(), "Cargo.toml", &self.get_cargo_toml_contents(state))
     }
 
     // Writes .cargo/config.toml. Should be called before compile.
     pub(crate) fn write_config_toml(&self, state: &ContextState) -> Result<(), JupyterErrorKind> {
         let dot_config_dir = self.crate_dir().join(".cargo");
         fs::create_dir_all(dot_config_dir.as_path())?;
-        write_file(
-            dot_config_dir.as_path(),
-            "config.toml",
-            &self.get_config_toml_contents(state),
-        )
+        write_file(dot_config_dir.as_path(), "config.toml", &self.get_config_toml_contents(state))
     }
 
-    pub(crate) fn check(
-        &mut self,
-        code_block: &CodeBlock,
-        config: &Config,
-    ) -> Result<Vec<CompilationError>, JupyterErrorKind> {
+    pub(crate) fn check(&mut self, code_block: &CodeBlock, config: &Config) -> Result<Vec<CompilationError>, JupyterErrorKind> {
         self.write_code(code_block)?;
-        let output = config
-            .cargo_command("check")
-            .arg("--message-format=json")
-            .output();
+        let output = config.cargo_command("check").arg("--message-format=json").output();
 
         let cargo_output = match output {
             Ok(out) => out,
@@ -165,11 +145,7 @@ impl Module {
         Ok(errors)
     }
 
-    pub(crate) fn compile(
-        &mut self,
-        code_block: &CodeBlock,
-        config: &Config,
-    ) -> Result<SoFile, JupyterErrorKind> {
+    pub(crate) fn compile(&mut self, code_block: &CodeBlock, config: &Config) -> Result<SoFile, JupyterErrorKind> {
         let mut command = config.cargo_command("rustc");
         if config.time_passes && config.toolchain != "nightly" {
             panic!("time_passes option requires nightly compiler");
@@ -185,9 +161,7 @@ impl Module {
             .env("CARGO_TARGET_DIR", "target")
             .env("RUSTC", &config.rustc_path);
         if config.linker == "lld" {
-            command
-                .arg("-C")
-                .arg(format!("link-arg=-fuse-ld={}", config.linker));
+            command.arg("-C").arg(format!("link-arg=-fuse-ld={}", config.linker));
         }
         if let Some(sccache) = &config.sccache {
             command.env("RUSTC_WRAPPER", sccache);
@@ -202,21 +176,14 @@ impl Module {
             eprintln!("{output}");
         }
         self.build_num += 1;
-        let copied_so_file = self
-            .deps_dir()
-            .join(shared_object_name_from_crate_name(&format!(
-                "code_{}",
-                self.build_num
-            )));
+        let copied_so_file = self.deps_dir().join(shared_object_name_from_crate_name(&format!("code_{}", self.build_num)));
         // Every time we compile, the output file is the same. We need to
         // renamed it so that we have a unique filename, otherwise we wouldn't
         // be able to load the result of the next compilation. Also, on Windows,
         // a loaded dll gets locked, so we couldn't even compile a second time
         // if we didn't load a different file.
         rename_or_copy_so_file(&self.so_path(), &copied_so_file)?;
-        Ok(SoFile {
-            path: copied_so_file,
-        })
+        Ok(SoFile { path: copied_so_file })
     }
 
     fn write_code(&self, code_block: &CodeBlock) -> Result<(), JupyterErrorKind> {
@@ -291,16 +258,10 @@ offline = {}
 
 /// Run a cargo command prepared for the provided `code_block`, processing the
 /// command's output.
-fn run_cargo(
-    mut command: std::process::Command,
-    code_block: &CodeBlock,
-) -> Result<std::process::Output, JupyterErrorKind> {
+fn run_cargo(mut command: std::process::Command, code_block: &CodeBlock) -> Result<std::process::Output, JupyterErrorKind> {
     use std::io::{BufRead, Read};
 
-    let mb_child = command
-        .stderr(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .spawn();
+    let mb_child = command.stderr(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).spawn();
     let mut child = match mb_child {
         Ok(out) => out,
         Err(err) => panic!("Error running 'cargo rustc': {}", err),
@@ -327,27 +288,29 @@ fn run_cargo(
     let status = child.wait()?;
     let all_output = output_thread.join().expect("Panic in child thread")?;
 
-    let cargo_output = std::process::Output {
-        status,
-        stdout: all_output,
-        stderr: all_errors,
-    };
+    let cargo_output = std::process::Output { status, stdout: all_output, stderr: all_errors };
     if cargo_output.status.success() {
         Ok(cargo_output)
-    } else {
+    }
+    else {
         let (errors, non_json_error) = errors_from_cargo_output(&cargo_output, code_block);
         if errors.is_empty() {
             if let Some(error) = non_json_error {
                 panic!("{}", JupyterErrorKind::Message(error));
-            } else {
-                panic!("{}", JupyterErrorKind::Message(format!(
-                    "Compilation failed, but no parsable errors were found. STDERR:\n\
-                     {}\nSTDOUT:{}\n",
-                    String::from_utf8_lossy(&cargo_output.stderr),
-                    String::from_utf8_lossy(&cargo_output.stdout)
-                )));
             }
-        } else {
+            else {
+                panic!(
+                    "{}",
+                    JupyterErrorKind::Message(format!(
+                        "Compilation failed, but no parsable errors were found. STDERR:\n\
+                     {}\nSTDOUT:{}\n",
+                        String::from_utf8_lossy(&cargo_output.stderr),
+                        String::from_utf8_lossy(&cargo_output.stdout)
+                    ))
+                );
+            }
+        }
+        else {
             panic!("{}", JupyterErrorKind::CompilationErrors(errors));
         }
     }
@@ -359,15 +322,13 @@ fn run_cargo(
 fn tee_error_line(line: &[u8]) {
     use std::io::Write;
     static CRATE_COMPILING: OnceCell<regex::bytes::Regex> = OnceCell::new();
-    let crate_compiling = CRATE_COMPILING
-        .get_or_init(|| regex::bytes::Regex::new("^\\s*Compiling (\\w+)(?:\\s+.*)?$").unwrap());
+    let crate_compiling =
+        CRATE_COMPILING.get_or_init(|| regex::bytes::Regex::new("^\\s*Compiling (\\w+)(?:\\s+.*)?$").unwrap());
     if let Some(captures) = crate_compiling.captures(line) {
         let crate_name = captures.get(1).unwrap().as_bytes();
         if crate_name != CRATE_NAME.as_bytes() {
             // write line and the following nl symbol as it was stripped before
-            std::io::stderr()
-                .write_all(line)
-                .expect("Writing to stderr should not fail");
+            std::io::stderr().write_all(line).expect("Writing to stderr should not fail");
             eprintln!();
         }
     }
@@ -381,8 +342,7 @@ fn errors_from_cargo_output(
     // Cargo errors, we need to add explicit matching for those errors that we
     // expect we might see.
     static KNOWN_NON_JSON_ERRORS: OnceCell<Regex> = OnceCell::new();
-    let known_non_json_errors = KNOWN_NON_JSON_ERRORS
-        .get_or_init(|| Regex::new("(error: no matching package named)").unwrap());
+    let known_non_json_errors = KNOWN_NON_JSON_ERRORS.get_or_init(|| Regex::new("(error: no matching package named)").unwrap());
 
     let stderr = String::from_utf8_lossy(&cargo_output.stderr);
     let stdout = String::from_utf8_lossy(&cargo_output.stdout);
@@ -391,15 +351,12 @@ fn errors_from_cargo_output(
         .lines()
         .chain(stdout.lines())
         .filter_map(|line| {
-            json::parse(line)
-                .ok()
-                .and_then(|json| CompilationError::opt_new(json, code_block))
-                .or_else(|| {
-                    if known_non_json_errors.is_match(line) {
-                        non_json_error = Some(line.to_owned());
-                    }
-                    None
-                })
+            from_str(line).ok().and_then(|json| CompilationError::opt_new(json, code_block)).or_else(|| {
+                if known_non_json_errors.is_match(line) {
+                    non_json_error = Some(line.to_owned());
+                }
+                None
+            })
         })
         .collect();
     (errors, non_json_error)
@@ -421,9 +378,5 @@ fn get_host_target() -> Result<String, JupyterErrorKind> {
             return Ok(host.to_owned());
         }
     }
-    panic!(
-        "rustc -Vv didn't output a host line.\n{}\n{}",
-        stdout,
-        stderr
-    );
+    panic!("rustc -Vv didn't output a host line.\n{}\n{}", stdout, stderr);
 }

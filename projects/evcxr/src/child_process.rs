@@ -5,13 +5,12 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::errors::bail;
-use crate::errors::JupyterErrorKind;
-use crate::runtime;
-use std::io::BufReader;
-use std::process;
-use std::sync::Arc;
-use std::sync::Mutex;
+use crate::{errors::JupyterErrorKind, runtime};
+use std::{
+    io::BufReader,
+    process,
+    sync::{Arc, Mutex},
+};
 
 pub(crate) struct ChildProcess {
     process_handle: Arc<Mutex<std::process::Child>>,
@@ -42,11 +41,7 @@ impl ChildProcess {
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped());
-        ChildProcess::new_internal(
-            Arc::new(Mutex::new(command)),
-            None,
-            Arc::new(Mutex::new(stderr_sender)),
-        )
+        ChildProcess::new_internal(Arc::new(Mutex::new(command)), None, Arc::new(Mutex::new(stderr_sender)))
     }
 
     fn new_internal(
@@ -62,8 +57,7 @@ impl ChildProcess {
 
         let stdin = process.stdin.take();
         // Handle stderr by patching it through to a channel in our output struct.
-        let mut child_stderr =
-            std::io::BufRead::lines(BufReader::new(process.stderr.take().unwrap()));
+        let mut child_stderr = std::io::BufRead::lines(BufReader::new(process.stderr.take().unwrap()));
         let stdout = std::io::BufRead::lines(BufReader::new(process.stdout.take().unwrap()));
 
         // If we already have an Arc<Mutex<>> wrapping an old process, then
@@ -91,14 +85,7 @@ impl ChildProcess {
             }
         });
 
-        Ok(ChildProcess {
-            process_handle,
-            process_disowned: false,
-            stdout,
-            stdin,
-            command,
-            stderr_sender,
-        })
+        Ok(ChildProcess { process_handle, process_disowned: false, stdout, stdin, command, stderr_sender })
     }
 
     /// Returns a handle to our subprocess. This handle may be used to terminate
@@ -131,17 +118,13 @@ impl ChildProcess {
 
     pub(crate) fn send(&mut self, command: &str) -> Result<(), JupyterErrorKind> {
         use std::io::Write;
-        writeln!(self.stdin.as_mut().unwrap(), "{command}")
-            .map_err(|_| self.get_termination_error())?;
+        writeln!(self.stdin.as_mut().unwrap(), "{command}").map_err(|_| self.get_termination_error())?;
         self.stdin.as_mut().unwrap().flush()?;
         Ok(())
     }
 
     pub(crate) fn recv_line(&mut self) -> Result<String, JupyterErrorKind> {
-        Ok(self
-            .stdout
-            .next()
-            .ok_or_else(|| self.get_termination_error())??)
+        Ok(self.stdout.next().ok_or_else(|| self.get_termination_error())??)
     }
 
     fn get_termination_error(&mut self) -> JupyterErrorKind {

@@ -4,5 +4,11 @@ mod install;
 mod open_jupyter;
 mod start;
 mod uninstall;
-pub use self::{install::InstallAction, open_jupyter::OpenAction, start::StartAction, uninstall::UninstallAction};
+pub use self::{
+    install::{InstallAction, KernelConfig},
+    open_jupyter::OpenAction,
+    start::StartAction,
+    uninstall::UninstallAction,
+};
 use crate::legacy_install;
+use serde_derive::{Deserialize, Serialize};

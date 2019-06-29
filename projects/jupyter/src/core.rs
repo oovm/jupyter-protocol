@@ -11,7 +11,6 @@ use ariadne::sources;
 use colored::*;
 use crossbeam_channel::Select;
 use evcxr::{CommandContext, JupyterResult, Theme};
-use json::JsonValue;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
@@ -198,8 +197,8 @@ impl Server {
                         tokio::time::sleep(Duration::from_millis(1)).await;
                         let mut data = HashMap::new();
                         // At the time of writing the json crate appears to have a generic From
-                        // implementation for a Vec<T> where T implements Into<JsonValue>. It also
-                        // has conversion from HashMap<String, JsonValue>, but it doesn't have
+                        // implementation for a Vec<T> where T implements Into<serde_json::Value>. It also
+                        // has conversion from HashMap<String, serde_json::Value>, but it doesn't have
                         // conversion from HashMap<String, T>. Perhaps send a PR? For now, we
                         // convert the values manually.
                         for (k, v) in output.content_by_mime_type {
@@ -223,7 +222,7 @@ impl Server {
                     if let Some(duration) = output.timing {
                         // TODO replace by duration.as_millis() when stable
                         let ms = duration.as_secs() * 1000 + u64::from(duration.subsec_millis());
-                        let mut data: HashMap<String, JsonValue> = HashMap::new();
+                        let mut data: HashMap<String, serde_json::Value> = HashMap::new();
                         data.insert(
                             "text/html".into(),
                             json::from(format!("<span style=\"color: rgba(0,0,0,0.4);\">Took {}ms</span>", ms)),
@@ -545,10 +544,10 @@ async fn comm_open(
     }
 }
 
-async fn cargo_check(code: String, context: Arc<std::sync::Mutex<CommandContext>>) -> JsonValue {
+async fn cargo_check(code: String, context: Arc<std::sync::Mutex<CommandContext>>) -> serde_json::Value {
     let problems =
         tokio::task::spawn_blocking(move || context.lock().unwrap().check(&code).unwrap_or_default()).await.unwrap_or_default();
-    let problems_json: Vec<JsonValue> = problems
+    let problems_json: Vec<serde_json::Value> = problems
         .iter()
         .filter_map(|problem| {
             if let Some(primary_spanned_message) = problem.primary_spanned_message() {
@@ -588,7 +587,7 @@ async fn bind_socket<S: zeromq::Socket>(config: &control_file::Control, port: u1
 }
 
 /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-fn kernel_info() -> JsonValue {
+fn kernel_info() -> serde_json::Value {
     object! {
         "protocol_version" => "5.3",
         "implementation" => env!("CARGO_PKG_NAME"),
@@ -618,20 +617,20 @@ fn kernel_info() -> JsonValue {
 async fn handle_completion_request(
     context: &Arc<std::sync::Mutex<CommandContext>>,
     message: JupyterMessage,
-) -> Result<JsonValue> {
+) -> Result<serde_json::Value> {
     let context = Arc::clone(context);
     tokio::task::spawn_blocking(move || {
         let code = message.code();
         let completions =
             context.lock().unwrap().completions(code, grapheme_offset_to_byte_offset(code, message.cursor_pos()))?;
         let matches: Vec<String> = completions.completions.into_iter().map(|completion| completion.code).collect();
-        Ok(object! {
-            "status" => "ok",
-            "matches" => matches,
-            "cursor_start" => byte_offset_to_grapheme_offset(code, completions.start_offset)?,
-            "cursor_end" => byte_offset_to_grapheme_offset(code, completions.end_offset)?,
-            "metadata" => object!{},
-        })
+        Ok(json! ({
+            "status": "ok",
+            "matches": matches,
+            "cursor_start": byte_offset_to_grapheme_offset(code, completions.start_offset)?,
+            "cursor_end": byte_offset_to_grapheme_offset(code, completions.end_offset)?,
+            "metadata": {},
+        }))
     })
     .await?
 }

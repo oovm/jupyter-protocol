@@ -5,14 +5,15 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::errors::bail;
 use crate::errors::JupyterErrorKind;
 use once_cell::sync::OnceCell;
 use regex::Regex;
-use std::io;
-use std::marker::PhantomData;
-use std::rc::Rc;
-use std::{self};
+use std::{
+    io,
+    marker::PhantomData,
+    rc::Rc,
+    {self},
+};
 
 pub(crate) const EVCXR_IS_RUNTIME_VAR: &str = "EVCXR_IS_RUNTIME";
 pub(crate) const EVCXR_EXECUTION_COMPLETE: &str = "EVCXR_EXECUTION_COMPLETE";
@@ -35,11 +36,7 @@ struct Runtime {
 
 impl Runtime {
     fn new() -> Runtime {
-        Runtime {
-            shared_objects: Vec::new(),
-            variable_store_ptr: std::ptr::null_mut(),
-            _phantom_rc: PhantomData,
-        }
+        Runtime { shared_objects: Vec::new(), variable_store_ptr: std::ptr::null_mut(), _phantom_rc: PhantomData }
     }
 
     fn run_loop(&mut self) -> ! {
@@ -61,11 +58,11 @@ impl Runtime {
     fn handle_line(&mut self, line: &io::Result<String>) -> Result<(), JupyterErrorKind> {
         let line = line.as_ref()?;
         static LOAD_AND_RUN: OnceCell<Regex> = OnceCell::new();
-        let load_and_run =
-            LOAD_AND_RUN.get_or_init(|| Regex::new("LOAD_AND_RUN ([^ ]+) ([^ ]+)").unwrap());
+        let load_and_run = LOAD_AND_RUN.get_or_init(|| Regex::new("LOAD_AND_RUN ([^ ]+) ([^ ]+)").unwrap());
         if let Some(captures) = load_and_run.captures(line) {
             self.load_and_run(&captures[1], &captures[2])
-        } else {
+        }
+        else {
             panic!("Unrecognised line: {}", line);
         }
     }
@@ -74,8 +71,7 @@ impl Runtime {
         use std::os::raw::c_void;
         let shared_object = unsafe { libloading::Library::new(so_path) }?;
         unsafe {
-            let user_fn = shared_object
-                .get::<extern "C" fn(*mut c_void) -> *mut c_void>(fn_name.as_bytes())?;
+            let user_fn = shared_object.get::<extern "C" fn(*mut c_void) -> *mut c_void>(fn_name.as_bytes())?;
             self.variable_store_ptr = user_fn(self.variable_store_ptr);
         }
         println!("{EVCXR_EXECUTION_COMPLETE}");
