@@ -18,7 +18,7 @@ use crate::{
     errors::{CompilationError, JupyterErrorKind, Span, SpannedMessage},
     eval_context::{ContextState, EvalCallbacks},
     rust_analyzer::{Completion, Completions},
-    EvalContext, EvalContextOutputs, EvalOutputs,
+    EvalContext, EvalContextOutputs, EvalOutputs, JupyterResult,
 };
 use anyhow::Result;
 use once_cell::sync::OnceCell;
@@ -32,7 +32,7 @@ pub struct CommandContext {
 }
 
 impl CommandContext {
-    pub fn new() -> Result<(CommandContext, EvalContextOutputs), JupyterErrorKind> {
+    pub fn new() -> JupyterResult<(CommandContext, EvalContextOutputs)> {
         let (eval_context, eval_context_outputs) = EvalContext::new()?;
         let command_context = CommandContext::with_eval_context(eval_context);
         Ok((command_context, eval_context_outputs))
@@ -193,7 +193,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
         Ok(completions)
     }
 
-    fn load_config(&mut self, quiet: bool) -> Result<EvalOutputs, JupyterErrorKind> {
+    fn load_config(&mut self, quiet: bool) -> JupyterResult<EvalOutputs> {
         let mut outputs = EvalOutputs::new();
         if let Some(config_dir) = crate::config_dir() {
             let config_file = config_dir.join("init.evcxr");
@@ -474,7 +474,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
         out
     }
 
-    fn var_type(&self, args: &Option<String>) -> Result<EvalOutputs, JupyterErrorKind> {
+    fn var_type(&self, args: &Option<String>) -> JupyterResult<EvalOutputs> {
         let args = if let Some(x) = args { x.trim() } else { panic!("Variable name required") };
 
         let mut out = None;
@@ -495,7 +495,7 @@ Panic detected. Here's some useful information if you're filing a bug report.
     }
 }
 
-fn process_dep_command(state: &mut ContextState, args: &Option<String>) -> Result<EvalOutputs, JupyterErrorKind> {
+fn process_dep_command(state: &mut ContextState, args: &Option<String>) -> JupyterResult<EvalOutputs> {
     use regex::Regex;
     let Some(args) = args else {
         panic!(":dep requires arguments")
@@ -516,10 +516,8 @@ fn process_dep_command(state: &mut ContextState, args: &Option<String>) -> Resul
     }
 }
 
-type CallbackFn = dyn Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, JupyterErrorKind>
-    + 'static
-    + Sync
-    + Send;
+type CallbackFn =
+    dyn Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> JupyterResult<EvalOutputs> + 'static + Sync + Send;
 
 struct AvailableCommand {
     name: &'static str,
@@ -533,7 +531,7 @@ impl AvailableCommand {
     fn new(
         name: &'static str,
         short_description: &'static str,
-        callback: impl Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, JupyterErrorKind>
+        callback: impl Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> JupyterResult<EvalOutputs>
         + 'static
         + Sync
         + Send,
@@ -543,7 +541,7 @@ impl AvailableCommand {
 
     fn with_analysis_callback(
         mut self,
-        callback: impl Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> Result<EvalOutputs, JupyterErrorKind>
+        callback: impl Fn(&mut CommandContext, &mut ContextState, &Option<String>) -> JupyterResult<EvalOutputs>
         + 'static
         + Sync
         + Send,
@@ -568,7 +566,7 @@ fn html_escape(input: &str, out: &mut String) {
     }
 }
 
-fn text_output<T: Into<String>>(text: T) -> Result<EvalOutputs, JupyterErrorKind> {
+fn text_output<T: Into<String>>(text: T) -> JupyterResult<EvalOutputs> {
     let mut outputs = EvalOutputs::new();
     let mut content = text.into();
     content.push('\n');

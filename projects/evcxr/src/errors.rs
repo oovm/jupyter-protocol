@@ -21,7 +21,7 @@ pub type JupyterResult<T> = Result<T, JupyterError>;
 
 #[derive(Debug, Clone)]
 pub struct JupyterError {
-    kind: JupyterErrorKind,
+    kind: Box<JupyterErrorKind>,
 }
 
 #[derive(Debug, Clone)]
@@ -491,27 +491,27 @@ impl SpannedMessage {
     }
 }
 
-impl From<std::fmt::Error> for JupyterErrorKind {
-    fn from(error: std::fmt::Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
+impl From<JupyterErrorKind> for JupyterError {
+    fn from(value: JupyterErrorKind) -> Self {
+        JupyterError { kind: Box::new(value) }
     }
 }
 
-impl From<std::io::Error> for JupyterErrorKind {
-    fn from(error: std::io::Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
+impl From<std::fmt::Error> for JupyterError {
+    fn from(error: std::fmt::Error) -> Self {
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }
 
 impl From<std::io::Error> for JupyterError {
     fn from(error: std::io::Error) -> Self {
-        JupyterError { kind: JupyterErrorKind::from(error) }
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }
 
-impl From<serde_json::Error> for JupyterErrorKind {
+impl From<serde_json::Error> for JupyterError {
     fn from(error: serde_json::Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }
 

@@ -10,6 +10,7 @@ use crate::{
     child_process::ChildProcess,
     code_block::{CodeBlock, CodeKind, Segment, UserCodeInfo},
     crate_config::ExternalCrate,
+    JupyterResult,
 };
 
 use crate::{
@@ -243,7 +244,7 @@ impl<'a> Default for EvalCallbacks<'a> {
 }
 
 impl EvalContext {
-    pub fn new() -> Result<(EvalContext, EvalContextOutputs), JupyterErrorKind> {
+    pub fn new() -> JupyterResult<(EvalContext, EvalContextOutputs)> {
         fix_path();
 
         let current_exe = std::env::current_exe()?;
@@ -283,7 +284,7 @@ impl EvalContext {
 
     pub fn with_subprocess_command(
         mut subprocess_command: std::process::Command,
-    ) -> Result<(EvalContext, EvalContextOutputs), JupyterErrorKind> {
+    ) -> JupyterResult<(EvalContext, EvalContextOutputs)> {
         let mut opt_tmpdir = None;
         let tmpdir_path;
         if let Ok(from_env) = std::env::var("EVCXR_TMPDIR") {
@@ -476,7 +477,7 @@ impl EvalContext {
     // Clears all state, while keeping tmpdir. This allows us to effectively
     // restart, but without having to recompile any external crates we'd already
     // compiled. Config is preserved.
-    pub fn clear(&mut self) -> Result<(), JupyterErrorKind> {
+    pub fn clear(&mut self) -> JupyterResult<()> {
         self.committed_state = self.cleared_state();
         self.restart_child_process()
     }
@@ -495,7 +496,7 @@ impl EvalContext {
         self.child_process.process_handle()
     }
 
-    fn restart_child_process(&mut self) -> Result<(), JupyterErrorKind> {
+    fn restart_child_process(&mut self) -> JupyterResult<()> {
         self.committed_state.variable_states.clear();
         self.committed_state.stored_variable_states.clear();
         self.child_process = self.child_process.restart()?;
@@ -522,7 +523,7 @@ impl EvalContext {
         state: &mut ContextState,
         phases: &mut PhaseDetailsBuilder,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<EvalOutputs, JupyterErrorKind> {
+    ) -> JupyterResult<EvalOutputs> {
         self.write_cargo_toml(state)?;
         self.fix_variable_types(state, state.analysis_code(user_code.clone()))?;
         // In some circumstances we may need a few tries before we get the code right. Note that
@@ -589,7 +590,7 @@ impl EvalContext {
         compilation_mode: CompilationMode,
         phases: &mut PhaseDetailsBuilder,
         callbacks: &mut EvalCallbacks,
-    ) -> Result<ExecutionArtifacts, JupyterErrorKind> {
+    ) -> JupyterResult<ExecutionArtifacts> {
         let code = state.code_to_compile(user_code, compilation_mode);
         let so_file = self.module.compile(&code, &state.config)?;
 
@@ -610,7 +611,7 @@ impl EvalContext {
         Ok(())
     }
 
-    fn fix_variable_types(&mut self, state: &mut ContextState, code: CodeBlock) -> Result<(), JupyterErrorKind> {
+    fn fix_variable_types(&mut self, state: &mut ContextState, code: CodeBlock) -> JupyterResult<()> {
         self.analyzer.set_source(code.code_string())?;
         for (variable_name, VariableInfo { type_name, is_mutable }) in
             self.analyzer.top_level_variables("evcxr_analysis_wrapper")

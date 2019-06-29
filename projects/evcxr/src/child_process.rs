@@ -5,7 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{errors::JupyterErrorKind, runtime};
+use crate::{errors::JupyterErrorKind, runtime, JupyterError, JupyterResult};
 use std::{
     io::BufReader,
     process,
@@ -28,7 +28,7 @@ impl ChildProcess {
     pub(crate) fn new(
         mut command: std::process::Command,
         stderr_sender: crossbeam_channel::Sender<String>,
-    ) -> Result<ChildProcess, JupyterErrorKind> {
+    ) -> JupyterResult<ChildProcess> {
         // Avoid a fork bomb. We could call runtime_hook here but then all the work that we did up
         // to this point would be wasted. Also, it's possible that we could already have started
         // threads, which could get messy.
@@ -48,7 +48,7 @@ impl ChildProcess {
         command: Arc<Mutex<std::process::Command>>,
         process_handle: Option<Arc<Mutex<std::process::Child>>>,
         stderr_sender: Arc<Mutex<crossbeam_channel::Sender<String>>>,
-    ) -> Result<ChildProcess, JupyterErrorKind> {
+    ) -> JupyterResult<ChildProcess> {
         let process = command.lock().unwrap().spawn();
         let mut process = match process {
             Ok(c) => c,
@@ -98,7 +98,7 @@ impl ChildProcess {
     }
 
     /// Terminates this process if it hasn't already, then restarts
-    pub(crate) fn restart(&mut self) -> Result<ChildProcess, JupyterErrorKind> {
+    pub(crate) fn restart(&mut self) -> JupyterResult<ChildProcess> {
         // If the process hasn't already terminated for some reason, kill it.
         let mut process = self.process_handle.lock().unwrap();
         if let Ok(None) = process.try_wait() {
@@ -116,14 +116,14 @@ impl ChildProcess {
         )
     }
 
-    pub(crate) fn send(&mut self, command: &str) -> Result<(), JupyterErrorKind> {
+    pub(crate) fn send(&mut self, command: &str) -> JupyterResult<()> {
         use std::io::Write;
         writeln!(self.stdin.as_mut().unwrap(), "{command}").map_err(|_| self.get_termination_error())?;
         self.stdin.as_mut().unwrap().flush()?;
         Ok(())
     }
 
-    pub(crate) fn recv_line(&mut self) -> Result<String, JupyterErrorKind> {
+    pub(crate) fn recv_line(&mut self) -> JupyterResult<String> {
         Ok(self.stdout.next().ok_or_else(|| self.get_termination_error())??)
     }
 

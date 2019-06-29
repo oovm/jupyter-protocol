@@ -9,6 +9,7 @@ use crate::{
     code_block::CodeBlock,
     errors::{CompilationError, JupyterErrorKind},
     eval_context::{Config, ContextState},
+    JupyterResult,
 };
 use once_cell::sync::OnceCell;
 use regex::Regex;
@@ -122,18 +123,18 @@ impl Module {
     }
 
     // Writes Cargo.toml. Should be called before compile.
-    pub(crate) fn write_cargo_toml(&self, state: &ContextState) -> Result<(), JupyterErrorKind> {
+    pub(crate) fn write_cargo_toml(&self, state: &ContextState) -> JupyterResult<()> {
         write_file(self.crate_dir(), "Cargo.toml", &self.get_cargo_toml_contents(state))
     }
 
     // Writes .cargo/config.toml. Should be called before compile.
-    pub(crate) fn write_config_toml(&self, state: &ContextState) -> Result<(), JupyterErrorKind> {
+    pub(crate) fn write_config_toml(&self, state: &ContextState) -> JupyterResult<()> {
         let dot_config_dir = self.crate_dir().join(".cargo");
         fs::create_dir_all(dot_config_dir.as_path())?;
         write_file(dot_config_dir.as_path(), "config.toml", &self.get_config_toml_contents(state))
     }
 
-    pub(crate) fn check(&mut self, code_block: &CodeBlock, config: &Config) -> Result<Vec<CompilationError>, JupyterErrorKind> {
+    pub(crate) fn check(&mut self, code_block: &CodeBlock, config: &Config) -> JupyterResult<Vec<CompilationError>> {
         self.write_code(code_block)?;
         let output = config.cargo_command("check").arg("--message-format=json").output();
 
@@ -145,7 +146,7 @@ impl Module {
         Ok(errors)
     }
 
-    pub(crate) fn compile(&mut self, code_block: &CodeBlock, config: &Config) -> Result<SoFile, JupyterErrorKind> {
+    pub(crate) fn compile(&mut self, code_block: &CodeBlock, config: &Config) -> JupyterResult<SoFile> {
         let mut command = config.cargo_command("rustc");
         if config.time_passes && config.toolchain != "nightly" {
             panic!("time_passes option requires nightly compiler");

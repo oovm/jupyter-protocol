@@ -5,12 +5,12 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{connection::Connection, control_file, jupyter_message::JupyterMessage};
+use crate::{connection::Connection, jupyter_message::JupyterMessage};
 use anyhow::{bail, Result};
 use ariadne::sources;
 use colored::*;
 use crossbeam_channel::Select;
-use evcxr::{CommandContext, JupyterResult, Theme};
+use evcxr::{CommandContext, JsonValue, JupyterResult, Theme};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
@@ -32,7 +32,7 @@ struct ShutdownReceiver {
 }
 
 impl Server {
-    pub(crate) fn run(config: &control_file::Control) -> JupyterResult<()> {
+    pub(crate) fn run(config: &control_file::KernelControl) -> JupyterResult<()> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             // We only technically need 1 thread. However we've observed that
             // when using vscode's jupyter extension, we can get requests on the
@@ -57,7 +57,7 @@ impl Server {
         Ok(())
     }
 
-    async fn start(config: &control_file::Control, tokio_handle: tokio::runtime::Handle) -> Result<ShutdownReceiver> {
+    async fn start(config: &control_file::KernelControl, tokio_handle: tokio::runtime::Handle) -> Result<ShutdownReceiver> {
         let mut heartbeat = bind_socket::<zeromq::RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<zeromq::RouterSocket>(config, config.shell_port).await?;
         let control_socket = bind_socket::<zeromq::RouterSocket>(config, config.control_port).await?;
@@ -579,7 +579,7 @@ async fn cargo_check(code: String, context: Arc<std::sync::Mutex<CommandContext>
     }
 }
 
-async fn bind_socket<S: zeromq::Socket>(config: &control_file::Control, port: u16) -> Result<Connection<S>> {
+async fn bind_socket<S: zeromq::Socket>(config: &control_file::KernelControl, port: u16) -> Result<Connection<S>> {
     let endpoint = format!("{}://{}:{}", config.transport, config.ip, port);
     let mut socket = S::new();
     socket.bind(&endpoint).await?;
@@ -617,7 +617,7 @@ fn kernel_info() -> serde_json::Value {
 async fn handle_completion_request(
     context: &Arc<std::sync::Mutex<CommandContext>>,
     message: JupyterMessage,
-) -> Result<serde_json::Value> {
+) -> Result<JsonValue> {
     let context = Arc::clone(context);
     tokio::task::spawn_blocking(move || {
         let code = message.code();

@@ -86,13 +86,13 @@ impl RawMessage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
-    header: serde_json::Value,
-    parent_header: serde_json::Value,
-    metadata: serde_json::Value,
-    content: serde_json::Value,
+    header: JsonValue,
+    parent_header: JsonValue,
+    metadata: JsonValue,
+    content: JsonValue,
 }
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";

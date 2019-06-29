@@ -9,7 +9,6 @@ use std::path::PathBuf;
 mod commands;
 pub use crate::commands::*;
 mod connection;
-mod control_file;
 mod core;
 mod jupyter_message;
 mod legacy_install;

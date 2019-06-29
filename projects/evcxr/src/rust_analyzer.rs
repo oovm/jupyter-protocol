@@ -5,6 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use crate::JupyterResult;
 use anyhow::{anyhow, Context, Result};
 use once_cell::sync::OnceCell;
 use ra_ap_base_db::{FileId, SourceRoot};
@@ -58,7 +59,7 @@ pub(crate) struct VariableInfo {
 }
 
 impl RustAnalyzer {
-    pub(crate) fn new(root_directory: &Path) -> Result<RustAnalyzer> {
+    pub(crate) fn new(root_directory: &Path) -> JupyterResult<RustAnalyzer> {
         use ra_vfs::loader::Handle;
         let (message_sender, message_receiver) = std::sync::mpsc::channel();
         let mut vfs = ra_vfs::Vfs::default();
@@ -69,7 +70,7 @@ impl RustAnalyzer {
         // contents via the vfs and change.change_file. This is because the loader checks for the
         // files existence when determining the crate structure.
         let src_dir = root_directory.join("src");
-        std::fs::create_dir_all(&src_dir).with_context(|| format!("Failed to create directory `{src_dir:?}`"))?;
+        std::fs::create_dir_all(&src_dir).unwrap();
         // Pre-allocate an ID for our main source file.
         let vfs_source_file: ra_vfs::VfsPath = source_file.clone().into();
         vfs.set_file_contents(vfs_source_file.clone(), Some(vec![]));
