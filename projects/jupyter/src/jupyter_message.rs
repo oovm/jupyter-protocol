@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::connection::{Connection, HmacSha256};
-use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use chrono::Utc;
 use evcxr::JsonValue;
@@ -30,7 +29,7 @@ impl RawMessage {
 
     pub(crate) fn from_multipart<S>(multipart: zeromq::ZmqMessage, connection: &Connection<S>) -> Result<RawMessage> {
         let delimiter_index =
-            multipart.iter().position(|part| &part[..] == DELIMITER).ok_or_else(|| anyhow!("Missing delimeter"))?;
+            multipart.iter().position(|part| &part[..] == DELIMITER).ok_or_else(|| panic!("Missing delimeter"))?;
         let mut parts = multipart.into_vec();
         let jparts: Vec<_> = parts.drain(delimiter_index + 2..).collect();
         let hmac = parts.pop().unwrap();

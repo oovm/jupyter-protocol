@@ -12,7 +12,7 @@ rust-version = "1.57"
 [dependencies]
 clap = "4.2.7"
 clap_derive = "4.2.0"
-evcxr = { version = "=0.14.2", path = "../evcxr" }
+#evcxr = { version = "=0.14.2", path = "../evcxr" }
 serde = "1.0.163"
 serde_derive = "1.0.163"
 bytes = "1.2.1"

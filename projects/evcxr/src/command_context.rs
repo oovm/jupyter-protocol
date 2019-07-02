@@ -19,7 +19,7 @@ use crate::{
     eval_context::{ContextState, EvalCallbacks},
     EvalContext, EvalContextOutputs, EvalOutputs, JupyterResult,
 };
-use anyhow::Result;
+
 use once_cell::sync::OnceCell;
 
 /// A higher level interface to EvalContext. A bit closer to a Repl. Provides commands (start with

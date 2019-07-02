@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::statement_splitter;
-use anyhow::{anyhow, Result};
 use once_cell::sync::OnceCell;
 use regex::Regex;
 use statement_splitter::OriginalUserCode;
@@ -244,7 +243,7 @@ impl CodeBlock {
     /// Tries to convert a user-code offset into an output code offset. For this to work as
     /// expected, there should have been a single call to original_user_code and user_code_offset
     /// should refer to a byte offset within the value that was passed.
-    pub(crate) fn user_offset_to_output_offset(&self, user_code_offset: usize) -> Result<usize> {
+    pub(crate) fn user_offset_to_output_offset(&self, user_code_offset: usize) -> JupyterResult<usize> {
         let mut bytes_seen = 0;
         self.segments
             .iter()
@@ -257,7 +256,7 @@ impl CodeBlock {
                 bytes_seen += segment.code.len();
                 None
             })
-            .ok_or_else(|| anyhow!("Offset {} doesn't refer to user code", user_code_offset))
+            .ok_or_else(|| panic!("Offset {} doesn't refer to user code", user_code_offset))
     }
 
     pub(crate) fn output_offset_to_user_offset(&self, output_offset: usize) -> Result<usize> {
@@ -273,7 +272,7 @@ impl CodeBlock {
                 bytes_seen += segment.code.len();
                 None
             })
-            .ok_or_else(|| anyhow!("Output offset {} doesn't refer to user code", output_offset))
+            .ok_or_else(|| panic!("Output offset {} doesn't refer to user code", output_offset))
     }
 
     pub(crate) fn load_variable(&mut self, code: String) {

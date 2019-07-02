@@ -7,7 +7,7 @@
 
 use crate::KernelConfig;
 use anyhow::Result;
-use evcxr::json_to_string;
+use evcxr::{json_to_string, JupyterResult};
 use std::{
     env, fs,
     io::Write,
@@ -23,7 +23,7 @@ const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/li
 const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 
-pub(crate) fn install() -> Result<()> {
+pub(crate) fn install() -> JupyterResult<()> {
     let kernel_dir = get_kernel_dir()?;
     fs::create_dir_all(&kernel_dir)?;
     let kernel_config = KernelConfig::new("rust", "Rust")?;

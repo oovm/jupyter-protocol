@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::{connection::Connection, jupyter_message::JupyterMessage, KernelControl};
-use anyhow::{bail, Result};
 use ariadne::sources;
 use colored::*;
 use crossbeam_channel::Select;
@@ -57,7 +56,7 @@ impl Server {
         Ok(())
     }
 
-    async fn start(config: &control_file::KernelControl, tokio_handle: tokio::runtime::Handle) -> Result<ShutdownReceiver> {
+    async fn start(config: &KernelControl, tokio_handle: tokio::runtime::Handle) -> JupyterResult<ShutdownReceiver> {
         let mut heartbeat = bind_socket::<zeromq::RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<zeromq::RouterSocket>(config, config.shell_port).await?;
         let control_socket = bind_socket::<zeromq::RouterSocket>(config, config.control_port).await?;
@@ -130,7 +129,7 @@ impl Server {
         self.shutdown_sender.lock().await.take();
     }
 
-    async fn handle_hb(connection: &mut Connection<zeromq::RepSocket>) -> Result<()> {
+    async fn handle_hb(connection: &mut Connection<zeromq::RepSocket>) -> JupyterResult<()> {
         use zeromq::{SocketRecv, SocketSend};
         loop {
             connection.socket.recv().await?;
@@ -143,7 +142,7 @@ impl Server {
         context: &Arc<std::sync::Mutex<CommandContext>>,
         receiver: &mut tokio::sync::mpsc::UnboundedReceiver<JupyterMessage>,
         execution_reply_sender: &tokio::sync::mpsc::UnboundedSender<JupyterMessage>,
-    ) -> Result<()> {
+    ) -> JupyterResult<()> {
         let mut execution_count = 1;
         loop {
             let message = match receiver.recv().await {
@@ -274,7 +273,7 @@ impl Server {
         execution_channel: &tokio::sync::mpsc::UnboundedSender<JupyterMessage>,
         execution_reply_receiver: &mut tokio::sync::mpsc::UnboundedReceiver<JupyterMessage>,
         context: Arc<std::sync::Mutex<CommandContext>>,
-    ) -> Result<()> {
+    ) -> JupyterResult<()> {
         loop {
             let message = JupyterMessage::read(&mut connection).await?;
             self.handle_shell_message(message, &mut connection, execution_channel, execution_reply_receiver, &context).await?;
@@ -288,7 +287,7 @@ impl Server {
         execution_channel: &tokio::sync::mpsc::UnboundedSender<JupyterMessage>,
         execution_reply_receiver: &mut tokio::sync::mpsc::UnboundedReceiver<JupyterMessage>,
         context: &Arc<std::sync::Mutex<CommandContext>>,
-    ) -> Result<()> {
+    ) -> JupyterResult<()> {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
         // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
@@ -299,7 +298,7 @@ impl Server {
             .await?;
         let idle = message.new_message("status").with_content(object! {"execution_state" => "idle"});
         if message.message_type() == "kernel_info_request" {
-            message.new_reply().with_content(kernel_info()).send(connection).await?;
+            message.new_reply().with_content(KernelInfo::rust()).send(connection).await?;
         }
         else if message.message_type() == "is_complete_request" {
             message.new_reply().with_content(object! {"status" => "complete"}).send(connection).await?;
@@ -342,11 +341,11 @@ impl Server {
         mut self,
         mut connection: Connection<zeromq::RouterSocket>,
         process_handle: Arc<std::sync::Mutex<std::process::Child>>,
-    ) -> Result<()> {
+    ) -> JupyterResult<()> {
         loop {
             let message = JupyterMessage::read(&mut connection).await?;
             match message.message_type() {
-                "kernel_info_request" => message.new_reply().with_content(kernel_info()).send(&mut connection).await?,
+                "kernel_info_request" => message.new_reply().with_content(KernelInfo::rust()).send(&mut connection).await?,
                 "shutdown_request" => self.signal_shutdown().await,
                 "interrupt_request" => {
                     let process_handle = process_handle.clone();
@@ -426,7 +425,7 @@ impl Server {
         parent_message: &JupyterMessage,
         source: &str,
         execution_count: u32,
-    ) -> Result<()> {
+    ) -> JupyterResult<()> {
         match errors {
             evcxr::JupyterErrorKind::CompilationErrors(errors) => {
                 for error in errors {
@@ -516,7 +515,7 @@ async fn comm_open(
     message: JupyterMessage,
     context: &Arc<std::sync::Mutex<CommandContext>>,
     iopub: Arc<Mutex<Connection<zeromq::PubSocket>>>,
-) -> Result<()> {
+) -> JupyterResult<()> {
     if message.target_name() == "evcxr-cargo-check" {
         let context = Arc::clone(context);
         tokio::spawn(async move {
@@ -586,31 +585,59 @@ async fn bind_socket<S: zeromq::Socket>(config: &control_file::KernelControl, po
     Connection::new(socket, &config.key)
 }
 
-/// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-fn kernel_info() -> serde_json::Value {
-    object! {
-        "protocol_version" => "5.3",
-        "implementation" => env!("CARGO_PKG_NAME"),
-        "implementation_version" => env!("CARGO_PKG_VERSION"),
-        "language_info" => object!{
-            "name" => "Rust",
-            "version" => "",
-            "mimetype" => "text/rust",
-            "file_extension" => ".rs",
-            // Pygments lexer, for highlighting Only needed if it differs from the 'name' field.
-            // see http://pygments.org/docs/lexers/#lexers-for-the-rust-language
-            "pygment_lexer" => "rust",
-            // Codemirror mode, for for highlighting in the notebook. Only needed if it differs from the 'name' field.
-            // codemirror use text/x-rustsrc as mimetypes
-            // see https://codemirror.net/mode/rust/
-            "codemirror_mode" => "rust",
-        },
-        "banner" => format!("EvCxR {} - Evaluation Context for Rust", env!("CARGO_PKG_VERSION")),
-        "help_links" => array![
-            object!{"text" => "Rust std docs",
-                    "url" => "https://doc.rust-lang.org/stable/std/"}
-        ],
-        "status" => "ok"
+pub struct KernelInfo {
+    protocol_version: String,
+    implementation: String,
+    implementation_version: String,
+    language_info: LanguageInfo,
+    banner: String,
+    help_links: Vec<HelpLink>,
+    status: String,
+}
+
+pub struct LanguageInfo {
+    name: String,
+    version: String,
+    mimetype: String,
+    file_extension: String,
+    // Pygments lexer, for highlighting Only needed if it differs from the 'name' field.
+    // see http://pygments.org/docs/lexers/#lexers-for-the-rust-language
+    pygment_lexer: String,
+    // Codemirror mode, for for highlighting in the notebook. Only needed if it differs from the 'name' field.
+    // codemirror use text/x-rustsrc as mimetypes
+    // see https://codemirror.net/mode/rust/
+    codemirror_mode: String,
+    nbconvert_exporter: String,
+}
+
+pub struct HelpLink {
+    text: String,
+    url: String,
+}
+
+impl KernelInfo {
+    /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
+    pub fn rust() -> KernelInfo {
+        KernelInfo {
+            protocol_version: "5.3".to_owned(),
+            implementation: env!("CARGO_PKG_NAME").to_owned(),
+            implementation_version: env!("CARGO_PKG_VERSION").to_owned(),
+            language_info: LanguageInfo {
+                name: "Rust".to_owned(),
+                version: "".to_owned(),
+                mimetype: "text/rust".to_owned(),
+                file_extension: ".rs".to_owned(),
+                pygment_lexer: "rust".to_owned(),
+                codemirror_mode: "rust".to_owned(),
+                nbconvert_exporter: "rust".to_owned(),
+            },
+            banner: format!("EvCxR {} - Evaluation Context for Rust", env!("CARGO_PKG_VERSION")),
+            help_links: vec![HelpLink {
+                text: "Rust std docs".to_owned(),
+                url: "https://doc.rust-lang.org/std/index.html".to_owned(),
+            }],
+            status: "ok".to_owned(),
+        }
     }
 }
 

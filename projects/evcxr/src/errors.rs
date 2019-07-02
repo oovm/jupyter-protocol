@@ -513,48 +513,14 @@ impl From<serde_json::Error> for JupyterError {
     }
 }
 
-impl<'a> From<&'a std::io::Error> for JupyterErrorKind {
-    fn from(error: &'a std::io::Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
-    }
-}
-
-impl From<std::str::Utf8Error> for JupyterErrorKind {
+impl From<std::str::Utf8Error> for JupyterError {
     fn from(error: std::str::Utf8Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }
 
-impl From<String> for JupyterErrorKind {
-    fn from(message: String) -> Self {
-        JupyterErrorKind::Message(message)
-    }
-}
-
-impl<'a> From<&'a str> for JupyterErrorKind {
-    fn from(message: &str) -> Self {
-        JupyterErrorKind::Message(message.to_owned())
-    }
-}
-
-impl From<anyhow::Error> for JupyterErrorKind {
-    fn from(error: anyhow::Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
-    }
-}
-
-impl From<libloading::Error> for JupyterErrorKind {
+impl From<libloading::Error> for JupyterError {
     fn from(error: libloading::Error) -> Self {
-        JupyterErrorKind::Message(error.to_string())
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }
-
-macro_rules! _err {
-    ($e:expr) => {$crate::Error::from($e)};
-    ($fmt:expr, $($arg:tt)+) => {$crate::errors::Error::from(format!($fmt, $($arg)+))}
-}
-
-macro_rules! _bail {
-    ($($arg:tt)+) => {return Err($crate::errors::err!($($arg)+))}
-}
-use crate::JsonValue;

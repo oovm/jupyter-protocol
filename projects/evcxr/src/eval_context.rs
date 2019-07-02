@@ -20,10 +20,7 @@ use crate::{
     runtime,
     use_trees::Import,
 };
-use anyhow::Result;
 use once_cell::sync::OnceCell;
-use ra_ap_ide::TextRange;
-use ra_ap_syntax::{ast, AstNode, SyntaxKind, SyntaxNode};
 use regex::Regex;
 use std::{
     collections::{HashMap, HashSet},
@@ -619,22 +616,6 @@ impl EvalContext {
             if variable_name == "evcxr_variable_store" {
                 continue;
             }
-            let type_name = match type_name {
-                TypeName::Named(x) => x,
-                TypeName::Closure => panic!(
-                    "The variable `{}` is a closure, which cannot be persisted.\n\
-                     You can however persist closures if you box them. e.g.:\n\
-                     let f: Box<dyn Fn()> = Box::new(|| {{println!(\"foo\")}});\n\
-                     Alternatively, you can prevent evcxr from attempting to persist\n\
-                     the variable by wrapping your code in braces.",
-                    variable_name
-                ),
-                TypeName::Unknown => panic!(
-                    "Couldn't automatically determine type of variable `{}`.\n\
-                     Please give it an explicit type.",
-                    variable_name
-                ),
-            };
             // For now, we need to look for and escape any reserved words. This should probably in
             // theory be done in rust analyzer in a less hacky way.
             let type_name = replace_reserved_words_in_type(&type_name);
@@ -835,11 +816,6 @@ fn fix_path() {
             }
         }
     }
-}
-
-/// Returns whether a type is fully specified. i.e. it doesn't contain any '_'.
-fn type_is_fully_specified(ty: &ast::Type) -> bool {
-    !AstNode::syntax(ty).descendants().any(|n| n.kind() == SyntaxKind::INFER_TYPE)
 }
 
 #[derive(Debug)]
@@ -1427,197 +1403,6 @@ impl ContextState {
         }
         for block in self.unnamed_items.iter_mut() {
             block.commit_old_user_code();
-        }
-    }
-
-    /// Applies `user_code` to this state object, returning the updated user
-    /// code. Things like use-statements will be removed from the returned code,
-    /// as they will have been stored in `self`.
-    fn apply(&mut self, user_code: CodeBlock, nodes: &[SyntaxNode]) -> Result<CodeBlock, JupyterErrorKind> {
-        for variable_state in self.variable_states.values_mut() {
-            variable_state.move_state = VariableMoveState::Available;
-        }
-
-        let mut code_out = CodeBlock::new();
-        let mut previous_item_name = None;
-        let num_statements = user_code.segments.len();
-        for (statement_index, segment) in user_code.segments.into_iter().enumerate() {
-            let node = if let CodeKind::OriginalUserCode(meta) = &segment.kind {
-                &nodes[meta.node_index]
-            }
-            else {
-                code_out = code_out.with_segment(segment);
-                continue;
-            };
-            if let Some(let_stmt) = ast::LetStmt::cast(node.clone()) {
-                if let Some(pat) = let_stmt.pat() {
-                    self.record_new_locals(pat, let_stmt.ty(), &segment, node.text_range());
-                    code_out = code_out.with_segment(segment);
-                }
-            }
-            else if ast::Attr::can_cast(node.kind()) {
-                self.attributes.insert(node.text().to_string(), CodeBlock::new().with_segment(segment));
-            }
-            else if ast::Expr::can_cast(node.kind()) {
-                if statement_index == num_statements - 1 {
-                    if self.config.display_final_expression {
-                        code_out = code_out.code_with_fallback(
-                            // First we try calling .evcxr_display().
-                            CodeBlock::new()
-                                .generated("(")
-                                .with_segment(segment.clone())
-                                .generated(").evcxr_display();")
-                                .code_string(),
-                            // If that fails, we try debug format.
-                            if self.config.display_types {
-                                CodeBlock::new()
-                                    .generated(SEND_TEXT_PLAIN_DEF)
-                                    .generated(GET_TYPE_NAME_DEF)
-                                    .generated("{ let r = &(")
-                                    .with_segment(segment)
-                                    .generated(format!(
-                                        "); evcxr_send_text_plain(&format!(\": {{}} = {}\", evcxr_get_type_name(r), r)); }};",
-                                        self.config.output_format
-                                    ))
-                            }
-                            else {
-                                CodeBlock::new()
-                                    .generated(SEND_TEXT_PLAIN_DEF)
-                                    .generated(format!("evcxr_send_text_plain(&format!(\"{}\",&(\n", self.config.output_format))
-                                    .with_segment(segment)
-                                    .generated(")));")
-                            },
-                        );
-                    }
-                    else {
-                        code_out = code_out.generated("let _ = ").with_segment(segment).generated(";");
-                    }
-                }
-                else {
-                    // We got an expression, but it wasn't the last statement,
-                    // so don't try to print it. Yes, this is possible. For
-                    // example `for x in y {}` is an expression. See the test
-                    // non_semi_statements.
-                    code_out = code_out.with_segment(segment);
-                }
-            }
-            else if let Some(item) = ast::Item::cast(node.clone()) {
-                match item {
-                    ast::Item::ExternCrate(extern_crate) => {
-                        if let Some(crate_name) = extern_crate.name_ref() {
-                            let crate_name = crate_name.text().to_string();
-                            if !self.dependency_lib_names()?.contains(&crate_name) {
-                                self.external_deps
-                                    .entry(crate_name.clone())
-                                    .or_insert_with(|| ExternalCrate::new(crate_name.clone(), "\"*\"".to_owned()).unwrap());
-                            }
-                            self.extern_crate_stmts.insert(crate_name, segment.code.clone());
-                        }
-                    }
-                    ast::Item::MacroRules(macro_rules) => {
-                        if let Some(name) = ast::HasName::name(&macro_rules) {
-                            let item_block = CodeBlock::new().with_segment(segment);
-                            self.items_by_name.insert(name.text().to_string(), item_block);
-                        }
-                        else {
-                            code_out = code_out.with_segment(segment);
-                        }
-                    }
-                    ast::Item::Use(use_stmt) => {
-                        if let Some(use_tree) = use_stmt.use_tree() {
-                            if self.config.expand_use_statements {
-                                // This mode is used for normal execution as it results in all named
-                                // items being stored separately, which permits future code to
-                                // deduplicate / replace those items. It doesn't however preserve
-                                // traceability back to the original user's code, so isn't so useful
-                                // for analysis purposes.
-                                crate::use_trees::use_tree_names_do(&use_tree, &mut |import| match import {
-                                    Import::Unnamed(code) => {
-                                        self.unnamed_items.push(CodeBlock::new().other_user_code(code));
-                                    }
-                                    Import::Named { name, code } => {
-                                        self.items_by_name.insert(name, CodeBlock::new().other_user_code(code));
-                                    }
-                                });
-                            }
-                            else {
-                                // This mode finds all names that the use statement expands to, then
-                                // removes any previous definitions of those names and then adds the
-                                // original user code as-is. This allows error reporting on the
-                                // added line. It's only good for one-off usage though, since all
-                                // the names get put into `unnamed_items`, so can't get tracked.
-                                // Fortunately this is fine for analysis purposes, since we always
-                                // through away the state after we're done with analysis.
-                                crate::use_trees::use_tree_names_do(&use_tree, &mut |import| {
-                                    if let Import::Named { name, .. } = import {
-                                        self.items_by_name.remove(&name);
-                                    }
-                                });
-                                self.unnamed_items.push(CodeBlock::new().with_segment(segment));
-                            }
-                        }
-                        else {
-                            // No use-tree probably means something is malformed, just put it into
-                            // the output as-is so that we can get proper error reporting.
-                            code_out = code_out.with_segment(segment);
-                        }
-                    }
-                    item => {
-                        let item_block = CodeBlock::new().with_segment(segment);
-                        if let Some(item_name) = item::item_name(&item) {
-                            *self.items_by_name.entry(item_name.to_owned()).or_default() = item_block;
-                            previous_item_name = Some(item_name);
-                        }
-                        else if let Some(item_name) = &previous_item_name {
-                            // unwrap below should never fail because we put
-                            // that key in the map on a previous iteration,
-                            // otherwise we wouldn't have had a value in
-                            // `previous_item_name`.
-                            self.items_by_name
-                                .get_mut(item_name)
-                                .unwrap()
-                                .modify(move |block_for_name| block_for_name.add_all(item_block));
-                        }
-                        else {
-                            self.unnamed_items.push(item_block);
-                        }
-                    }
-                }
-            }
-            else {
-                code_out = code_out.with_segment(segment);
-            }
-        }
-        Ok(code_out)
-    }
-
-    fn dependency_lib_names(&self) -> Result<Vec<String>> {
-        cargo_metadata::get_library_names(&self.config)
-    }
-
-    fn record_new_locals(&mut self, pat: ast::Pat, opt_ty: Option<ast::Type>, segment: &Segment, let_stmt_range: TextRange) {
-        match pat {
-            ast::Pat::IdentPat(ident) => self.record_local(ident, opt_ty, segment, let_stmt_range),
-            ast::Pat::RecordPat(ref pat_struct) => {
-                if let Some(record_fields) = pat_struct.record_pat_field_list() {
-                    for field in record_fields.fields() {
-                        if let Some(pat) = field.pat() {
-                            self.record_new_locals(pat, None, segment, let_stmt_range);
-                        }
-                    }
-                }
-            }
-            ast::Pat::TuplePat(ref pat_tuple) => {
-                for pat in pat_tuple.fields() {
-                    self.record_new_locals(pat, None, segment, let_stmt_range);
-                }
-            }
-            ast::Pat::TupleStructPat(ref pat_tuple) => {
-                for pat in pat_tuple.fields() {
-                    self.record_new_locals(pat, None, segment, let_stmt_range);
-                }
-            }
-            _ => {}
         }
     }
 

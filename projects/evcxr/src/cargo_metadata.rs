@@ -9,17 +9,13 @@ use once_cell::sync::OnceCell;
 use regex::Regex;
 use std::collections::HashMap;
 
-use crate::{eval_context::Config, JsonValue};
+use crate::{eval_context::Config, JsonValue, JupyterResult};
 
 /// Returns the library names for the direct dependencies of the crate rooted at
 /// the specified path.
-pub(crate) fn get_library_names(config: &Config) -> Result<Vec<String>> {
-    let output = config
-        .cargo_command("metadata")
-        .arg("--format-version")
-        .arg("1")
-        .output()
-        .with_context(|| "Error running cargo metadata")?;
+pub(crate) fn get_library_names(config: &Config) -> JupyterResult<Vec<String>> {
+    let output =
+        config.cargo_command("metadata").arg("--format-version").arg("1").output().expect("Error running cargo metadata");
     if output.status.success() {
         library_names_from_metadata(std::str::from_utf8(&output.stdout)?)
     }
