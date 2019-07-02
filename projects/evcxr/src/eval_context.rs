@@ -15,10 +15,9 @@ use crate::{
 
 use crate::{
     errors::{CompilationError, JupyterErrorKind, Span, SpannedMessage},
-    evcxr_internal_runtime, item,
+    evcxr_internal_runtime,
     module::{Module, SoFile},
     runtime,
-    rust_analyzer::{Completions, RustAnalyzer, TypeName, VariableInfo},
     use_trees::Import,
 };
 use anyhow::Result;

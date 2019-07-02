@@ -17,7 +17,6 @@ use crate::{
     crash_guard::CrashGuard,
     errors::{CompilationError, JupyterErrorKind, Span, SpannedMessage},
     eval_context::{ContextState, EvalCallbacks},
-    rust_analyzer::{Completion, Completions},
     EvalContext, EvalContextOutputs, EvalOutputs, JupyterResult,
 };
 use anyhow::Result;

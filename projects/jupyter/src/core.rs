@@ -5,7 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{connection::Connection, jupyter_message::JupyterMessage};
+use crate::{connection::Connection, jupyter_message::JupyterMessage, KernelControl};
 use anyhow::{bail, Result};
 use ariadne::sources;
 use colored::*;
@@ -32,7 +32,7 @@ struct ShutdownReceiver {
 }
 
 impl Server {
-    pub(crate) fn run(config: &control_file::KernelControl) -> JupyterResult<()> {
+    pub(crate) fn run(config: &KernelControl) -> JupyterResult<()> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             // We only technically need 1 thread. However we've observed that
             // when using vscode's jupyter extension, we can get requests on the

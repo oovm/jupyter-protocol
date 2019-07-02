@@ -20,10 +20,8 @@ mod crate_config;
 mod eval_context;
 #[allow(dead_code)]
 mod evcxr_internal_runtime;
-mod item;
 mod module;
 mod runtime;
-mod rust_analyzer;
 mod statement_splitter;
 mod use_trees;
 
@@ -33,7 +31,6 @@ pub use crate::{
     eval_context::{EvalCallbacks, EvalContext, EvalContextOutputs, EvalOutputs},
     runtime::runtime_hook,
 };
-pub use rust_analyzer::Completions;
 pub use serde_json::{from_str as json_from_str, to_string_pretty as json_to_string, Value as JsonValue};
 /// Return the directory that evcxr tools should use for their configuration.
 ///

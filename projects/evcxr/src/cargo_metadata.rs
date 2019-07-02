@@ -5,7 +5,6 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use anyhow::{Context, Result};
 use once_cell::sync::OnceCell;
 use regex::Regex;
 use std::collections::HashMap;

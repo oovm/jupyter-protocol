@@ -6,10 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::statement_splitter;
-use anyhow::anyhow;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use once_cell::sync::OnceCell;
-use ra_ap_syntax::SyntaxNode;
 use regex::Regex;
 use statement_splitter::OriginalUserCode;
 
@@ -28,12 +26,7 @@ impl Segment {
         if !code.ends_with('\n') {
             code.push('\n');
         }
-        Segment {
-            kind,
-            num_lines: num_lines(&code),
-            code,
-            sequence: None,
-        }
+        Segment { kind, num_lines: num_lines(&code), code, sequence: None }
     }
 }
 
@@ -86,10 +79,7 @@ impl CodeKind {
     }
 
     pub(crate) fn is_user_supplied(&self) -> bool {
-        matches!(
-            self,
-            CodeKind::OriginalUserCode(_) | CodeKind::OtherUserCode | CodeKind::Command(_)
-        )
+        matches!(self, CodeKind::OriginalUserCode(_) | CodeKind::OtherUserCode | CodeKind::Command(_))
     }
 }
 
@@ -154,9 +144,7 @@ impl CodeBlock {
     }
 
     pub(crate) fn segment_with_index(&self, index: usize) -> Option<&Segment> {
-        self.segments
-            .iter()
-            .find(|segment| segment.sequence == Some(index))
+        self.segments.iter().find(|segment| segment.sequence == Some(index))
     }
 
     pub(crate) fn with_segment(mut self, segment: Segment) -> Self {
@@ -203,23 +191,19 @@ impl CodeBlock {
                     }),
                     line,
                 );
-            } else if line.starts_with(r"//") || line.trim().is_empty() {
+            }
+            else if line.starts_with(r"//") || line.trim().is_empty() {
                 // Ignore blank lines, otherwise we can't have blank lines before :dep commands.
                 // We also ignore lines that start with //, because those are line comments.
-            } else {
+            }
+            else {
                 // Anything else, we treat as Rust code to be executed. Since we don't accept commands after Rust code, we're done looking for commands.
                 let non_command_start_byte = line.as_ptr() as usize - user_code.as_ptr() as usize;
-                for OriginalUserCode {
-                    code,
-                    start_byte,
-                    node,
-                } in
+                for OriginalUserCode { code, start_byte, node } in
                     statement_splitter::split_into_statements(&user_code[non_command_start_byte..])
                 {
                     let node_index = nodes.len();
-                    while code.as_ptr() as usize
-                        >= current_line.as_ptr() as usize + current_line.len()
-                    {
+                    while code.as_ptr() as usize >= current_line.as_ptr() as usize + current_line.len() {
                         line_number += 1;
                         // Unwrap must succeed since code is past the end of the current line.
                         current_line = lines.next().unwrap();
@@ -243,24 +227,13 @@ impl CodeBlock {
         for (index, segment) in code_block.segments.iter_mut().enumerate() {
             segment.sequence = Some(index);
         }
-        (
-            code_block,
-            UserCodeInfo {
-                nodes,
-                original_lines: user_code.lines().collect(),
-            },
-        )
+        (code_block, UserCodeInfo { nodes, original_lines: user_code.lines().collect() })
     }
 
-    pub(crate) fn command_containing_user_offset(
-        &self,
-        user_code_offset: usize,
-    ) -> Option<(&Segment, usize)> {
+    pub(crate) fn command_containing_user_offset(&self, user_code_offset: usize) -> Option<(&Segment, usize)> {
         self.segments.iter().find_map(|segment| {
             if let CodeKind::Command(CommandCall { start_byte, .. }) = &segment.kind {
-                if user_code_offset >= *start_byte
-                    && user_code_offset <= start_byte + segment.code.len()
-                {
+                if user_code_offset >= *start_byte && user_code_offset <= start_byte + segment.code.len() {
                     return Some((segment, user_code_offset - *start_byte));
                 }
             }
@@ -277,9 +250,7 @@ impl CodeBlock {
             .iter()
             .find_map(|segment| {
                 if let CodeKind::OriginalUserCode(meta) = &segment.kind {
-                    if user_code_offset >= meta.start_byte
-                        && user_code_offset <= meta.start_byte + segment.code.len()
-                    {
+                    if user_code_offset >= meta.start_byte && user_code_offset <= meta.start_byte + segment.code.len() {
                         return Some(bytes_seen + user_code_offset - meta.start_byte);
                     }
                 }
@@ -295,9 +266,7 @@ impl CodeBlock {
             .iter()
             .find_map(|segment| {
                 if let CodeKind::OriginalUserCode(meta) = &segment.kind {
-                    if output_offset >= bytes_seen
-                        && output_offset <= bytes_seen + segment.code.len()
-                    {
+                    if output_offset >= bytes_seen && output_offset <= bytes_seen + segment.code.len() {
                         return Some(meta.start_byte + output_offset - bytes_seen);
                     }
                 }
@@ -308,13 +277,11 @@ impl CodeBlock {
     }
 
     pub(crate) fn load_variable(&mut self, code: String) {
-        self.segments
-            .push(Segment::new(CodeKind::OtherGeneratedCode, code));
+        self.segments.push(Segment::new(CodeKind::OtherGeneratedCode, code));
     }
 
     pub(crate) fn pack_variable(&mut self, variable_name: String, code: String) {
-        self.segments
-            .push(Segment::new(CodeKind::PackVariable { variable_name }, code));
+        self.segments.push(Segment::new(CodeKind::PackVariable { variable_name }, code));
     }
 
     pub(crate) fn add_all(mut self, other: CodeBlock) -> Self {
@@ -352,7 +319,8 @@ impl CodeBlock {
         for segment in std::mem::take(&mut self.segments) {
             if segment.kind.equals_fallback(fallback) {
                 replacement_segments.extend(fallback.segments.clone());
-            } else {
+            }
+            else {
                 replacement_segments.push(segment);
             }
         }
@@ -362,50 +330,33 @@ impl CodeBlock {
 
 #[cfg(test)]
 mod test {
-    use super::CodeBlock;
-    use super::CodeKind;
+    use super::{CodeBlock, CodeKind};
 
     #[test]
     fn basic_usage() {
         let user_code = "l3";
         let (user_code_block, _nodes) = CodeBlock::from_original_user_code(user_code);
-        let mut code = CodeBlock::new()
-            .generated("l1\nl2")
-            .add_all(user_code_block)
-            .add_all(CodeBlock::new().generated("l4"));
+        let mut code = CodeBlock::new().generated("l1\nl2").add_all(user_code_block).add_all(CodeBlock::new().generated("l4"));
         code.pack_variable("v".to_owned(), "l5".to_owned());
         assert_eq!(code.code_string(), "l1\nl2\nl3\nl4\nl5\n");
         assert_eq!(code.segments.len(), 4);
-        assert_eq!(
-            code.segments
-                .iter()
-                .map(|s| s.num_lines)
-                .collect::<Vec<_>>(),
-            vec![2, 1, 1, 1]
-        );
+        assert_eq!(code.segments.iter().map(|s| s.num_lines).collect::<Vec<_>>(), vec![2, 1, 1, 1]);
         assert_eq!(code.origin_for_line(0), (&CodeKind::Unknown, 0));
         assert_eq!(code.origin_for_line(1), (&CodeKind::OtherGeneratedCode, 0));
         assert_eq!(code.origin_for_line(2), (&CodeKind::OtherGeneratedCode, 1));
         if let (CodeKind::OriginalUserCode(meta3), 0) = code.origin_for_line(3) {
             assert_eq!(meta3.start_byte, 0);
-        } else {
+        }
+        else {
             panic!("Unexpected result for line 3");
         }
         assert_eq!(code.origin_for_line(4), (&CodeKind::OtherGeneratedCode, 0));
-        assert_eq!(
-            code.origin_for_line(5),
-            (
-                &CodeKind::PackVariable {
-                    variable_name: "v".to_owned()
-                },
-                0
-            )
-        );
+        assert_eq!(code.origin_for_line(5), (&CodeKind::PackVariable { variable_name: "v".to_owned() }, 0));
         assert_eq!(code.origin_for_line(6), (&CodeKind::Unknown, 0));
 
         assert_eq!(
-            &code.code_string()[code.user_offset_to_output_offset(0).unwrap()
-                ..code.user_offset_to_output_offset(user_code.len()).unwrap()],
+            &code.code_string()
+                [code.user_offset_to_output_offset(0).unwrap()..code.user_offset_to_output_offset(user_code.len()).unwrap()],
             user_code
         );
     }

@@ -7,8 +7,6 @@
 
 use crate::code_block::{count_columns, CodeBlock, CodeKind, CommandCall, Segment, UserCodeInfo};
 use ariadne::{Color, ColorGenerator, Label, Report, ReportKind};
-use ra_ap_ide::{TextRange, TextSize};
-
 use serde_derive::{Deserialize, Serialize};
 
 use std::{
