@@ -5,11 +5,14 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::connection::{Connection, HmacSha256};
+use crate::{
+    connection::{Connection, HmacSha256},
+    JupyterResult,
+};
 use bytes::Bytes;
 use chrono::Utc;
-use evcxr::JsonValue;
 use generic_array::GenericArray;
+use serde_json::Value;
 use std::{
     fmt,
     fmt::Formatter,
@@ -23,11 +26,11 @@ struct RawMessage {
 }
 
 impl RawMessage {
-    pub(crate) async fn read<S: zeromq::SocketRecv>(connection: &mut Connection<S>) -> Result<RawMessage> {
+    pub(crate) async fn read<S: zeromq::SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<RawMessage> {
         Self::from_multipart(connection.socket.recv().await?, connection)
     }
 
-    pub(crate) fn from_multipart<S>(multipart: zeromq::ZmqMessage, connection: &Connection<S>) -> Result<RawMessage> {
+    pub(crate) fn from_multipart<S>(multipart: zeromq::ZmqMessage, connection: &Connection<S>) -> JupyterResult<RawMessage> {
         let delimiter_index =
             multipart.iter().position(|part| &part[..] == DELIMITER).ok_or_else(|| panic!("Missing delimeter"))?;
         let mut parts = multipart.into_vec();
@@ -51,7 +54,7 @@ impl RawMessage {
         Ok(raw_message)
     }
 
-    async fn send<S: zeromq::SocketSend>(self, connection: &mut Connection<S>) -> Result<()> {
+    async fn send<S: zeromq::SocketSend>(self, connection: &mut Connection<S>) -> JupyterResult<()> {
         use hmac::Mac;
         let hmac = if let Some(mac_template) = &connection.mac {
             let mut mac = mac_template.clone();
@@ -88,10 +91,10 @@ impl RawMessage {
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
-    header: JsonValue,
-    parent_header: JsonValue,
-    metadata: JsonValue,
-    content: JsonValue,
+    header: Value,
+    parent_header: Value,
+    metadata: Value,
+    content: Value,
 }
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";

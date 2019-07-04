@@ -5,10 +5,10 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::code_block::{count_columns, CodeBlock, CodeKind, CommandCall, Segment, UserCodeInfo};
 use ariadne::{Color, ColorGenerator, Label, Report, ReportKind};
 use serde_derive::{Deserialize, Serialize};
 
+use serde_json::Value;
 use std::{
     error::Error,
     fmt::{Debug, Display, Formatter, Write as _},
@@ -149,7 +149,7 @@ fn spans_in_local_source(span: &serde_json::Value) -> Option<&serde_json::Value>
     None
 }
 
-fn get_code_origins_for_span<'a>(span: &JsonValue, code_block: &'a CodeBlock) -> Vec<(&'a CodeKind, usize)> {
+fn get_code_origins_for_span<'a>(span: &Value, code_block: &'a CodeBlock) -> Vec<(&'a CodeKind, usize)> {
     let mut code_origins = Vec::new();
     if let Some(span) = spans_in_local_source(span) {
         if let (Some(line_start), Some(line_end)) = (span["line_start"].as_u64(), span["line_end"].as_u64()) {

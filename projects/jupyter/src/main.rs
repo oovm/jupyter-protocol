@@ -10,12 +10,13 @@ mod commands;
 pub use crate::commands::*;
 mod connection;
 mod core;
+mod errors;
 mod jupyter_message;
 mod legacy_install;
 
+use crate::errors::JupyterResult;
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
-use evcxr::JupyterResult;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

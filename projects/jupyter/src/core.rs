@@ -5,11 +5,11 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{connection::Connection, jupyter_message::JupyterMessage, KernelControl};
+use crate::{connection::Connection, errors::JupyterResult, jupyter_message::JupyterMessage, KernelControl};
 use ariadne::sources;
 use colored::*;
 use crossbeam_channel::Select;
-use evcxr::{CommandContext, JsonValue, JupyterResult, Theme};
+use serde_json::Value;
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
@@ -22,6 +22,8 @@ pub(crate) struct Server {
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
 }
+
+pub struct CommandContext {}
 
 struct ShutdownReceiver {
     // Note, this needs to be a crossbeam channel because
@@ -641,10 +643,7 @@ impl KernelInfo {
     }
 }
 
-async fn handle_completion_request(
-    context: &Arc<std::sync::Mutex<CommandContext>>,
-    message: JupyterMessage,
-) -> Result<JsonValue> {
+async fn handle_completion_request(context: &Arc<std::sync::Mutex<CommandContext>>, message: JupyterMessage) -> Result<Value> {
     let context = Arc::clone(context);
     tokio::task::spawn_blocking(move || {
         let code = message.code();

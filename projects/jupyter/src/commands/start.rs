@@ -1,7 +1,7 @@
 use super::*;
 
-use evcxr::{json_from_str, JupyterResult};
 use serde_derive::{Deserialize, Serialize};
+use serde_json::from_str;
 use std::{
     fs::read_to_string,
     path::{Path, PathBuf},
@@ -41,7 +41,7 @@ impl StartAction {
 impl KernelControl {
     fn parse_control_file(file_name: &Path) -> JupyterResult<KernelControl> {
         let control_file = read_to_string(file_name)?;
-        let object = json_from_str(&control_file)?;
+        let object = from_str(&control_file)?;
         Ok(object)
     }
 }

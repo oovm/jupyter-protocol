@@ -5,9 +5,8 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::KernelConfig;
-use anyhow::Result;
-use evcxr::{json_to_string, JupyterResult};
+use crate::{JupyterResult, KernelConfig};
+use serde_json::to_string_pretty;
 use std::{
     env, fs,
     io::Write,
@@ -27,7 +26,7 @@ pub(crate) fn install() -> JupyterResult<()> {
     let kernel_dir = get_kernel_dir()?;
     fs::create_dir_all(&kernel_dir)?;
     let kernel_config = KernelConfig::new("rust", "Rust")?;
-    let kernel_json = json_to_string(&kernel_config)?;
+    let kernel_json = to_string_pretty(&kernel_config)?;
     let kernel_json_filename = kernel_dir.join("kernel.json");
     println!("Writing {}", kernel_json_filename.to_string_lossy());
     kernel_json.write_pretty(&mut fs::File::create(kernel_json_filename)?, 2)?;
@@ -45,7 +44,7 @@ pub(crate) fn install() -> JupyterResult<()> {
 
 /// Checks if the current installation is out-of-date, by looking at what's in
 /// version.txt. If it is out of date, then updates it.
-pub(crate) fn update_if_necessary() -> Result<()> {
+pub(crate) fn update_if_necessary() -> JupyterResult<()> {
     let kernel_dir = get_kernel_dir()?;
     // If the kernel directory doesn't exist, then we're probably being run from
     // a wrapper, so we shouldn't "update", since that would in effect be
@@ -66,7 +65,7 @@ pub(crate) fn update_if_necessary() -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn install_resource(dir: &Path, filename: &str, bytes: &'static [u8]) -> Result<()> {
+pub(crate) fn install_resource(dir: &Path, filename: &str, bytes: &'static [u8]) -> JupyterResult<()> {
     let res_path = dir.join(filename);
     println!("Writing {}", res_path.to_string_lossy());
     let mut file = fs::File::create(res_path)?;
@@ -74,7 +73,7 @@ pub(crate) fn install_resource(dir: &Path, filename: &str, bytes: &'static [u8])
     Ok(())
 }
 
-pub(crate) fn uninstall() -> Result<()> {
+pub(crate) fn uninstall() -> JupyterResult<()> {
     let kernel_dir = get_kernel_dir()?;
     println!("Deleting {}", kernel_dir.to_string_lossy());
     fs::remove_dir_all(kernel_dir)?;
@@ -83,7 +82,7 @@ pub(crate) fn uninstall() -> Result<()> {
 }
 
 // https://jupyter-client.readthedocs.io/en/latest/kernels.html
-fn get_kernel_dir() -> Result<PathBuf> {
+fn get_kernel_dir() -> JupyterResult<PathBuf> {
     let jupyter_dir = if let Ok(dir) = env::var("JUPYTER_PATH") {
         PathBuf::from(dir)
     }

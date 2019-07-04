@@ -1,5 +1,4 @@
 use clap_derive::Parser;
-use evcxr::JupyterResult;
 mod install;
 mod open_jupyter;
 mod start;
@@ -10,5 +9,5 @@ pub use self::{
     start::{KernelControl, StartAction},
     uninstall::UninstallAction,
 };
-use crate::legacy_install;
+use crate::{legacy_install, JupyterResult};
 use serde_derive::{Deserialize, Serialize};

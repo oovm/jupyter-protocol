@@ -5,9 +5,8 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use anyhow::Result;
-use hmac::digest::KeyInit;
-use hmac::Hmac;
+use crate::errors::JupyterResult;
+use hmac::{digest::KeyInit, Hmac};
 use sha2::Sha256;
 
 pub(crate) type HmacSha256 = Hmac<Sha256>;
@@ -19,10 +18,11 @@ pub(crate) struct Connection<S> {
 }
 
 impl<S: zeromq::Socket> Connection<S> {
-    pub(crate) fn new(socket: S, key: &str) -> Result<Self> {
+    pub(crate) fn new(socket: S, key: &str) -> JupyterResult<Self> {
         let mac = if key.is_empty() {
             None
-        } else {
+        }
+        else {
             Some(HmacSha256::new_from_slice(key.as_bytes()).expect("Shouldn't fail with HMAC"))
         };
         Ok(Connection { socket, mac })
