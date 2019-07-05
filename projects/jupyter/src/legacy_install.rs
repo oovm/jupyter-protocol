@@ -29,7 +29,10 @@ pub(crate) fn install() -> JupyterResult<()> {
     let kernel_json = to_string_pretty(&kernel_config)?;
     let kernel_json_filename = kernel_dir.join("kernel.json");
     println!("Writing {}", kernel_json_filename.to_string_lossy());
-    kernel_json.write_pretty(&mut fs::File::create(kernel_json_filename)?, 2)?;
+    // prerry print json
+    let mut file = fs::File::create(&kernel_json_filename)?;
+    file.write_all(kernel_json.as_bytes())?;
+
     install_resource(&kernel_dir, "logo-32x32.png", LOGO_32X32)?;
     install_resource(&kernel_dir, "logo-64x64.png", LOGO_64X64)?;
     install_resource(&kernel_dir, "logo-LICENSE.md", LOGO_LICENSE)?;

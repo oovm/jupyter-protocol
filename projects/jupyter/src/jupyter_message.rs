@@ -12,6 +12,7 @@ use crate::{
 use bytes::Bytes;
 use chrono::Utc;
 use generic_array::GenericArray;
+use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     fmt,
@@ -88,7 +89,7 @@ impl RawMessage {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub(crate) struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
     header: Value,
@@ -100,13 +101,13 @@ pub(crate) struct JupyterMessage {
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
 impl JupyterMessage {
-    pub(crate) async fn read<S: zeromq::SocketRecv>(connection: &mut Connection<S>) -> Result<JupyterMessage> {
+    pub(crate) async fn read<S: zeromq::SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<JupyterMessage> {
         Self::from_raw_message(RawMessage::read(connection).await?)
     }
 
-    fn from_raw_message(raw_message: RawMessage) -> Result<JupyterMessage> {
-        fn message_to_json(message: &[u8]) -> Result<serde_json::Value> {
-            Ok(json::parse(std::str::from_utf8(message)?)?)
+    fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
+        fn message_to_json(message: &[u8]) -> JupyterResult<serde_json::Value> {
+            todo!()
         }
 
         if raw_message.jparts.len() < 4 {
@@ -131,7 +132,8 @@ impl JupyterMessage {
     }
 
     pub(crate) fn cursor_pos(&self) -> usize {
-        self.content["cursor_pos"].as_usize().unwrap_or_default()
+        todo!()
+        // self.content["cursor_pos"].as_usize().unwrap_or_default()
     }
 
     pub(crate) fn target_name(&self) -> &str {
@@ -149,17 +151,17 @@ impl JupyterMessage {
     // Creates a new child message of this message. ZMQ identities are not transferred.
     pub(crate) fn new_message(&self, msg_type: &str) -> JupyterMessage {
         let mut header = self.header.clone();
-        header["msg_type"] = JsonValue::String(msg_type.to_owned());
-        header["username"] = JsonValue::String("kernel".to_owned());
-        header["msg_id"] = JsonValue::String(Uuid::new_v4().to_string());
-        header["date"] = JsonValue::String(Utc::now().to_rfc3339());
+        header["msg_type"] = Value::String(msg_type.to_owned());
+        header["username"] = Value::String("kernel".to_owned());
+        header["msg_id"] = Value::String(Uuid::new_v4().to_string());
+        header["date"] = Value::String(Utc::now().to_rfc3339());
 
         JupyterMessage {
             zmq_identities: Vec::new(),
             header,
             parent_header: self.header.clone(),
-            metadata: JsonValue::new_object(),
-            content: JsonValue::new_object(),
+            metadata: Value::Null,
+            content: Value::Null,
         }
     }
 
@@ -173,9 +175,7 @@ impl JupyterMessage {
 
     #[must_use = "Need to send this message for it to have any effect"]
     pub(crate) fn comm_close_message(&self) -> JupyterMessage {
-        self.new_message("comm_close").with_content(object! {
-            "comm_id" => self.comm_id()
-        })
+        todo!()
     }
 
     pub(crate) fn get_content(&self) -> &serde_json::Value {
@@ -193,32 +193,33 @@ impl JupyterMessage {
     }
 
     pub(crate) fn without_parent_header(mut self) -> JupyterMessage {
-        self.parent_header = JsonValue::default();
+        self.parent_header = Value::Null;
         self
     }
 
-    pub(crate) async fn send<S: zeromq::SocketSend>(&self, connection: &mut Connection<S>) -> Result<()> {
+    pub(crate) async fn send<S: zeromq::SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
         // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit
         // of refactoring.
-        let raw_message = RawMessage {
-            zmq_identities: self.zmq_identities.clone(),
-            jparts: vec![
-                self.header.dump().as_bytes().to_vec().into(),
-                self.parent_header.dump().as_bytes().to_vec().into(),
-                self.metadata.dump().as_bytes().to_vec().into(),
-                self.content.dump().as_bytes().to_vec().into(),
-            ],
-        };
-        raw_message.send(connection).await
+        // let raw_message = RawMessage {
+        //     zmq_identities: self.zmq_identities.clone(),
+        //     jparts: vec![
+        //         self.header.dump().as_bytes().to_vec().into(),
+        //         self.parent_header.dump().as_bytes().to_vec().into(),
+        //         self.metadata.dump().as_bytes().to_vec().into(),
+        //         self.content.dump().as_bytes().to_vec().into(),
+        //     ],
+        // };
+        // raw_message.send(connection).await
+        todo!()
     }
 }
 
 impl fmt::Debug for JupyterMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\nHEADER {}", self.header.pretty(2))?;
-        writeln!(f, "PARENT_HEADER {}", self.parent_header.pretty(2))?;
-        writeln!(f, "METADATA {}", self.metadata.pretty(2))?;
-        writeln!(f, "CONTENT {}\n", self.content.pretty(2))?;
+        // writeln!(f, "\nHEADER {}", self.header.pretty(2))?;
+        // writeln!(f, "PARENT_HEADER {}", self.parent_header.pretty(2))?;
+        // writeln!(f, "METADATA {}", self.metadata.pretty(2))?;
+        // writeln!(f, "CONTENT {}\n", self.content.pretty(2))?;
         Ok(())
     }
 }
