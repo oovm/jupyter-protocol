@@ -10,7 +10,7 @@ use ariadne::sources;
 use colored::*;
 use crossbeam_channel::Select;
 use serde_json::Value;
-use std::{collections::HashMap, future::Future, sync::Arc, time::Duration};
+use std::{collections::HashMap, future::Future, ops::DerefMut, sync::Arc, time::Duration};
 use tokio::{
     sync::{
         mpsc::{error::SendError, UnboundedReceiver, UnboundedSender},
@@ -18,7 +18,7 @@ use tokio::{
     },
     task::{JoinError, JoinHandle},
 };
-use zeromq::{PubSocket, RepSocket, RouterSocket, SocketRecv, SocketSend, ZmqMessage, ZmqResult};
+use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage, ZmqResult};
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
 #[derive(Clone)]
@@ -27,17 +27,16 @@ pub(crate) struct Server {
     iopub: Arc<Mutex<Connection<PubSocket>>>,
     stdin: Arc<Mutex<Connection<RouterSocket>>>,
     control: Arc<Mutex<Connection<RouterSocket>>>,
+    shell_socket: Arc<Mutex<Connection<RouterSocket>>>,
     latest_execution_request: Arc<Mutex<Option<JupyterMessage>>>,
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
 }
 
 #[derive(Clone)]
-pub struct ExecuteProvider {
-    context: Arc<Mutex<dyn ExecuteContext>>,
+pub struct ExecuteProvider<T> {
+    context: Arc<Mutex<T>>,
 }
-
-unsafe impl Send for ExecuteProvider {}
 
 pub trait ExecuteContext {}
 
@@ -47,7 +46,7 @@ pub struct SinkExecutor {
 
 impl ExecuteContext for SinkExecutor {}
 
-impl ExecuteProvider {
+impl<T> ExecuteProvider<T> {
     pub fn new<T>(context: T) -> Self
     where
         T: ExecuteContext + 'static,
@@ -112,11 +111,12 @@ impl Server {
             control: Arc::new(Mutex::new(control_socket)),
             shutdown_sender: Arc::new(Mutex::new(Some(shutdown_sender))),
             tokio_handle,
+            shell_socket: Arc::new(Mutex::new(shell_socket)),
         };
-
+        let mut context = ExecuteProvider::new(SinkExecutor { name: "sink".to_string() });
         let (execution_sender, mut execution_receiver) = tokio::sync::mpsc::unbounded_channel();
         let (execution_response_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
-        server.clone().spawn_heart_beat().await.expect("spawn_heart_beat");
+        server.clone().spawn_shell_executor(context.clone()).await.expect("spawn_heart_beat");
 
         {
             tokio::spawn(async move {
@@ -133,13 +133,14 @@ impl Server {
                 }
             });
         }
-        let mut context = ExecuteProvider::new(SinkExecutor { name: "sink".to_string() });
+
         // context.execute(":load_config")?;
         // let process_handle = context.process_handle();
         // let context = Arc::new(std::sync::Mutex::new(context));
         if let Err(e) = server.clone().spawn_control().await {
             eprintln!("Spawn control fail: {:?}", e);
         }
+        server.clone().spawn_heart_beat().await.expect("spawn shell executor failed");
         // {
         //     let context = context.clone();
         //     let server = server.clone();
@@ -175,27 +176,25 @@ impl Server {
     async fn signal_shutdown(&mut self) {
         self.shutdown_sender.lock().await.take();
     }
-
+    async fn spawn_shell_executor(self, executor: ExecuteProvider) -> Result<(), JoinError> {
+        let task = tokio::spawn(async move {
+            loop {
+                let socket = self.shell_socket.lock().await;
+                let exe = executor.clone().context.lock().await;
+                if let Err(e) = handle_shell(exe, socket).await {
+                    eprintln!("Error sending heartbeat: {:?}", e);
+                }
+            }
+        });
+        task.await
+    }
     async fn spawn_heart_beat(self) -> Result<(), JoinError> {
         let task = tokio::spawn(async move {
             loop {
-                match self.heartbeat.try_lock() {
-                    Ok(mut connect) => match connect.socket.recv().await {
-                        Ok(o) => {
-                            println!("Got ping: {:?}", o);
-                            match connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    eprintln!("Error sending pong: {:?}", e);
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Error receiving ping: {:?}", e);
-                        }
-                    },
-                    Err(_) => continue,
-                };
+                let o = self.heartbeat.try_lock();
+                if let Err(e) = handle_heart_beat(o).await {
+                    eprintln!("Error sending heartbeat: {:?}", e);
+                }
             }
         });
         task.await
@@ -243,43 +242,33 @@ impl Server {
     }
 }
 
+async fn handle_shell<'a>(
+    executor: MutexGuard<dyn ExecuteContext>,
+    connect: MutexGuard<Connection<RouterSocket>>,
+) -> JupyterResult<()> {
+    let re = connect.socket.recv().await?;
+    println!("Got shell message: {:?}", re);
+    // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
+    Ok(())
+}
+
+async fn handle_heart_beat<'a>(lock: Result<MutexGuard<'a, Connection<RepSocket>>, TryLockError>) -> JupyterResult<()> {
+    let mut connect = match lock {
+        Ok(o) => o,
+        Err(_) => return Ok(()),
+    };
+    let _ = connect.socket.recv().await?;
+    connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
+    Ok(())
+}
+
 impl ShutdownReceiver {
     async fn wait_for_shutdown(self) {
         let _ = tokio::task::spawn_blocking(move || self.recv.recv()).await;
     }
 }
 
-async fn comm_open(
-    message: JupyterMessage,
-    context: &Arc<std::sync::Mutex<ExecuteProvider>>,
-    iopub: Arc<Mutex<Connection<PubSocket>>>,
-) -> JupyterResult<()> {
-    if message.target_name() == "evcxr-cargo-check" {
-        let context = Arc::clone(context);
-        tokio::spawn(async move {
-            if let Some(code) = message.data()["code"].as_str() {
-                // let data = cargo_check(code.to_owned(), context).await;
-                // panic!("{}", data)
-
-                // message
-                //     .new_message("comm_msg")
-                //     .without_parent_header()
-                //     .with_content(response_content)
-                //     .send(&mut *iopub.lock().await)
-                //     .await
-                //     .unwrap();
-            }
-            message.comm_close_message().send(&mut *iopub.lock().await).await.unwrap();
-        });
-        Ok(())
-    }
-    else {
-        // Unrecognised comm target, just close the comm.
-        message.comm_close_message().send(&mut *iopub.lock().await).await
-    }
-}
-
-async fn bind_socket<S: zeromq::Socket>(config: &KernelControl, port: u16) -> JupyterResult<Connection<S>> {
+async fn bind_socket<S: Socket>(config: &KernelControl, port: u16) -> JupyterResult<Connection<S>> {
     let endpoint = format!("{}://{}:{}", config.transport, config.ip, port);
     let mut socket = S::new();
     socket.bind(&endpoint).await?;
