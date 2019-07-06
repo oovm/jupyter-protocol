@@ -13,13 +13,14 @@ use bytes::Bytes;
 use chrono::Utc;
 use generic_array::GenericArray;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::{
     fmt,
     fmt::Formatter,
     {self},
 };
 use uuid::Uuid;
+use zeromq::SocketSend;
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -55,7 +56,7 @@ impl RawMessage {
         Ok(raw_message)
     }
 
-    async fn send<S: zeromq::SocketSend>(self, connection: &mut Connection<S>) -> JupyterResult<()> {
+    async fn send<S: SocketSend>(self, connection: &mut Connection<S>) -> JupyterResult<()> {
         use hmac::Mac;
         let hmac = if let Some(mac_template) = &connection.mac {
             let mut mac = mac_template.clone();
@@ -140,12 +141,27 @@ impl JupyterMessage {
         self.content["target_name"].as_str().unwrap_or("")
     }
 
-    pub(crate) fn data(&self) -> &serde_json::Value {
+    pub(crate) fn data(&self) -> &Value {
         &self.content["data"]
     }
 
     pub(crate) fn comm_id(&self) -> &str {
         self.content["comm_id"].as_str().unwrap_or("")
+    }
+
+    pub(crate) fn new(msg_type: &str) -> JupyterMessage {
+        let mut header = Value::Object(Map::new());
+        header["msg_type"] = Value::String(msg_type.to_owned());
+        header["username"] = Value::String("kernel".to_owned());
+        header["msg_id"] = Value::String(Uuid::new_v4().to_string());
+        header["date"] = Value::String(Utc::now().to_rfc3339());
+        JupyterMessage {
+            zmq_identities: Vec::new(),
+            header,
+            parent_header: Value::Null,
+            metadata: Value::Null,
+            content: Value::Null,
+        }
     }
 
     // Creates a new child message of this message. ZMQ identities are not transferred.
@@ -197,7 +213,7 @@ impl JupyterMessage {
         self
     }
 
-    pub(crate) async fn send<S: zeromq::SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
+    pub(crate) async fn send<S: SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
         // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit
         // of refactoring.
         // let raw_message = RawMessage {
@@ -216,10 +232,10 @@ impl JupyterMessage {
 
 impl fmt::Debug for JupyterMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // writeln!(f, "\nHEADER {}", self.header.pretty(2))?;
-        // writeln!(f, "PARENT_HEADER {}", self.parent_header.pretty(2))?;
-        // writeln!(f, "METADATA {}", self.metadata.pretty(2))?;
-        // writeln!(f, "CONTENT {}\n", self.content.pretty(2))?;
+        writeln!(f, "\nHEADER {}", self.header)?;
+        writeln!(f, "PARENT_HEADER {}", self.parent_header)?;
+        writeln!(f, "METADATA {}", self.metadata)?;
+        writeln!(f, "CONTENT {}\n", self.content)?;
         Ok(())
     }
 }
