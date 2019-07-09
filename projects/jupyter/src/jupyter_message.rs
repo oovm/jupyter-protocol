@@ -12,15 +12,18 @@ use crate::{
 use bytes::Bytes;
 use chrono::Utc;
 use generic_array::GenericArray;
+use serde::{Deserialize, Serialize};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::{
     fmt,
     fmt::Formatter,
+    str::FromStr,
     {self},
 };
+use tokio::task::JoinError;
 use uuid::Uuid;
-use zeromq::SocketSend;
+use zeromq::{SocketRecv, SocketSend, ZmqMessage};
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -28,7 +31,7 @@ struct RawMessage {
 }
 
 impl RawMessage {
-    pub(crate) async fn read<S: zeromq::SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<RawMessage> {
+    pub(crate) async fn read<S: SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<RawMessage> {
         Self::from_multipart(connection.socket.recv().await?, connection)
     }
 
@@ -91,24 +94,77 @@ impl RawMessage {
 }
 
 #[derive(Clone)]
-pub(crate) struct JupyterMessage {
+pub struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
-    header: Value,
+    header: JupyterMessageHeader,
     parent_header: Value,
     metadata: Value,
     content: Value,
 }
 
+impl TryFrom<ZmqMessage> for JupyterMessage {
+    type Error = JoinError;
+
+    fn try_from(zmq: ZmqMessage) -> Result<Self, Self::Error> {
+        println!("Got shell message: {:?}", zmq);
+        match zmq.get(0) {
+            Some(v) => {
+                println!("Got shell 0: {:?}", v);
+            }
+            None => {}
+        }
+        match zmq.get(2) {
+            Some(v) => {
+                println!("Got shell 2: {:?}", v);
+            }
+            None => {}
+        }
+        match zmq.get(3) {
+            Some(v) => {
+                println!("Got shell 3: {:?}", v);
+            }
+            None => {}
+        }
+        match zmq.get(4) {
+            Some(v) => {
+                println!("Got shell 4: {:?}", v);
+            }
+            None => {}
+        }
+        Ok(JupyterMessage {
+            zmq_identities: vec![],
+            header: Default::default(),
+            parent_header: Default::default(),
+            metadata: Default::default(),
+            content: Default::default(),
+        })
+    }
+}
+//        header["msg_type"] = Value::String(msg_type.to_owned());
+//         header["username"] = Value::String("kernel".to_owned());
+//         header["msg_id"] = Value::String(Uuid::new_v4().to_string());
+//         header["date"] = Value::String(Utc::now().to_rfc3339());
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct JupyterMessageHeader {
+    pub date: Utc,
+    pub msg_id: Uuid,
+    pub msg_type: String,
+    pub session: String,
+    pub username: String,
+    pub version: String,
+}
+
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
 impl JupyterMessage {
-    pub(crate) async fn read<S: zeromq::SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<JupyterMessage> {
+    pub(crate) async fn read<S: SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<JupyterMessage> {
         Self::from_raw_message(RawMessage::read(connection).await?)
     }
 
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
-        fn message_to_json(message: &[u8]) -> JupyterResult<serde_json::Value> {
-            todo!()
+        fn message_to_json(message: &[u8]) -> JupyterResult<Value> {
+            let out = Value::from_str(std::str::from_utf8(message).unwrap_or("")).unwrap();
+            Ok(out)
         }
 
         if raw_message.jparts.len() < 4 {

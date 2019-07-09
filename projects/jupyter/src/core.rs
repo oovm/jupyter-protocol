@@ -7,6 +7,7 @@
 
 use crate::{connection::Connection, errors::JupyterResult, jupyter_message::JupyterMessage, KernelControl};
 use ariadne::sources;
+use bytes::Bytes;
 use colored::*;
 use crossbeam_channel::Select;
 use serde_json::Value;
@@ -33,9 +34,14 @@ pub(crate) struct Server {
     tokio_handle: tokio::runtime::Handle,
 }
 
-#[derive(Clone)]
 pub struct ExecuteProvider<T> {
     context: Arc<Mutex<T>>,
+}
+
+impl<T> Clone for ExecuteProvider<T> {
+    fn clone(&self) -> Self {
+        Self { context: self.context.clone() }
+    }
 }
 
 pub trait ExecuteContext {}
@@ -47,7 +53,7 @@ pub struct SinkExecutor {
 impl ExecuteContext for SinkExecutor {}
 
 impl<T> ExecuteProvider<T> {
-    pub fn new<T>(context: T) -> Self
+    pub fn new(context: T) -> Self
     where
         T: ExecuteContext + 'static,
     {
@@ -176,11 +182,14 @@ impl Server {
     async fn signal_shutdown(&mut self) {
         self.shutdown_sender.lock().await.take();
     }
-    async fn spawn_shell_executor(self, executor: ExecuteProvider) -> Result<(), JoinError> {
+    async fn spawn_shell_executor<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
+    where
+        T: Send + 'static,
+    {
         let task = tokio::spawn(async move {
             loop {
                 let socket = self.shell_socket.lock().await;
-                let exe = executor.clone().context.lock().await;
+                let exe = executor.context.lock().await;
                 if let Err(e) = handle_shell(exe, socket).await {
                     eprintln!("Error sending heartbeat: {:?}", e);
                 }
@@ -200,9 +209,9 @@ impl Server {
         task.await
     }
 
-    async fn handle_execution_requests(
+    async fn handle_execution_requests<T>(
         self,
-        context: ExecuteProvider,
+        context: ExecuteProvider<T>,
         receiver: &mut UnboundedReceiver<JupyterMessage>,
         execution_reply_sender: &UnboundedSender<JupyterMessage>,
     ) -> JupyterResult<()> {
@@ -242,12 +251,13 @@ impl Server {
     }
 }
 
-async fn handle_shell<'a>(
-    executor: MutexGuard<dyn ExecuteContext>,
-    connect: MutexGuard<Connection<RouterSocket>>,
+async fn handle_shell<'a, T>(
+    mut executor: MutexGuard<'a, T>,
+    mut connect: MutexGuard<'a, Connection<RouterSocket>>,
 ) -> JupyterResult<()> {
-    let re = connect.socket.recv().await?;
-    println!("Got shell message: {:?}", re);
+    let zmq = JupyterMessage::read(&mut connect).await?;
+    println!("Got shell message: {:?}", zmq);
+
     // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
     Ok(())
 }
@@ -331,8 +341,8 @@ impl KernelInfo {
     }
 }
 
-async fn handle_completion_request(
-    context: &Arc<std::sync::Mutex<ExecuteProvider>>,
+async fn handle_completion_request<T>(
+    context: &Arc<std::sync::Mutex<ExecuteProvider<T>>>,
     message: JupyterMessage,
 ) -> JupyterResult<Value> {
     // let context = Arc::clone(context);
