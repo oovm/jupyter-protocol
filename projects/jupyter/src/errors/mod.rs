@@ -24,11 +24,18 @@ pub struct JupyterError {
     kind: Box<JupyterErrorKind>,
 }
 
+impl JupyterError {
+    pub fn missing_field(field: &'static str) -> Self {
+        Self { kind: Box::new(JupyterErrorKind::MissingField(field)) }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum JupyterErrorKind {
     CompilationErrors(Vec<CompilationError>),
     TypeRedefinedVariablesLost(Vec<String>),
     Message(String),
+    MissingField(&'static str),
     SubprocessTerminated(String),
 }
 

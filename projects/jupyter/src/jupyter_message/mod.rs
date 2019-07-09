@@ -10,11 +10,11 @@ use crate::{
     JupyterResult,
 };
 use bytes::Bytes;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use generic_array::GenericArray;
 use serde::{Deserialize, Serialize};
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{from_slice, from_str, Map, Value};
 use std::{
     fmt,
     fmt::Formatter,
@@ -24,6 +24,7 @@ use std::{
 use tokio::task::JoinError;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend, ZmqMessage};
+mod der;
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -102,51 +103,13 @@ pub struct JupyterMessage {
     content: Value,
 }
 
-impl TryFrom<ZmqMessage> for JupyterMessage {
-    type Error = JoinError;
-
-    fn try_from(zmq: ZmqMessage) -> Result<Self, Self::Error> {
-        println!("Got shell message: {:?}", zmq);
-        match zmq.get(0) {
-            Some(v) => {
-                println!("Got shell 0: {:?}", v);
-            }
-            None => {}
-        }
-        match zmq.get(2) {
-            Some(v) => {
-                println!("Got shell 2: {:?}", v);
-            }
-            None => {}
-        }
-        match zmq.get(3) {
-            Some(v) => {
-                println!("Got shell 3: {:?}", v);
-            }
-            None => {}
-        }
-        match zmq.get(4) {
-            Some(v) => {
-                println!("Got shell 4: {:?}", v);
-            }
-            None => {}
-        }
-        Ok(JupyterMessage {
-            zmq_identities: vec![],
-            header: Default::default(),
-            parent_header: Default::default(),
-            metadata: Default::default(),
-            content: Default::default(),
-        })
-    }
-}
 //        header["msg_type"] = Value::String(msg_type.to_owned());
 //         header["username"] = Value::String("kernel".to_owned());
 //         header["msg_id"] = Value::String(Uuid::new_v4().to_string());
 //         header["date"] = Value::String(Utc::now().to_rfc3339());
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct JupyterMessageHeader {
-    pub date: Utc,
+    pub date: DateTime<Utc>,
     pub msg_id: Uuid,
     pub msg_type: String,
     pub session: String,
@@ -173,7 +136,7 @@ impl JupyterMessage {
 
         Ok(JupyterMessage {
             zmq_identities: raw_message.zmq_identities,
-            header: message_to_json(&raw_message.jparts[0])?,
+            header: from_slice(&raw_message.jparts[0])?,
             parent_header: message_to_json(&raw_message.jparts[1])?,
             metadata: message_to_json(&raw_message.jparts[2])?,
             content: message_to_json(&raw_message.jparts[3])?,
@@ -181,7 +144,7 @@ impl JupyterMessage {
     }
 
     pub(crate) fn message_type(&self) -> &str {
-        self.header["msg_type"].as_str().unwrap_or("")
+        self.header.msg_type.as_str().unwrap_or("")
     }
 
     pub(crate) fn code(&self) -> &str {
