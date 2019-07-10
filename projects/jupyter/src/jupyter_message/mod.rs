@@ -98,7 +98,7 @@ impl RawMessage {
 pub struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
     header: JupyterMessageHeader,
-    parent_header: Value,
+    parent_header: JupyterMessageHeader,
     metadata: Value,
     content: Value,
 }
@@ -137,14 +137,14 @@ impl JupyterMessage {
         Ok(JupyterMessage {
             zmq_identities: raw_message.zmq_identities,
             header: from_slice(&raw_message.jparts[0])?,
-            parent_header: message_to_json(&raw_message.jparts[1])?,
+            parent_header: from_slice(&raw_message.jparts[1])?,
             metadata: message_to_json(&raw_message.jparts[2])?,
             content: message_to_json(&raw_message.jparts[3])?,
         })
     }
 
     pub(crate) fn message_type(&self) -> &str {
-        self.header.msg_type.as_str().unwrap_or("")
+        self.header.msg_type.as_str()
     }
 
     pub(crate) fn code(&self) -> &str {
@@ -169,15 +169,24 @@ impl JupyterMessage {
     }
 
     pub(crate) fn new(msg_type: &str) -> JupyterMessage {
-        let mut header = Value::Object(Map::new());
-        header["msg_type"] = Value::String(msg_type.to_owned());
-        header["username"] = Value::String("kernel".to_owned());
-        header["msg_id"] = Value::String(Uuid::new_v4().to_string());
-        header["date"] = Value::String(Utc::now().to_rfc3339());
         JupyterMessage {
             zmq_identities: Vec::new(),
-            header,
-            parent_header: Value::Null,
+            header: JupyterMessageHeader {
+                date: Utc::now(),
+                msg_id: Uuid::new_v4(),
+                msg_type: msg_type.to_string(),
+                session: "".to_string(),
+                username: "kernel".to_string(),
+                version: "".to_string(),
+            },
+            parent_header: JupyterMessageHeader {
+                date: Default::default(),
+                msg_id: Default::default(),
+                msg_type: "".to_string(),
+                session: "".to_string(),
+                username: "".to_string(),
+                version: "".to_string(),
+            },
             metadata: Value::Null,
             content: Value::Null,
         }
@@ -185,15 +194,16 @@ impl JupyterMessage {
 
     // Creates a new child message of this message. ZMQ identities are not transferred.
     pub(crate) fn new_message(&self, msg_type: &str) -> JupyterMessage {
-        let mut header = self.header.clone();
-        header["msg_type"] = Value::String(msg_type.to_owned());
-        header["username"] = Value::String("kernel".to_owned());
-        header["msg_id"] = Value::String(Uuid::new_v4().to_string());
-        header["date"] = Value::String(Utc::now().to_rfc3339());
-
         JupyterMessage {
             zmq_identities: Vec::new(),
-            header,
+            header: JupyterMessageHeader {
+                date: Utc::now(),
+                msg_id: Uuid::new_v4(),
+                msg_type: msg_type.to_string(),
+                session: "".to_string(),
+                username: "kernel".to_string(),
+                version: "".to_string(),
+            },
             parent_header: self.header.clone(),
             metadata: Value::Null,
             content: Value::Null,
@@ -223,7 +233,7 @@ impl JupyterMessage {
     }
 
     pub(crate) fn with_message_type(mut self, msg_type: &str) -> JupyterMessage {
-        self.header["msg_type"] = serde_json::Value::String(msg_type.to_owned());
+        self.header.msg_type = msg_type.to_owned();
         self
     }
 
