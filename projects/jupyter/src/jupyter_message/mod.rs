@@ -25,6 +25,7 @@ use tokio::task::JoinError;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend, ZmqMessage};
 mod der;
+mod ser;
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -103,11 +104,7 @@ pub struct JupyterMessage {
     content: Value,
 }
 
-//        header["msg_type"] = Value::String(msg_type.to_owned());
-//         header["username"] = Value::String("kernel".to_owned());
-//         header["msg_id"] = Value::String(Uuid::new_v4().to_string());
-//         header["date"] = Value::String(Utc::now().to_rfc3339());
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 pub struct JupyterMessageHeader {
     pub date: DateTime<Utc>,
     pub msg_id: Uuid,
@@ -115,6 +112,19 @@ pub struct JupyterMessageHeader {
     pub session: String,
     pub username: String,
     pub version: String,
+}
+
+impl Default for JupyterMessageHeader {
+    fn default() -> Self {
+        Self {
+            date: Default::default(),
+            msg_id: Default::default(),
+            msg_type: "".to_string(),
+            session: "".to_string(),
+            username: "".to_string(),
+            version: "".to_string(),
+        }
+    }
 }
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
@@ -238,7 +248,7 @@ impl JupyterMessage {
     }
 
     pub(crate) fn without_parent_header(mut self) -> JupyterMessage {
-        self.parent_header = Value::Null;
+        self.parent_header = JupyterMessageHeader::default();
         self
     }
 
@@ -261,8 +271,8 @@ impl JupyterMessage {
 
 impl fmt::Debug for JupyterMessage {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\nHEADER {}", self.header)?;
-        writeln!(f, "PARENT_HEADER {}", self.parent_header)?;
+        writeln!(f, "\nHEADER {:?}", self.header)?;
+        writeln!(f, "PARENT_HEADER {:?}", self.parent_header)?;
         writeln!(f, "METADATA {}", self.metadata)?;
         writeln!(f, "CONTENT {}\n", self.content)?;
         Ok(())

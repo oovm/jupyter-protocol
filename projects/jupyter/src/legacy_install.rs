@@ -5,7 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{JupyterResult, KernelConfig};
+use crate::{get_kernel_dir, JupyterResult, KernelConfig};
 use serde_json::to_string_pretty;
 use std::{
     env, fs,
@@ -74,36 +74,4 @@ pub(crate) fn install_resource(dir: &Path, filename: &str, bytes: &'static [u8])
     let mut file = fs::File::create(res_path)?;
     file.write_all(bytes)?;
     Ok(())
-}
-
-pub(crate) fn uninstall() -> JupyterResult<()> {
-    let kernel_dir = get_kernel_dir()?;
-    println!("Deleting {}", kernel_dir.to_string_lossy());
-    fs::remove_dir_all(kernel_dir)?;
-    println!("Uninstall complete");
-    Ok(())
-}
-
-// https://jupyter-client.readthedocs.io/en/latest/kernels.html
-fn get_kernel_dir() -> JupyterResult<PathBuf> {
-    let jupyter_dir = if let Ok(dir) = env::var("JUPYTER_PATH") {
-        PathBuf::from(dir)
-    }
-    else if let Some(dir) = get_user_kernel_dir() {
-        dir
-    }
-    else {
-        panic!("Couldn't get XDG data directory");
-    };
-    Ok(jupyter_dir.join("kernels").join("rust"))
-}
-
-#[cfg(not(target_os = "macos"))]
-fn get_user_kernel_dir() -> Option<PathBuf> {
-    dirs::data_dir().map(|data_dir| data_dir.join("jupyter"))
-}
-
-#[cfg(target_os = "macos")]
-fn get_user_kernel_dir() -> Option<PathBuf> {
-    dirs::data_dir().and_then(|d| d.parent().map(|data_dir| data_dir.join("Jupyter")))
 }

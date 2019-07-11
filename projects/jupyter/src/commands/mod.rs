@@ -7,7 +7,7 @@ pub use self::{
     install::{InstallAction, KernelConfig},
     open_jupyter::OpenAction,
     start::{KernelControl, StartAction},
-    uninstall::UninstallAction,
+    uninstall::{get_kernel_dir, UninstallAction},
 };
 use crate::{legacy_install, JupyterResult};
 use serde_derive::{Deserialize, Serialize};
