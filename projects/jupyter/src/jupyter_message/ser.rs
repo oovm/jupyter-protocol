@@ -1,5 +1,6 @@
 use super::*;
 use serde::{ser::SerializeStruct, Serializer};
+use std::fmt::Display;
 
 impl Serialize for JupyterMessageHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -7,7 +8,7 @@ impl Serialize for JupyterMessageHeader {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("JupyterMessageHeader", 6)?;
-        if self.msg_type.is_empty() {
+        if self.is_empty() {
             state.end()
         }
         else {
@@ -19,5 +20,14 @@ impl Serialize for JupyterMessageHeader {
             state.serialize_field("version", &self.version)?;
             state.end()
         }
+    }
+}
+
+impl Serialize for JupyterMessageType {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }

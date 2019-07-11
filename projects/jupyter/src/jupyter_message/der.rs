@@ -8,11 +8,20 @@ use serde::{
 use std::fmt::Display;
 
 pub struct JupyterMessageHeaderVisitor {
-    msg_id: Option<Uuid>,
-    msg_type: String,
     session: String,
     username: String,
     version: String,
+}
+
+impl<'de> Deserialize<'de> for JupyterMessageType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let out = JupyterMessageType::from_str(s.as_str());
+        unsafe { Ok(out.unwrap_unchecked()) }
+    }
 }
 
 impl<'de> Deserialize<'de> for JupyterMessageHeader {
@@ -21,8 +30,6 @@ impl<'de> Deserialize<'de> for JupyterMessageHeader {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_map(JupyterMessageHeaderVisitor {
-            msg_id: None,
-            msg_type: "".to_string(),
             session: "".to_string(),
             username: "".to_string(),
             version: "".to_string(),
@@ -41,6 +48,8 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
         A: MapAccess<'de>,
     {
         let mut date = Utc::now();
+        let mut msg_id = Uuid::nil();
+        let mut msg_type = JupyterMessageType::default();
         while let Some(key) = map.next_key()? {
             match key {
                 "date" => {
@@ -50,18 +59,13 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
                     }
                 }
                 "msg_id" => {
-                    let uuid = map.next_value::<String>()?;
-                    let (head, _) = uuid.split_at(36);
-                    match Uuid::parse_str(head) {
-                        Ok(o) => {
-                            self.msg_id = Some(o);
-                        }
-                        Err(_) => {
-                            return Err(Error::custom(format!("Invalid uuid format {}", uuid)));
-                        }
+                    let v4 = map.next_value::<String>()?;
+                    let (head, _) = v4.split_at(36);
+                    if let Ok(o) = Uuid::parse_str(head) {
+                        msg_id = o;
                     }
                 }
-                "msg_type" => self.msg_type = map.next_value()?,
+                "msg_type" => msg_type = map.next_value()?,
                 "session" => self.session = map.next_value()?,
                 "username" => self.username = map.next_value()?,
                 "version" => self.version = map.next_value()?,
@@ -72,8 +76,8 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
         }
         Ok(JupyterMessageHeader {
             date,
-            msg_id: self.msg_id.ok_or(Error::missing_field("msg_id"))?,
-            msg_type: self.msg_type,
+            msg_id,
+            msg_type,
             session: self.session,
             username: self.username,
             version: self.version,

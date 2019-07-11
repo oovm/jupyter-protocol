@@ -4,9 +4,10 @@
 // https://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-
 use crate::{
     connection::{Connection, HmacSha256},
+    core::ExecuteContext,
+    errors::JupyterError,
     JupyterResult,
 };
 use bytes::Bytes;
@@ -17,7 +18,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_slice, from_str, Map, Value};
 use std::{
     fmt,
-    fmt::Formatter,
+    fmt::{Display, Formatter},
     str::FromStr,
     {self},
 };
@@ -25,7 +26,9 @@ use tokio::task::JoinError;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend, ZmqMessage};
 mod der;
+mod kernel_info;
 mod ser;
+use self::kernel_info::SealKernelInfo;
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -101,14 +104,67 @@ pub struct JupyterMessage {
     header: JupyterMessageHeader,
     parent_header: JupyterMessageHeader,
     metadata: Value,
-    content: Value,
+    content: JupiterContent,
 }
 
+#[derive(Clone)]
+pub enum JupiterContent {
+    Nothing,
+    KernelInfo(Box<SealKernelInfo>),
+    Custom(Box<Value>),
+}
+
+#[derive(Debug, Clone)]
+pub enum JupyterMessageType {
+    KernelInfoRequest,
+    Custom(String),
+}
+
+impl Default for JupyterMessageType {
+    fn default() -> Self {
+        JupyterMessageType::Custom("".to_string())
+    }
+}
+
+impl JupyterMessageHeader {
+    pub fn is_empty(&self) -> bool {
+        match &self.msg_type {
+            JupyterMessageType::Custom(v) => v.is_empty(),
+            _ => false,
+        }
+    }
+}
+
+impl FromStr for JupyterMessageType {
+    type Err = JupyterError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "kernel_info_request" => Ok(JupyterMessageType::KernelInfoRequest),
+            _ => Ok(JupyterMessageType::Custom(s.to_string())),
+        }
+    }
+}
+
+impl AsRef<str> for JupyterMessageType {
+    fn as_ref(&self) -> &str {
+        match self {
+            JupyterMessageType::KernelInfoRequest => "kernel_info_request",
+            JupyterMessageType::Custom(v) => v,
+        }
+    }
+}
+
+impl Display for JupyterMessageType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_ref())
+    }
+}
 #[derive(Clone, Debug)]
 pub struct JupyterMessageHeader {
     pub date: DateTime<Utc>,
     pub msg_id: Uuid,
-    pub msg_type: String,
+    pub msg_type: JupyterMessageType,
     pub session: String,
     pub username: String,
     pub version: String,
@@ -119,7 +175,7 @@ impl Default for JupyterMessageHeader {
         Self {
             date: Default::default(),
             msg_id: Default::default(),
-            msg_type: "".to_string(),
+            msg_type: Default::default(),
             session: "".to_string(),
             username: "".to_string(),
             version: "".to_string(),
@@ -133,7 +189,9 @@ impl JupyterMessage {
     pub(crate) async fn read<S: SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<JupyterMessage> {
         Self::from_raw_message(RawMessage::read(connection).await?)
     }
-
+    pub fn kind(&self) -> &JupyterMessageType {
+        &self.header.msg_type
+    }
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
         fn message_to_json(message: &[u8]) -> JupyterResult<Value> {
             let out = Value::from_str(std::str::from_utf8(message).unwrap_or("")).unwrap();
@@ -154,7 +212,7 @@ impl JupyterMessage {
     }
 
     pub(crate) fn message_type(&self) -> &str {
-        self.header.msg_type.as_str()
+        self.header.msg_type.as_ref()
     }
 
     pub(crate) fn code(&self) -> &str {
@@ -184,19 +242,12 @@ impl JupyterMessage {
             header: JupyterMessageHeader {
                 date: Utc::now(),
                 msg_id: Uuid::new_v4(),
-                msg_type: msg_type.to_string(),
+                msg_type: JupyterMessageType::from_str(msg_type).unwrap_or_default(),
                 session: "".to_string(),
                 username: "kernel".to_string(),
                 version: "".to_string(),
             },
-            parent_header: JupyterMessageHeader {
-                date: Default::default(),
-                msg_id: Default::default(),
-                msg_type: "".to_string(),
-                session: "".to_string(),
-                username: "".to_string(),
-                version: "".to_string(),
-            },
+            parent_header: JupyterMessageHeader::default(),
             metadata: Value::Null,
             content: Value::Null,
         }
@@ -209,7 +260,7 @@ impl JupyterMessage {
             header: JupyterMessageHeader {
                 date: Utc::now(),
                 msg_id: Uuid::new_v4(),
-                msg_type: msg_type.to_string(),
+                msg_type: JupyterMessageType::from_str(msg_type).unwrap_or_default(),
                 session: "".to_string(),
                 username: "kernel".to_string(),
                 version: "".to_string(),
@@ -243,7 +294,7 @@ impl JupyterMessage {
     }
 
     pub(crate) fn with_message_type(mut self, msg_type: &str) -> JupyterMessage {
-        self.header.msg_type = msg_type.to_owned();
+        self.header.msg_type = JupyterMessageType::from_str(msg_type).unwrap_or_default();
         self
     }
 

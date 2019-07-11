@@ -5,7 +5,12 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{connection::Connection, errors::JupyterResult, jupyter_message::JupyterMessage, KernelControl};
+use crate::{
+    connection::Connection,
+    errors::JupyterResult,
+    jupyter_message::{JupyterMessage, JupyterMessageType},
+    KernelControl,
+};
 use ariadne::sources;
 use bytes::Bytes;
 use colored::*;
@@ -44,13 +49,24 @@ impl<T> Clone for ExecuteProvider<T> {
     }
 }
 
-pub trait ExecuteContext {}
+pub trait ExecuteContext {
+    fn language_info(&self) -> LanguageInfo;
+}
+
+pub struct LanguageInfo {
+    pub language: String,
+    pub file_extensions: String,
+}
 
 pub struct SinkExecutor {
     name: String,
 }
 
-impl ExecuteContext for SinkExecutor {}
+impl ExecuteContext for SinkExecutor {
+    fn language_info(&self) -> LanguageInfo {
+        LanguageInfo { language: "Rust".to_string(), file_extensions: ".rs".to_string() }
+    }
+}
 
 impl<T> ExecuteProvider<T> {
     pub fn new(context: T) -> Self
@@ -253,9 +269,19 @@ impl Server {
 
 async fn handle_shell<'a, T>(
     mut executor: MutexGuard<'a, T>,
-    mut connect: MutexGuard<'a, Connection<RouterSocket>>,
+    mut connection: MutexGuard<'a, Connection<RouterSocket>>,
 ) -> JupyterResult<()> {
-    let zmq = JupyterMessage::read(&mut connect).await?;
+    let zmq = JupyterMessage::read(&mut connection).await?;
+    match zmq.kind() {
+        JupyterMessageType::KernelInfoRequest => {
+            let reply = JupyterMessageType::build_kernel_info_reply(&executor);
+            zmq.new_reply().with_content(reply).send(connection).await?
+        }
+        JupyterMessageType::Custom(v) => {
+            println!("Got custom message: {:?}", v);
+        }
+    }
+
     println!("Got shell message: {:?}", zmq);
 
     // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
@@ -283,62 +309,6 @@ async fn bind_socket<S: Socket>(config: &KernelControl, port: u16) -> JupyterRes
     let mut socket = S::new();
     socket.bind(&endpoint).await?;
     Connection::new(socket, &config.key)
-}
-
-pub struct KernelInfo {
-    protocol_version: String,
-    implementation: String,
-    implementation_version: String,
-    language_info: LanguageInfo,
-    banner: String,
-    help_links: Vec<HelpLink>,
-    status: String,
-}
-
-pub struct LanguageInfo {
-    name: String,
-    version: String,
-    mimetype: String,
-    file_extension: String,
-    // Pygments lexer, for highlighting Only needed if it differs from the 'name' field.
-    // see http://pygments.org/docs/lexers/#lexers-for-the-rust-language
-    pygment_lexer: String,
-    // Codemirror mode, for for highlighting in the notebook. Only needed if it differs from the 'name' field.
-    // codemirror use text/x-rustsrc as mimetypes
-    // see https://codemirror.net/mode/rust/
-    codemirror_mode: String,
-    nbconvert_exporter: String,
-}
-
-pub struct HelpLink {
-    text: String,
-    url: String,
-}
-
-impl KernelInfo {
-    /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-    pub fn rust() -> KernelInfo {
-        KernelInfo {
-            protocol_version: "5.3".to_owned(),
-            implementation: env!("CARGO_PKG_NAME").to_owned(),
-            implementation_version: env!("CARGO_PKG_VERSION").to_owned(),
-            language_info: LanguageInfo {
-                name: "Rust".to_owned(),
-                version: "".to_owned(),
-                mimetype: "text/rust".to_owned(),
-                file_extension: ".rs".to_owned(),
-                pygment_lexer: "rust".to_owned(),
-                codemirror_mode: "rust".to_owned(),
-                nbconvert_exporter: "rust".to_owned(),
-            },
-            banner: format!("EvCxR {} - Evaluation Context for Rust", env!("CARGO_PKG_VERSION")),
-            help_links: vec![HelpLink {
-                text: "Rust std docs".to_owned(),
-                url: "https://doc.rust-lang.org/std/index.html".to_owned(),
-            }],
-            status: "ok".to_owned(),
-        }
-    }
 }
 
 async fn handle_completion_request<T>(
