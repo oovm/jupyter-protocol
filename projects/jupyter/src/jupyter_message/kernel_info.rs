@@ -1,18 +1,18 @@
 use super::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub(crate) struct SealKernelInfo {
+pub struct KernelInfo {
     protocol_version: String,
     implementation: String,
     implementation_version: String,
-    language_info: SealLanguageInfo,
+    language_info: SealedLanguageInfo,
     banner: String,
     help_links: Vec<HelpLink>,
     status: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-struct SealLanguageInfo {
+struct SealedLanguageInfo {
     name: String,
     version: String,
     mimetype: String,
@@ -33,30 +33,29 @@ pub struct HelpLink {
     url: String,
 }
 
-impl JupyterMessageType {
-    pub fn build_kernel_info_reply<T>(context: &T) -> JupyterMessage
+impl JupiterContent {
+    pub fn build_kernel_info_reply<T>(context: &T) -> JupiterContent
     where
         T: ExecuteContext,
     {
-        let header = JupyterMessageHeader::new(JupyterMessageType::KernelInfoReply);
-        let content = SealKernelInfo::build(context);
-        JupyterMessage::new(header, content)
+        let content = KernelInfo::build(context);
+        JupiterContent::KernelInfo(Box::new(content))
     }
 }
 
-impl SealKernelInfo {
+impl KernelInfo {
     /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-    pub fn build<T>(context: &T) -> SealKernelInfo
+    pub fn build<T>(context: &T) -> KernelInfo
     where
         T: ExecuteContext,
     {
         let language = context.language_info();
-        SealKernelInfo {
+        KernelInfo {
             status: "ok".to_owned(),
             protocol_version: "5.3".to_owned(),
             implementation: env!("CARGO_PKG_NAME").to_owned(),
             implementation_version: env!("CARGO_PKG_VERSION").to_owned(),
-            language_info: SealLanguageInfo {
+            language_info: SealedLanguageInfo {
                 name: language.language,
                 version: "".to_owned(),
                 mimetype: "text/rust".to_owned(),

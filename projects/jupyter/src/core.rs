@@ -8,7 +8,7 @@
 use crate::{
     connection::Connection,
     errors::JupyterResult,
-    jupyter_message::{JupyterMessage, JupyterMessageType},
+    jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
     KernelControl,
 };
 use ariadne::sources;
@@ -16,7 +16,13 @@ use bytes::Bytes;
 use colored::*;
 use crossbeam_channel::Select;
 use serde_json::Value;
-use std::{collections::HashMap, future::Future, ops::DerefMut, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    future::Future,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{
     sync::{
         mpsc::{error::SendError, UnboundedReceiver, UnboundedSender},
@@ -200,7 +206,7 @@ impl Server {
     }
     async fn spawn_shell_executor<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
     where
-        T: Send + 'static,
+        T: ExecuteContext + Send + 'static,
     {
         let task = tokio::spawn(async move {
             loop {
@@ -270,19 +276,24 @@ impl Server {
 async fn handle_shell<'a, T>(
     mut executor: MutexGuard<'a, T>,
     mut connection: MutexGuard<'a, Connection<RouterSocket>>,
-) -> JupyterResult<()> {
+) -> JupyterResult<()>
+where
+    T: ExecuteContext,
+{
     let zmq = JupyterMessage::read(&mut connection).await?;
     match zmq.kind() {
         JupyterMessageType::KernelInfoRequest => {
-            let reply = JupyterMessageType::build_kernel_info_reply(&executor);
-            zmq.new_reply().with_content(reply).send(connection).await?
+            let cont = JupiterContent::build_kernel_info_reply(executor.deref());
+            let reply = zmq.new_reply().with_content(cont);
+            println!("Sending kernel info reply: {:#?}", reply);
+            reply.send(&mut connection).await?
         }
         JupyterMessageType::Custom(v) => {
             println!("Got custom message: {:?}", v);
         }
     }
 
-    println!("Got shell message: {:?}", zmq);
+    println!("Got shell message: {:?}", zmq.kind());
 
     // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
     Ok(())

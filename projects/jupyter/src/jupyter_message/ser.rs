@@ -8,7 +8,7 @@ impl Serialize for JupyterMessageHeader {
         S: Serializer,
     {
         let mut state = serializer.serialize_struct("JupyterMessageHeader", 6)?;
-        if self.is_empty() {
+        if self.msg_type.is_empty() {
             state.end()
         }
         else {
@@ -29,5 +29,17 @@ impl Serialize for JupyterMessageType {
         S: Serializer,
     {
         serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl Serialize for JupiterContent {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            JupiterContent::KernelInfo(v) => v.serialize(serializer),
+            JupiterContent::Custom(v) => v.serialize(serializer),
+        }
     }
 }

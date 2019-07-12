@@ -4,6 +4,7 @@ use chrono::{DateTime, ParseResult, TimeZone};
 use serde::{
     de::{Error, MapAccess, Visitor},
     Deserializer,
+    __private::de::{Content, ContentRefDeserializer},
 };
 use std::fmt::Display;
 
@@ -82,6 +83,22 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
             username: self.username,
             version: self.version,
         })
+    }
+}
+
+impl<'de> Deserialize<'de> for JupiterContent {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let content = Content::deserialize(deserializer)?;
+        if let Ok(o) = KernelInfo::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
+            return Ok(JupiterContent::KernelInfo(Box::new(o)));
+        }
+        if let Ok(o) = Value::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
+            return Ok(JupiterContent::Custom(Box::new(o)));
+        }
+        Ok(JupiterContent::default())
     }
 }
 

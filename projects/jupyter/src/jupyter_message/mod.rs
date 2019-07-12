@@ -15,10 +15,10 @@ use chrono::{DateTime, Utc};
 use generic_array::GenericArray;
 use serde::{Deserialize, Serialize};
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{from_slice, from_str, Map, Value};
+use serde_json::{from_slice, from_str, to_string, to_vec, Map, Value};
 use std::{
     fmt,
-    fmt::{Display, Formatter},
+    fmt::{Debug, Display, Formatter},
     str::FromStr,
     {self},
 };
@@ -27,8 +27,9 @@ use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend, ZmqMessage};
 mod der;
 mod kernel_info;
+mod message_type;
 mod ser;
-use self::kernel_info::SealKernelInfo;
+pub use self::{kernel_info::KernelInfo, message_type::JupyterMessageType};
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -98,7 +99,7 @@ impl RawMessage {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
     header: JupyterMessageHeader,
@@ -109,57 +110,25 @@ pub struct JupyterMessage {
 
 #[derive(Clone)]
 pub enum JupiterContent {
-    Nothing,
-    KernelInfo(Box<SealKernelInfo>),
+    KernelInfo(Box<KernelInfo>),
     Custom(Box<Value>),
 }
 
-#[derive(Debug, Clone)]
-pub enum JupyterMessageType {
-    KernelInfoRequest,
-    Custom(String),
-}
-
-impl Default for JupyterMessageType {
-    fn default() -> Self {
-        JupyterMessageType::Custom("".to_string())
-    }
-}
-
-impl JupyterMessageHeader {
-    pub fn is_empty(&self) -> bool {
-        match &self.msg_type {
-            JupyterMessageType::Custom(v) => v.is_empty(),
-            _ => false,
-        }
-    }
-}
-
-impl FromStr for JupyterMessageType {
-    type Err = JupyterError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "kernel_info_request" => Ok(JupyterMessageType::KernelInfoRequest),
-            _ => Ok(JupyterMessageType::Custom(s.to_string())),
-        }
-    }
-}
-
-impl AsRef<str> for JupyterMessageType {
-    fn as_ref(&self) -> &str {
-        match self {
-            JupyterMessageType::KernelInfoRequest => "kernel_info_request",
-            JupyterMessageType::Custom(v) => v,
-        }
-    }
-}
-
-impl Display for JupyterMessageType {
+impl Debug for JupiterContent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_ref())
+        match self {
+            JupiterContent::KernelInfo(v) => Debug::fmt(v, f),
+            JupiterContent::Custom(v) => Debug::fmt(v, f),
+        }
     }
 }
+
+impl Default for JupiterContent {
+    fn default() -> Self {
+        JupiterContent::Custom(Box::new(Value::Null))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct JupyterMessageHeader {
     pub date: DateTime<Utc>,
@@ -207,7 +176,7 @@ impl JupyterMessage {
             header: from_slice(&raw_message.jparts[0])?,
             parent_header: from_slice(&raw_message.jparts[1])?,
             metadata: message_to_json(&raw_message.jparts[2])?,
-            content: message_to_json(&raw_message.jparts[3])?,
+            content: from_slice(&raw_message.jparts[3])?,
         })
     }
 
@@ -216,24 +185,39 @@ impl JupyterMessage {
     }
 
     pub(crate) fn code(&self) -> &str {
-        self.content["code"].as_str().unwrap_or("")
+        match &self.content {
+            JupiterContent::Custom(v) => v["code"].as_str().unwrap_or(""),
+            _ => "",
+        }
     }
 
     pub(crate) fn cursor_pos(&self) -> usize {
-        todo!()
+        match &self.content {
+            JupiterContent::Custom(v) => v["cursor_pos"].as_u64().unwrap_or(0) as usize,
+            _ => 0,
+        }
         // self.content["cursor_pos"].as_usize().unwrap_or_default()
     }
 
     pub(crate) fn target_name(&self) -> &str {
-        self.content["target_name"].as_str().unwrap_or("")
+        match &self.content {
+            JupiterContent::Custom(v) => v["target_name"].as_str().unwrap_or(""),
+            _ => "",
+        }
     }
 
     pub(crate) fn data(&self) -> &Value {
-        &self.content["data"]
+        match &self.content {
+            JupiterContent::Custom(v) => &v["data"],
+            _ => &Value::Null,
+        }
     }
 
     pub(crate) fn comm_id(&self) -> &str {
-        self.content["comm_id"].as_str().unwrap_or("")
+        match &self.content {
+            JupiterContent::Custom(v) => v["comm_id"].as_str().unwrap_or(""),
+            _ => "",
+        }
     }
 
     pub(crate) fn new(msg_type: &str) -> JupyterMessage {
@@ -249,7 +233,7 @@ impl JupyterMessage {
             },
             parent_header: JupyterMessageHeader::default(),
             metadata: Value::Null,
-            content: Value::Null,
+            content: JupiterContent::default(),
         }
     }
 
@@ -267,7 +251,7 @@ impl JupyterMessage {
             },
             parent_header: self.header.clone(),
             metadata: Value::Null,
-            content: Value::Null,
+            content: JupiterContent::default(),
         }
     }
 
@@ -284,12 +268,15 @@ impl JupyterMessage {
         todo!()
     }
 
-    pub(crate) fn get_content(&self) -> &serde_json::Value {
+    pub fn get_content(&self) -> &JupiterContent {
         &self.content
     }
 
-    pub(crate) fn with_content(mut self, content: serde_json::Value) -> JupyterMessage {
-        self.content = content;
+    pub fn with_content<T>(mut self, content: T) -> JupyterMessage
+    where
+        T: Into<JupiterContent>,
+    {
+        self.content = content.into();
         self
     }
 
@@ -306,26 +293,15 @@ impl JupyterMessage {
     pub(crate) async fn send<S: SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
         // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit
         // of refactoring.
-        // let raw_message = RawMessage {
-        //     zmq_identities: self.zmq_identities.clone(),
-        //     jparts: vec![
-        //         self.header.dump().as_bytes().to_vec().into(),
-        //         self.parent_header.dump().as_bytes().to_vec().into(),
-        //         self.metadata.dump().as_bytes().to_vec().into(),
-        //         self.content.dump().as_bytes().to_vec().into(),
-        //     ],
-        // };
-        // raw_message.send(connection).await
-        todo!()
-    }
-}
-
-impl fmt::Debug for JupyterMessage {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\nHEADER {:?}", self.header)?;
-        writeln!(f, "PARENT_HEADER {:?}", self.parent_header)?;
-        writeln!(f, "METADATA {}", self.metadata)?;
-        writeln!(f, "CONTENT {}\n", self.content)?;
-        Ok(())
+        let raw_message = RawMessage {
+            zmq_identities: self.zmq_identities.clone(),
+            jparts: vec![
+                to_vec(&self.header)?.into(),
+                to_vec(&self.parent_header)?.into(),
+                to_vec(&self.metadata)?.into(),
+                to_vec(&self.content)?.into(),
+            ],
+        };
+        raw_message.send(connection).await
     }
 }
