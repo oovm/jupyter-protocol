@@ -1,13 +1,13 @@
 [package]
-name = "evcxr_jupyter"
-version = "0.14.2"
+name = "jupyter"
+version = "0.0.0"
 license = "MIT OR Apache-2.0"
-description = "A Jupyter Kernel for Rust"
-repository = "https://github.com/evcxr/evcxr"
+description = "Jupyter Kernel Protocol in Rust"
+#repository = "https://github.com/evcxr/evcxr"
 readme = "README.md"
 authors = ["The Evcxr Authors"]
 edition = "2021"
-rust-version = "1.57"
+exclude = ["third_party/.ipynb_checkpoints/"]
 
 [dependencies]
 clap = "4.2.7"

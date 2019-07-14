@@ -61,7 +61,7 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
                 }
                 "msg_id" => {
                     let v4 = map.next_value::<String>()?;
-                    let (head, _) = v4.split_at(36);
+                    let head = v4.split('_').next().unwrap_or("");
                     if let Ok(o) = Uuid::parse_str(head) {
                         msg_id = o;
                     }
