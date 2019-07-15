@@ -1,3 +1,8 @@
+use clap::Parser;
+use clap_derive::{Parser, Subcommand};
+use jupyter::{InstallAction, JupyterResult, OpenAction, StartAction, UninstallAction};
+use std::path::PathBuf;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct JupyterApplication {

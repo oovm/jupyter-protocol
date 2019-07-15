@@ -50,6 +50,7 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
     {
         let mut date = Utc::now();
         let mut msg_id = Uuid::nil();
+        let mut session = Uuid::nil();
         let mut msg_type = JupyterMessageType::default();
         while let Some(key) = map.next_key()? {
             match key {
@@ -59,6 +60,7 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
                         date = o.with_timezone(&Utc)
                     }
                 }
+                "msg_type" => msg_type = map.next_value()?,
                 "msg_id" => {
                     let v4 = map.next_value::<String>()?;
                     let head = v4.split('_').next().unwrap_or("");
@@ -66,8 +68,13 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
                         msg_id = o;
                     }
                 }
-                "msg_type" => msg_type = map.next_value()?,
-                "session" => self.session = map.next_value()?,
+                "session" => {
+                    let v4 = map.next_value::<String>()?;
+                    let head = v4.split('_').next().unwrap_or("");
+                    if let Ok(o) = Uuid::parse_str(head) {
+                        session = o;
+                    }
+                }
                 "username" => self.username = map.next_value()?,
                 "version" => self.version = map.next_value()?,
                 _ => {
@@ -75,14 +82,7 @@ impl<'de> Visitor<'de> for JupyterMessageHeaderVisitor {
                 }
             }
         }
-        Ok(JupyterMessageHeader {
-            date,
-            msg_id,
-            msg_type,
-            session: self.session,
-            username: self.username,
-            version: self.version,
-        })
+        Ok(JupyterMessageHeader { date, msg_id, msg_type, session, username: self.username, version: self.version })
     }
 }
 

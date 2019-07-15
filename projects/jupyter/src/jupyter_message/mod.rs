@@ -5,8 +5,8 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use crate::{
+    client::ExecuteContext,
     connection::{Connection, HmacSha256},
-    core::ExecuteContext,
     errors::JupyterError,
     JupyterResult,
 };
@@ -110,8 +110,26 @@ pub struct JupyterMessage {
 
 #[derive(Clone)]
 pub enum JupiterContent {
+    ExecutionState(Box<ExecutionState>),
     KernelInfo(Box<KernelInfo>),
     Custom(Box<Value>),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExecutionState {
+    execution_state: String,
+}
+
+impl From<ExecutionState> for JupiterContent {
+    fn from(value: ExecutionState) -> Self {
+        JupiterContent::ExecutionState(Box::new(value))
+    }
+}
+
+impl ExecutionState {
+    pub fn new<S: ToString>(state: S) -> Self {
+        Self { execution_state: state.to_string() }
+    }
 }
 
 impl Debug for JupiterContent {
@@ -119,6 +137,7 @@ impl Debug for JupiterContent {
         match self {
             JupiterContent::KernelInfo(v) => Debug::fmt(v, f),
             JupiterContent::Custom(v) => Debug::fmt(v, f),
+            JupiterContent::ExecutionState(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -131,11 +150,11 @@ impl Default for JupiterContent {
 
 #[derive(Clone, Debug)]
 pub struct JupyterMessageHeader {
-    pub date: DateTime<Utc>,
-    pub msg_id: Uuid,
-    pub msg_type: JupyterMessageType,
-    pub session: String,
     pub username: String,
+    pub msg_type: JupyterMessageType,
+    pub date: DateTime<Utc>,
+    pub session: Uuid,
+    pub msg_id: Uuid,
     pub version: String,
 }
 
@@ -145,7 +164,7 @@ impl Default for JupyterMessageHeader {
             date: Default::default(),
             msg_id: Default::default(),
             msg_type: Default::default(),
-            session: "".to_string(),
+            session: Default::default(),
             username: "".to_string(),
             version: "".to_string(),
         }
@@ -224,11 +243,11 @@ impl JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
             header: JupyterMessageHeader {
+                username: "kernel".to_string(),
+                msg_type: JupyterMessageType::from_str(msg_type).unwrap_or_default(),
                 date: Utc::now(),
                 msg_id: Uuid::new_v4(),
-                msg_type: JupyterMessageType::from_str(msg_type).unwrap_or_default(),
-                session: "".to_string(),
-                username: "kernel".to_string(),
+                session: Uuid::nil(),
                 version: "".to_string(),
             },
             parent_header: JupyterMessageHeader::default(),
@@ -238,16 +257,16 @@ impl JupyterMessage {
     }
 
     // Creates a new child message of this message. ZMQ identities are not transferred.
-    pub(crate) fn new_message(&self, msg_type: &str) -> JupyterMessage {
+    pub fn create_message(&self, kind: JupyterMessageType) -> JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
             header: JupyterMessageHeader {
                 date: Utc::now(),
                 msg_id: Uuid::new_v4(),
-                msg_type: JupyterMessageType::from_str(msg_type).unwrap_or_default(),
-                session: "".to_string(),
+                msg_type: kind,
+                session: self.header.session.clone(),
                 username: "kernel".to_string(),
-                version: "".to_string(),
+                version: self.header.version.clone(),
             },
             parent_header: self.header.clone(),
             metadata: Value::Null,
@@ -257,8 +276,8 @@ impl JupyterMessage {
 
     // Creates a reply to this message. This is a child with the message type determined
     // automatically by replacing "request" with "reply". ZMQ identities are transferred.
-    pub(crate) fn new_reply(&self) -> JupyterMessage {
-        let mut reply = self.new_message(&self.message_type().replace("_request", "_reply"));
+    pub fn as_reply(&self) -> JupyterMessage {
+        let mut reply = self.create_message(self.header.msg_type.as_reply());
         reply.zmq_identities = self.zmq_identities.clone();
         reply
     }

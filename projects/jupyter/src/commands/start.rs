@@ -34,7 +34,7 @@ impl StartAction {
             eprintln!("Warning: tried to update client, but failed: {}", error);
         }
         let config = KernelControl::parse_control_file(&control_file)?;
-        crate::core::Server::run(&config)?;
+        crate::client::Server::run(&config)?;
         Ok(())
     }
 }

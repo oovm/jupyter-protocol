@@ -40,6 +40,7 @@ impl Serialize for JupiterContent {
         match self {
             JupiterContent::KernelInfo(v) => v.serialize(serializer),
             JupiterContent::Custom(v) => v.serialize(serializer),
+            JupiterContent::ExecutionState(v) => v.serialize(serializer),
         }
     }
 }

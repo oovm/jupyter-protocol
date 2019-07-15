@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    KernelControl,
+    ExecutionState, KernelControl,
 };
 use ariadne::sources;
 use bytes::Bytes;
@@ -211,8 +211,9 @@ impl Server {
         let task = tokio::spawn(async move {
             loop {
                 let socket = self.shell_socket.lock().await;
+                let io = self.iopub.lock().await;
                 let exe = executor.context.lock().await;
-                if let Err(e) = handle_shell(exe, socket).await {
+                if let Err(e) = handle_shell(exe, io, socket).await {
                     eprintln!("Error sending heartbeat: {:?}", e);
                 }
             }
@@ -275,24 +276,32 @@ impl Server {
 
 async fn handle_shell<'a, T>(
     mut executor: MutexGuard<'a, T>,
+    mut io: MutexGuard<'a, Connection<PubSocket>>,
     mut connection: MutexGuard<'a, Connection<RouterSocket>>,
 ) -> JupyterResult<()>
 where
     T: ExecuteContext,
 {
+    // Processing of every message should be enclosed between "busy" and "idle"
+    // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
+    // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
     let zmq = JupyterMessage::read(&mut connection).await?;
+    zmq.create_message(JupyterMessageType::Status).with_content(ExecutionState::new("busy")).send(&mut io).await?;
     match zmq.kind() {
         JupyterMessageType::KernelInfoRequest => {
             let cont = JupiterContent::build_kernel_info_reply(executor.deref());
-            let reply = zmq.new_reply().with_content(cont);
-            println!("Sending kernel info reply: {:#?}", reply);
+            let reply = zmq.as_reply().with_content(cont);
+            // println!("Sending kernel info reply: {:#?}", reply);
             reply.send(&mut connection).await?
         }
         JupyterMessageType::Custom(v) => {
             println!("Got custom message: {:?}", v);
         }
+        _ => {
+            println!("Got unknown message: {:?}", zmq);
+        }
     }
-
+    zmq.create_message(JupyterMessageType::Status).with_content(ExecutionState::new("idle")).send(&mut io).await?;
     println!("Got shell message: {:?}", zmq.kind());
 
     // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
