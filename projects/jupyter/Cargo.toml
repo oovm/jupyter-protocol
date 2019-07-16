@@ -30,6 +30,7 @@ unicode-segmentation = "1.7.1"
 generic-array = "0.14.4"
 crossbeam-channel = "0.5.5"
 ariadne = "0.2.0"
+async-trait = "0.1.68"
 zeromq = { version = "0.3.3", default_features = false, features = ["tokio-runtime", "tcp-transport"] }
 
 [features]

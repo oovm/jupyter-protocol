@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecutionState, KernelControl,
+    ExecuteContext, ExecutionState, KernelControl, SinkExecutor,
 };
 use ariadne::sources;
 use bytes::Bytes;
@@ -52,25 +52,6 @@ pub struct ExecuteProvider<T> {
 impl<T> Clone for ExecuteProvider<T> {
     fn clone(&self) -> Self {
         Self { context: self.context.clone() }
-    }
-}
-
-pub trait ExecuteContext {
-    fn language_info(&self) -> LanguageInfo;
-}
-
-pub struct LanguageInfo {
-    pub language: String,
-    pub file_extensions: String,
-}
-
-pub struct SinkExecutor {
-    name: String,
-}
-
-impl ExecuteContext for SinkExecutor {
-    fn language_info(&self) -> LanguageInfo {
-        LanguageInfo { language: "Rust".to_string(), file_extensions: ".rs".to_string() }
     }
 }
 
@@ -214,7 +195,7 @@ impl Server {
                 let io = self.iopub.lock().await;
                 let exe = executor.context.lock().await;
                 if let Err(e) = handle_shell(exe, io, socket).await {
-                    eprintln!("Error sending heartbeat: {:?}", e);
+                    eprintln!("Error sending shell executor: {:?}", e);
                 }
             }
         });
@@ -295,10 +276,9 @@ where
             reply.send(&mut connection).await?
         }
         JupyterMessageType::ExecuteRequest => {
-            let cont = JupiterContent::build_kernel_info_reply(executor.deref());
-            let reply = zmq.as_reply().with_content(cont);
-            // println!("Sending kernel info reply: {:#?}", reply);
-            reply.send(&mut connection).await?
+            let req = zmq.as_execution_request()?;
+            // let out = executor.run(&req.code, req.execution_count).await?;
+            zmq.as_reply().with_content(req.as_reply(2)?).send(&mut connection).await?
         }
         JupyterMessageType::Custom(v) => {
             println!("Got custom shell message: {:?}", v);

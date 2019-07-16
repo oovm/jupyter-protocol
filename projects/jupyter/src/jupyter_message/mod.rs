@@ -5,7 +5,6 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use crate::{
-    client::ExecuteContext,
     connection::{Connection, HmacSha256},
     errors::JupyterError,
     JupyterResult,
@@ -189,6 +188,12 @@ impl JupyterMessage {
     }
     pub fn kind(&self) -> &JupyterMessageType {
         &self.header.msg_type
+    }
+    pub fn as_execution_request(&self) -> JupyterResult<&ExecutionRequest> {
+        match &self.content {
+            JupiterContent::ExecutionRequest(s) => Ok(s.as_ref()),
+            _ => Err(JupyterError::except_type("JupiterContent::ExecutionRequest")),
+        }
     }
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
         fn message_to_json(message: &[u8]) -> JupyterResult<Value> {

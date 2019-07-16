@@ -2,8 +2,8 @@ use super::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionRequest {
-    code: String,
-    execution_count: i32,
+    pub code: String,
+    pub execution_count: i32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

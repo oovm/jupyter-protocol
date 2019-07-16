@@ -28,6 +28,9 @@ impl JupyterError {
     pub fn missing_field(field: &'static str) -> Self {
         Self { kind: Box::new(JupyterErrorKind::MissingField(field)) }
     }
+    pub fn except_type(except_type: &'static str) -> Self {
+        Self { kind: Box::new(JupyterErrorKind::ExceptType(except_type)) }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +39,7 @@ pub enum JupyterErrorKind {
     TypeRedefinedVariablesLost(Vec<String>),
     Message(String),
     MissingField(&'static str),
+    ExceptType(&'static str),
     SubprocessTerminated(String),
 }
 

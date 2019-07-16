@@ -10,11 +10,13 @@ mod client;
 mod commands;
 mod connection;
 mod errors;
+mod executor;
 mod jupyter_message;
 mod legacy_install;
 
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},
+    executor::{ExecuteContext, LanguageInfo, SinkExecutor},
     jupyter_message::*,
 };
