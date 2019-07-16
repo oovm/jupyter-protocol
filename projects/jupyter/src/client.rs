@@ -286,7 +286,7 @@ where
     // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
     // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
     let zmq = JupyterMessage::read(&mut connection).await?;
-    zmq.create_message(JupyterMessageType::Status).with_content(ExecutionState::new("busy")).send(&mut io).await?;
+    zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy")).send(&mut io).await?;
     match zmq.kind() {
         JupyterMessageType::KernelInfoRequest => {
             let cont = JupiterContent::build_kernel_info_reply(executor.deref());
@@ -294,16 +294,20 @@ where
             // println!("Sending kernel info reply: {:#?}", reply);
             reply.send(&mut connection).await?
         }
+        JupyterMessageType::ExecuteRequest => {
+            let cont = JupiterContent::build_kernel_info_reply(executor.deref());
+            let reply = zmq.as_reply().with_content(cont);
+            // println!("Sending kernel info reply: {:#?}", reply);
+            reply.send(&mut connection).await?
+        }
         JupyterMessageType::Custom(v) => {
-            println!("Got custom message: {:?}", v);
+            println!("Got custom shell message: {:?}", v);
         }
         _ => {
-            println!("Got unknown message: {:?}", zmq);
+            println!("Got unknown shell message: {:?}", zmq);
         }
     }
-    zmq.create_message(JupyterMessageType::Status).with_content(ExecutionState::new("idle")).send(&mut io).await?;
-    println!("Got shell message: {:?}", zmq.kind());
-
+    zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle")).send(&mut io).await?;
     // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
     Ok(())
 }

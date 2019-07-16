@@ -26,10 +26,16 @@ use tokio::task::JoinError;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend, ZmqMessage};
 mod der;
+mod execute;
 mod kernel_info;
 mod message_type;
 mod ser;
-pub use self::{kernel_info::KernelInfo, message_type::JupyterMessageType};
+pub use self::{
+    execute::{ExecutionReply, ExecutionRequest},
+    kernel_info::KernelInfo,
+    message_type::JupyterMessageType,
+};
+use std::collections::HashMap;
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -110,7 +116,9 @@ pub struct JupyterMessage {
 
 #[derive(Clone)]
 pub enum JupiterContent {
-    ExecutionState(Box<ExecutionState>),
+    State(Box<ExecutionState>),
+    ExecutionRequest(Box<ExecutionRequest>),
+    ExecutionReply(Box<ExecutionReply>),
     KernelInfo(Box<KernelInfo>),
     Custom(Box<Value>),
 }
@@ -122,7 +130,7 @@ pub struct ExecutionState {
 
 impl From<ExecutionState> for JupiterContent {
     fn from(value: ExecutionState) -> Self {
-        JupiterContent::ExecutionState(Box::new(value))
+        JupiterContent::State(Box::new(value))
     }
 }
 
@@ -137,7 +145,9 @@ impl Debug for JupiterContent {
         match self {
             JupiterContent::KernelInfo(v) => Debug::fmt(v, f),
             JupiterContent::Custom(v) => Debug::fmt(v, f),
-            JupiterContent::ExecutionState(v) => Debug::fmt(v, f),
+            JupiterContent::State(v) => Debug::fmt(v, f),
+            JupiterContent::ExecutionRequest(v) => Debug::fmt(v, f),
+            JupiterContent::ExecutionReply(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -239,12 +249,12 @@ impl JupyterMessage {
         }
     }
 
-    pub(crate) fn new(msg_type: &str) -> JupyterMessage {
+    pub fn new(msg_type: &str) -> JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
             header: JupyterMessageHeader {
                 username: "kernel".to_string(),
-                msg_type: JupyterMessageType::from_str(msg_type).unwrap_or_default(),
+                msg_type: JupyterMessageType::new(msg_type),
                 date: Utc::now(),
                 msg_id: Uuid::new_v4(),
                 session: Uuid::nil(),
