@@ -24,13 +24,14 @@ use std::{
 use tokio::task::JoinError;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend, ZmqMessage};
+mod common_info;
 mod der;
 mod execute;
 mod kernel_info;
 mod message_type;
 mod ser;
 pub use self::{
-    execute::{ExecutionReply, ExecutionRequest},
+    execute::{ExecutionGroup, ExecutionReply, ExecutionRequest},
     kernel_info::KernelInfo,
     message_type::JupyterMessageType,
 };
@@ -189,10 +190,14 @@ impl JupyterMessage {
     pub fn kind(&self) -> &JupyterMessageType {
         &self.header.msg_type
     }
-    pub fn as_execution_request(&self) -> JupyterResult<&ExecutionRequest> {
+
+    pub fn as_execution_request(&self) -> JupyterResult<ExecutionRequest> {
         match &self.content {
-            JupiterContent::ExecutionRequest(s) => Ok(s.as_ref()),
-            _ => Err(JupyterError::except_type("JupiterContent::ExecutionRequest")),
+            JupiterContent::ExecutionRequest(s) => Ok(**s),
+            _ => {
+                println!("Unexpected message type: {:?}", self.content);
+                Err(JupyterError::except_type("JupiterContent::ExecutionRequest"))
+            }
         }
     }
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {

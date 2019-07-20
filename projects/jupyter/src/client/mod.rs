@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecuteContext, ExecutionState, KernelControl, SinkExecutor,
+    ExecuteContext, ExecutionReply, ExecutionRequest, ExecutionState, KernelControl, SinkExecutor,
 };
 use ariadne::sources;
 use bytes::Bytes;
@@ -41,12 +41,14 @@ pub(crate) struct Server {
     control: Arc<Mutex<Connection<RouterSocket>>>,
     shell_socket: Arc<Mutex<Connection<RouterSocket>>>,
     latest_execution_request: Arc<Mutex<Option<JupyterMessage>>>,
+    execution_request_sender: Arc<Mutex<UnboundedSender<ExecutionGroup>>>,
+    execution_request_receiver: Arc<Mutex<UnboundedReceiver<ExecutionGroup>>>,
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
 }
 
 pub struct ExecuteProvider<T> {
-    context: Arc<Mutex<T>>,
+    pub context: Arc<Mutex<T>>,
 }
 
 impl<T> Clone for ExecuteProvider<T> {
@@ -109,13 +111,15 @@ impl Server {
         let stdin_socket = bind_socket::<RouterSocket>(config, config.stdin_port).await?;
         let iopub_socket = bind_socket::<PubSocket>(config, config.iopub_port).await?;
         let iopub = Arc::new(Mutex::new(iopub_socket));
-
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
-
+        let (execution_sender, mut execution_receiver) = tokio::sync::mpsc::unbounded_channel();
+        // let (execution_response_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
         let server = Server {
             iopub,
             heartbeat: Arc::new(Mutex::new(heartbeat)),
             latest_execution_request: Arc::new(Mutex::new(None)),
+            execution_request_sender: Arc::new(Mutex::new(execution_sender)),
+            execution_request_receiver: Arc::new(Mutex::new(execution_receiver)),
             stdin: Arc::new(Mutex::new(stdin_socket)),
             control: Arc::new(Mutex::new(control_socket)),
             shutdown_sender: Arc::new(Mutex::new(Some(shutdown_sender))),
@@ -123,116 +127,116 @@ impl Server {
             shell_socket: Arc::new(Mutex::new(shell_socket)),
         };
         let mut context = ExecuteProvider::new(SinkExecutor { name: "sink".to_string() });
-        let (execution_sender, mut execution_receiver) = tokio::sync::mpsc::unbounded_channel();
-        let (execution_response_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
-        server.clone().spawn_shell_executor(context.clone()).await.expect("spawn_heart_beat");
 
-        {
-            tokio::spawn(async move {
-                loop {
-                    match execution_response_receiver.recv().await {
-                        Some(message) => {
-                            println!("execution_response_receiver.recv: {:?}", message);
-                        }
-                        None => {
-                            println!("execution_response_receiver.recv: None");
-                            break;
-                        }
-                    }
-                }
-            });
-        }
-
-        // context.execute(":load_config")?;
-        // let process_handle = context.process_handle();
-        // let context = Arc::new(std::sync::Mutex::new(context));
-        if let Err(e) = server.clone().spawn_control().await {
-            eprintln!("Spawn control fail: {:?}", e);
-        }
         server.clone().spawn_heart_beat().await.expect("spawn shell executor failed");
-        // {
-        //     let context = context.clone();
-        //     let server = server.clone();
-        //     tokio::spawn(async move {
-        //         let result =
-        //             server.handle_shell(shell_socket, &execution_sender, &mut execution_response_receiver, context).await;
-        //         if let Err(error) = result {
-        //             eprintln!("shell error: {error:?}");
-        //         }
-        //     });
-        // }
-        {
-            let server = server.clone();
-            let context = context.clone();
-            tokio::spawn(async move {
-                let result =
-                    server.handle_execution_requests(context, &mut execution_receiver, &execution_response_sender).await;
-                if let Err(error) = result {
-                    eprintln!("execution error: {error:?}");
-                }
-            });
-        }
-        // server
-        //     .clone()
-        //     .start_output_pass_through_thread(
-        //         vec![("stdout", outputs.stdout), ("stderr", outputs.stderr)],
-        //         shutdown_receiver.clone(),
-        //     )
-        //     .await;
+        server.clone().spawn_shell_execution(context.clone()).await.expect("spawn heart beat failed");
+        server.clone().spawn_execution_queue(context.clone()).await.expect("spawn execution queue failed");
+        server.clone().spawn_control().await.expect("spawn control channel failed");
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
 
     async fn signal_shutdown(&mut self) {
         self.shutdown_sender.lock().await.take();
     }
-    async fn spawn_shell_executor<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
-    where
-        T: ExecuteContext + Send + 'static,
-    {
-        let task = tokio::spawn(async move {
-            loop {
-                let socket = self.shell_socket.lock().await;
-                let io = self.iopub.lock().await;
-                let exe = executor.context.lock().await;
-                if let Err(e) = handle_shell(exe, io, socket).await {
-                    eprintln!("Error sending shell executor: {:?}", e);
-                }
-            }
-        });
-        task.await
-    }
     async fn spawn_heart_beat(self) -> Result<(), JoinError> {
         let task = tokio::spawn(async move {
             loop {
-                let o = self.heartbeat.try_lock();
-                if let Err(e) = handle_heart_beat(o).await {
+                if let Err(e) = self.clone().handle_heart_beat().await {
                     eprintln!("Error sending heartbeat: {:?}", e);
                 }
             }
         });
         task.await
     }
-
-    async fn handle_execution_requests<T>(
-        self,
-        context: ExecuteProvider<T>,
-        receiver: &mut UnboundedReceiver<JupyterMessage>,
-        execution_reply_sender: &UnboundedSender<JupyterMessage>,
-    ) -> JupyterResult<()> {
-        let mut execution_count = 1;
-        loop {
-            execution_count += 1;
-            match receiver.recv().await {
-                None => {}
-                Some(s) => {
-                    println!("Got execution request: {:?}", s);
-                    if let Err(e) = execution_reply_sender.send(s) {
-                        eprintln!("Error sending execution reply: {:?}", e);
-                    }
+    async fn handle_heart_beat(self) -> JupyterResult<()> {
+        let mut connection = match self.heartbeat.try_lock() {
+            Ok(o) => o,
+            Err(_) => return Ok(()),
+        };
+        let _ = connection.socket.recv().await?;
+        connection.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
+        Ok(())
+    }
+    async fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
+    where
+        T: ExecuteContext + Send + 'static,
+    {
+        let task = tokio::spawn(async move {
+            loop {
+                if let Err(e) = self.clone().handle_shell(executor.clone()).await {
+                    eprintln!("Error sending shell execution: {:?}", e);
                 }
             }
-        }
+        });
+        task.await
     }
+    async fn handle_shell<'a, T>(mut self, executor: ExecuteProvider<T>) -> JupyterResult<()>
+    where
+        T: ExecuteContext + Send + 'static,
+    {
+        // Processing of every message should be enclosed between "busy" and "idle"
+        // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
+        // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
+        let mut io = &mut self.iopub.lock().await;
+        let mut shell = self.shell_socket.lock().await;
+        let zmq = JupyterMessage::read(&mut shell).await?;
+        zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy")).send(io).await?;
+        match zmq.kind() {
+            JupyterMessageType::KernelInfoRequest => {
+                let cont = JupiterContent::build_kernel_info_reply(executor.clone());
+                let reply = zmq.as_reply().with_content(cont);
+                reply.send(&mut shell).await?
+            }
+            JupyterMessageType::ExecuteRequest => {
+                let req = zmq.as_execution_request()?;
+                self.execution_request_sender.lock().await.send(req)?;
+            }
+            JupyterMessageType::CommonInfoRequest => {
+                println!("Unsupported message: {:?}", zmq.kind());
+            }
+            JupyterMessageType::Custom(v) => {
+                println!("Got custom shell message: {:?}", v);
+            }
+            _ => {
+                println!("Got unknown shell message: {:?}", zmq);
+            }
+        }
+        zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle")).send(io).await?;
+        // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
+        Ok(())
+    }
+
+    async fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
+    where
+        T: ExecuteContext + Send + 'static,
+    {
+        let task = tokio::spawn(async move {
+            loop {
+                if let Err(e) = self.handle_execution_queue(executor).await {
+                    eprintln!("Error sending heartbeat: {:?}", e);
+                }
+            }
+        });
+        task.await
+    }
+    async fn handle_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
+    where
+        T: ExecuteContext + Send + 'static,
+    {
+        let mut running_count = 0;
+        let out = match self.execution_request_receiver.lock().await.recv().await {
+            Some(s) => {
+                running_count += 1;
+                s
+            }
+            None => return Ok(()),
+        };
+        let mut io = self.iopub.lock().await;
+
+        let reply = out.as_reply();
+        io.socket.send(out.as_reply()).await?
+    }
+
     async fn spawn_control(self) -> Result<(), JoinError> {
         let task = tokio::spawn(async move {
             loop {
@@ -253,53 +257,6 @@ impl Server {
         });
         task.await
     }
-}
-
-async fn handle_shell<'a, T>(
-    mut executor: MutexGuard<'a, T>,
-    mut io: MutexGuard<'a, Connection<PubSocket>>,
-    mut connection: MutexGuard<'a, Connection<RouterSocket>>,
-) -> JupyterResult<()>
-where
-    T: ExecuteContext,
-{
-    // Processing of every message should be enclosed between "busy" and "idle"
-    // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
-    // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
-    let zmq = JupyterMessage::read(&mut connection).await?;
-    zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy")).send(&mut io).await?;
-    match zmq.kind() {
-        JupyterMessageType::KernelInfoRequest => {
-            let cont = JupiterContent::build_kernel_info_reply(executor.deref());
-            let reply = zmq.as_reply().with_content(cont);
-            // println!("Sending kernel info reply: {:#?}", reply);
-            reply.send(&mut connection).await?
-        }
-        JupyterMessageType::ExecuteRequest => {
-            let req = zmq.as_execution_request()?;
-            // let out = executor.run(&req.code, req.execution_count).await?;
-            zmq.as_reply().with_content(req.as_reply(2)?).send(&mut connection).await?
-        }
-        JupyterMessageType::Custom(v) => {
-            println!("Got custom shell message: {:?}", v);
-        }
-        _ => {
-            println!("Got unknown shell message: {:?}", zmq);
-        }
-    }
-    zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle")).send(&mut io).await?;
-    // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
-    Ok(())
-}
-
-async fn handle_heart_beat<'a>(lock: Result<MutexGuard<'a, Connection<RepSocket>>, TryLockError>) -> JupyterResult<()> {
-    let mut connect = match lock {
-        Ok(o) => o,
-        Err(_) => return Ok(()),
-    };
-    let _ = connect.socket.recv().await?;
-    connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
-    Ok(())
 }
 
 impl ShutdownReceiver {

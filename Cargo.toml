@@ -2,6 +2,7 @@
 members = ["projects/*"]
 default-members = [
     "projects/jupyter",
+    "projects/jupyter-calculator",
 ]
 exclude = [
     "projects/.DS_Store",

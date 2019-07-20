@@ -1,5 +1,5 @@
 use super::*;
-use crate::ExecuteContext;
+use crate::{client::ExecuteProvider, ExecuteContext};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KernelInfo {
@@ -35,22 +35,22 @@ pub struct HelpLink {
 }
 
 impl JupiterContent {
-    pub fn build_kernel_info_reply<T>(context: &T) -> JupiterContent
+    pub fn build_kernel_info_reply<T>(executor: ExecuteProvider<T>) -> JupiterContent
     where
         T: ExecuteContext,
     {
-        let content = KernelInfo::build(context);
+        let content = KernelInfo::build(executor);
         JupiterContent::KernelInfo(Box::new(content))
     }
 }
 
 impl KernelInfo {
     /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-    pub fn build<T>(context: &T) -> KernelInfo
+    pub fn build<T>(executor: ExecuteProvider<T>) -> KernelInfo
     where
         T: ExecuteContext,
     {
-        let language = context.language_info();
+        let language = executor.context.language_info();
         KernelInfo {
             status: "ok".to_owned(),
             protocol_version: "5.3".to_owned(),

@@ -1,9 +1,19 @@
 use super::*;
 
+pub struct ExecutionGroup {
+    pub message: JupyterMessage,
+    pub request: ExecutionRequest,
+    pub execution_count: i32,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionRequest {
     pub code: String,
-    pub execution_count: i32,
+    pub silent: bool,
+    pub store_history: bool,
+    pub allow_stdin: bool,
+    pub stop_on_error: bool,
+    pub user_expressions: Value,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -24,7 +34,7 @@ impl ExecutionRequest {
     where
         T: Serialize,
     {
-        Ok(ExecutionReply { execution_count: self.execution_count, data: serde_json::to_value(data)?, metadata: Value::Null })
+        Ok(ExecutionReply { execution_count: 0, data: serde_json::to_value(data)?, metadata: Value::Null })
     }
     pub fn as_error(&self) {
         unimplemented!()

@@ -15,6 +15,7 @@ use std::{
     fmt::{Debug, Display, Formatter, Write as _},
     ops::Range,
 };
+use tokio::sync::mpsc::error::SendError;
 use zeromq::ZmqError;
 
 pub type JupyterResult<T> = Result<T, JupyterError>;
@@ -161,7 +162,7 @@ impl From<std::str::Utf8Error> for JupyterError {
 }
 
 impl From<()> for JupyterError {
-    fn from(error: ()) -> Self {
+    fn from(_: ()) -> Self {
         JupyterError { kind: Box::new(JupyterErrorKind::Message("".to_string())) }
     }
 }
@@ -174,5 +175,11 @@ impl From<FromHexError> for JupyterError {
 impl From<ZmqError> for JupyterError {
     fn from(error: ZmqError) -> Self {
         JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
+    }
+}
+
+impl<T> From<SendError<T>> for JupyterError {
+    fn from(value: SendError<T>) -> Self {
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(value.to_string())) }
     }
 }
