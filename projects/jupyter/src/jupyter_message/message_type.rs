@@ -59,7 +59,7 @@ impl JupyterMessageType {
     pub fn new(kind: &str) -> JupyterMessageType {
         match kind {
             "status" => JupyterMessageType::StatusReply,
-            "kernel_info_request" => JupyterMessageType::KernelInfoRequest,
+            "kernel_info" | "kernel_info_request" => JupyterMessageType::KernelInfoRequest,
             "kernel_info_reply" => JupyterMessageType::KernelInfoReply,
             "comm_info_request" => JupyterMessageType::CommonInfoRequest,
             "comm_info_reply" => JupyterMessageType::CommonInfoReply,

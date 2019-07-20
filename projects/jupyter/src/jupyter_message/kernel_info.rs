@@ -1,5 +1,6 @@
 use super::*;
-use crate::{client::ExecuteProvider, ExecuteContext};
+use crate::{client::ExecuteProvider, ExecuteContext, LanguageInfo};
+use std::ops::Deref;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KernelInfo {
@@ -35,32 +36,25 @@ pub struct HelpLink {
 }
 
 impl JupiterContent {
-    pub fn build_kernel_info_reply<T>(executor: ExecuteProvider<T>) -> JupiterContent
-    where
-        T: ExecuteContext,
-    {
-        let content = KernelInfo::build(executor);
+    pub fn build_kernel_info(info: LanguageInfo) -> JupiterContent {
+        let content = KernelInfo::build(info);
         JupiterContent::KernelInfo(Box::new(content))
     }
 }
 
 impl KernelInfo {
     /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-    pub fn build<T>(executor: ExecuteProvider<T>) -> KernelInfo
-    where
-        T: ExecuteContext,
-    {
-        let language = executor.context.language_info();
+    pub fn build(info: LanguageInfo) -> KernelInfo {
         KernelInfo {
             status: "ok".to_owned(),
             protocol_version: "5.3".to_owned(),
             implementation: env!("CARGO_PKG_NAME").to_owned(),
             implementation_version: env!("CARGO_PKG_VERSION").to_owned(),
             language_info: SealedLanguageInfo {
-                name: language.language,
+                name: info.language,
                 version: "".to_owned(),
                 mimetype: "text/rust".to_owned(),
-                file_extension: language.file_extensions,
+                file_extension: info.file_extensions,
                 pygment_lexer: "rust".to_owned(),
                 codemirror_mode: "rust".to_owned(),
                 nbconvert_exporter: "rust".to_owned(),

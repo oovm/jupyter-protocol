@@ -3,7 +3,6 @@ use super::*;
 pub struct ExecutionGroup {
     pub message: JupyterMessage,
     pub request: ExecutionRequest,
-    pub execution_count: i32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

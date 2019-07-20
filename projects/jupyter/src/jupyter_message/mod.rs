@@ -12,6 +12,7 @@ use crate::{
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use generic_array::GenericArray;
+use hmac::Mac;
 use serde::{Deserialize, Serialize};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_slice, from_str, to_string, to_vec, Map, Value};
@@ -62,7 +63,7 @@ impl RawMessage {
         if let Some(mac_template) = &connection.mac {
             let mut mac = mac_template.clone();
             raw_message.digest(&mut mac);
-            use hmac::Mac;
+
             if let Err(error) = mac.verify(GenericArray::from_slice(&hex::decode(&hmac)?)) {
                 panic!("{}", error);
             }
@@ -193,11 +194,8 @@ impl JupyterMessage {
 
     pub fn as_execution_request(&self) -> JupyterResult<ExecutionRequest> {
         match &self.content {
-            JupiterContent::ExecutionRequest(s) => Ok(**s),
-            _ => {
-                println!("Unexpected message type: {:?}", self.content);
-                Err(JupyterError::except_type("JupiterContent::ExecutionRequest"))
-            }
+            JupiterContent::ExecutionRequest(s) => Ok(s.as_ref().clone()),
+            _ => Err(JupyterError::except_type("JupiterContent::ExecutionRequest")),
         }
     }
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {

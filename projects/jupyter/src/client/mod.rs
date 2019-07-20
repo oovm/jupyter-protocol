@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecuteContext, ExecutionReply, ExecutionRequest, ExecutionState, KernelControl, SinkExecutor,
+    ExecuteContext, ExecutionGroup, ExecutionReply, ExecutionRequest, ExecutionState, KernelControl, SinkExecutor,
 };
 use ariadne::sources;
 use bytes::Bytes;
@@ -41,8 +41,8 @@ pub(crate) struct Server {
     control: Arc<Mutex<Connection<RouterSocket>>>,
     shell_socket: Arc<Mutex<Connection<RouterSocket>>>,
     latest_execution_request: Arc<Mutex<Option<JupyterMessage>>>,
-    execution_request_sender: Arc<Mutex<UnboundedSender<ExecutionGroup>>>,
-    execution_request_receiver: Arc<Mutex<UnboundedReceiver<ExecutionGroup>>>,
+    execution_request_sender: Arc<Mutex<UnboundedSender<JupyterMessage>>>,
+    execution_request_receiver: Arc<Mutex<UnboundedReceiver<JupyterMessage>>>,
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
 }
@@ -168,6 +168,7 @@ impl Server {
                 }
             }
         });
+        println!("Shell Executor Spawned");
         task.await
     }
     async fn handle_shell<'a, T>(mut self, executor: ExecuteProvider<T>) -> JupyterResult<()>
@@ -178,31 +179,32 @@ impl Server {
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
         // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
         let mut io = &mut self.iopub.lock().await;
-        let mut shell = self.shell_socket.lock().await;
-        let zmq = JupyterMessage::read(&mut shell).await?;
-        zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy")).send(io).await?;
-        match zmq.kind() {
+        let mut shell = &mut self.shell_socket.lock().await;
+        let request = JupyterMessage::read(&mut shell).await?;
+        let busy = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy"));
+        let idle = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle"));
+        busy.send(io).await?;
+        match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
-                let cont = JupiterContent::build_kernel_info_reply(executor.clone());
-                let reply = zmq.as_reply().with_content(cont);
-                reply.send(&mut shell).await?
+                let info = executor.context.lock().await.language_info();
+                let cont = JupiterContent::build_kernel_info(info);
+                println!("Sending kernel info: {:?}", cont);
+                request.as_reply().with_content(cont).send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
-                let req = zmq.as_execution_request()?;
-                self.execution_request_sender.lock().await.send(req)?;
+                self.execution_request_sender.lock().await.send(request)?;
             }
             JupyterMessageType::CommonInfoRequest => {
-                println!("Unsupported message: {:?}", zmq.kind());
+                println!("Unsupported message: {:?}", request.kind());
             }
             JupyterMessageType::Custom(v) => {
                 println!("Got custom shell message: {:?}", v);
             }
             _ => {
-                println!("Got unknown shell message: {:?}", zmq);
+                println!("Got unknown shell message: {:?}", request);
             }
         }
-        zmq.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle")).send(io).await?;
-        // connect.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
+        idle.send(io).await?;
         Ok(())
     }
 
@@ -212,11 +214,12 @@ impl Server {
     {
         let task = tokio::spawn(async move {
             loop {
-                if let Err(e) = self.handle_execution_queue(executor).await {
+                if let Err(e) = self.clone().handle_execution_queue(executor.clone()).await {
                     eprintln!("Error sending heartbeat: {:?}", e);
                 }
             }
         });
+        println!("Queue Executor Spawned");
         task.await
     }
     async fn handle_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
@@ -224,17 +227,17 @@ impl Server {
         T: ExecuteContext + Send + 'static,
     {
         let mut running_count = 0;
-        let out = match self.execution_request_receiver.lock().await.recv().await {
+        let zmq = match self.execution_request_receiver.lock().await.recv().await {
             Some(s) => {
                 running_count += 1;
                 s
             }
             None => return Ok(()),
         };
-        let mut io = self.iopub.lock().await;
-
-        let reply = out.as_reply();
-        io.socket.send(out.as_reply()).await?
+        let mut io = &mut self.iopub.lock().await;
+        let result = zmq.as_execution_request()?.as_reply(2)?;
+        let reply = zmq.as_reply().with_content(result);
+        reply.send(io).await
     }
 
     async fn spawn_control(self) -> Result<(), JoinError> {
