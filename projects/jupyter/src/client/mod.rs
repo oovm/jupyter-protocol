@@ -13,7 +13,7 @@ use crate::{
 };
 use std::collections::HashMap;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::{
     sync::{
@@ -180,14 +180,20 @@ impl Server {
                 request.as_reply().with_content(cont).send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
-                let mut data: HashMap<String, Value> = HashMap::new();
-                data.insert(
-                    "text/html".into(),
-                    Value::String(format!("<span style=\"color: rgba(0,0,0,0.4);\">Took {}ms</span>", 0)),
-                );
+                let mut map1 = HashMap::new();
+                map1.insert("text/plain".to_string(), "2".to_string());
 
-                let result = request.as_execution_request()?.as_reply(2, data.clone())?.with_meta(data)?;
-                request.as_reply().with_content(result).send(shell).await?;
+                // {
+                //     let mut map2 = HashMap::new();
+                //     map2.insert(
+                //         "text/html".to_string(),
+                //         "<span style=\"color: rgba(0,0,0,0.4);\">Took 0.154ms</span>".to_string(),
+                //     );
+                //     data.push(map2);
+                // }
+                let result = request.as_execution_request()?.as_reply(2, map1.clone())?.with_meta(map1)?;
+                request.as_reply().with_content(result.clone()).send(io).await?;
+                request.as_reply().with_content(result.clone()).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
                 println!("Unsupported message: {:?}", request.kind());
@@ -218,24 +224,25 @@ impl Server {
             }
         })
     }
-    async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, count: i32) -> JupyterResult<()>
+    async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, _count: i32) -> JupyterResult<()>
     where
         T: ExecuteContext + Send + 'static,
     {
-        let zmq = match self.execution_request_receiver.lock().await.recv().await {
-            Some(s) => s,
-            None => return Ok(()),
-        };
-        println!("Waiting for execution request {}: {:?}", count, zmq);
-        let io = &mut self.shell_socket.try_lock()?;
-        println!("ok1");
-        let result = zmq.as_execution_request()?.as_reply(2, 1)?;
-        println!("ok2");
-        let reply = zmq.as_reply().with_content(result);
-        println!("ok3");
-        reply.send(io).await?;
-        println!("Finished execution request {}: {:?}", count, reply);
-        Ok(())
+        todo!();
+        // let zmq = match self.execution_request_receiver.lock().await.recv().await {
+        //     Some(s) => s,
+        //     None => return Ok(()),
+        // };
+        // println!("Waiting for execution request {}: {:?}", count, zmq);
+        // let io = &mut self.shell_socket.try_lock()?;
+        // println!("ok1");
+        // let result = zmq.as_execution_request()?.as_reply(2, 1)?;
+        // println!("ok2");
+        // let reply = zmq.as_reply().with_content(result);
+        // println!("ok3");
+        // reply.send(io).await?;
+        // println!("Finished execution request {}: {:?}", count, reply);
+        // Ok(())
     }
 
     async fn spawn_control(self) -> Result<(), JoinError> {

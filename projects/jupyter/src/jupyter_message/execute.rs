@@ -23,16 +23,25 @@ pub struct ExecutionRequest {
 //   # line offset to start from
 //   "start": int,
 // }
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct ExecutionReply {
     execution_count: i32,
     data: Value,
     metadata: Value,
-    // payload
+    // payload: Vec<ExecutionPayload>,
 }
 
+#[derive(Clone, Debug)]
 pub enum ExecutionPayload {
-    Page { data: String, start: i32 },
+    Page {
+        mime: String,
+        /// line offset to start from
+        start: i32,
+    },
+    NextInput {
+        text: String,
+        replace: bool,
+    },
 }
 
 impl Serialize for ExecutionPayload {
@@ -41,11 +50,18 @@ impl Serialize for ExecutionPayload {
         S: Serializer,
     {
         match self {
-            ExecutionPayload::Page { data, start } => {
+            ExecutionPayload::Page { mime: data, start } => {
                 let mut map = serializer.serialize_map(Some(3))?;
                 map.serialize_entry("source", "page")?;
                 map.serialize_entry("data", "text/plain")?;
                 map.serialize_entry("start", start)?;
+                map.end()
+            }
+            ExecutionPayload::NextInput { text, replace } => {
+                let mut map = serializer.serialize_map(Some(3))?;
+                map.serialize_entry("source", "set_next_input")?;
+                map.serialize_entry("text", text)?;
+                map.serialize_entry("replace", replace)?;
                 map.end()
             }
         }
@@ -63,7 +79,16 @@ impl ExecutionRequest {
     where
         T: Serialize,
     {
-        Ok(ExecutionReply { execution_count: count, data: serde_json::to_value(data)?, metadata: Value::Null })
+        Ok(ExecutionReply {
+            execution_count: count,
+            data: serde_json::to_value(data)?,
+            metadata: Value::Null,
+            // payload: vec![
+            //     ExecutionPayload::Page { mime: "".to_string(), start: 1 },
+            //     ExecutionPayload::NextInput { text: "all".to_string(), replace: false },
+            //     ExecutionPayload::NextInput { text: "other".to_string(), replace: false },
+            // ],
+        })
     }
     pub fn as_error(&self) {
         unimplemented!()
@@ -75,6 +100,11 @@ impl ExecutionReply {
     where
         T: Serialize,
     {
-        Ok(ExecutionReply { execution_count: self.execution_count, data: self.data, metadata: serde_json::to_value(data)? })
+        Ok(ExecutionReply {
+            execution_count: self.execution_count,
+            data: self.data,
+            metadata: serde_json::to_value(data)?,
+            // payload: self.payload,
+        })
     }
 }
