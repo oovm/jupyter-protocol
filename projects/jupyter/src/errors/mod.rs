@@ -5,11 +5,11 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use ariadne::{Color, ColorGenerator, Label, Report, ReportKind};
+
 use serde_derive::{Deserialize, Serialize};
 
 use hex::FromHexError;
-use serde_json::Value;
+
 use std::{
     error::Error,
     fmt::{Debug, Display, Formatter, Write as _},
@@ -53,7 +53,7 @@ impl Display for JupyterError {
     }
 }
 impl Display for JupyterErrorKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         // match self {
         //     JupyterErrorKind::CompilationErrors(errors) => {
         //         for error in errors {

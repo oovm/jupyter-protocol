@@ -5,7 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::path::PathBuf;
+
 mod client;
 mod commands;
 mod connection;

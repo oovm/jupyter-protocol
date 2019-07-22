@@ -8,9 +8,9 @@
 use crate::{get_kernel_dir, JupyterResult, KernelConfig};
 use serde_json::to_string_pretty;
 use std::{
-    env, fs,
+    fs,
     io::Write,
-    path::{Path, PathBuf},
+    path::{Path},
 };
 
 const LOGO_32X32: &[u8] = include_bytes!("../third_party/rust/rust-logo-32x32.png");

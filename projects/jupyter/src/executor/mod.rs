@@ -1,6 +1,6 @@
 use crate::JupyterResult;
 use async_trait::async_trait;
-use serde::Serialize;
+
 
 #[async_trait]
 pub trait ExecuteContext {
@@ -28,7 +28,7 @@ impl ExecuteContext for SinkExecutor {
         LanguageInfo { language: "Rust".to_string(), file_extensions: ".rs".to_string() }
     }
 
-    async fn run(&mut self, code: &str, count: i32) -> JupyterResult<ExecuteResult> {
+    async fn run(&mut self, _code: &str, _count: i32) -> JupyterResult<ExecuteResult> {
         todo!()
     }
 }

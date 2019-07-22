@@ -9,28 +9,24 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecuteContext, ExecutionGroup, ExecutionReply, ExecutionRequest, ExecutionState, KernelControl, SinkExecutor,
+    ExecuteContext, ExecutionState, KernelControl, SinkExecutor,
 };
-use ariadne::sources;
-use bytes::Bytes;
-use colored::*;
-use crossbeam_channel::Select;
+
+
+
+
 use serde_json::Value;
 use std::{
-    collections::HashMap,
-    future::Future,
-    ops::{Deref, DerefMut},
     sync::Arc,
-    time::Duration,
 };
 use tokio::{
     sync::{
-        mpsc::{error::SendError, UnboundedReceiver, UnboundedSender},
-        Mutex, MutexGuard, TryLockError,
+        mpsc::{UnboundedReceiver, UnboundedSender},
+        Mutex,
     },
-    task::{JoinError, JoinHandle},
+    task::{JoinError},
 };
-use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage, ZmqResult};
+use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
 #[derive(Clone)]
@@ -105,14 +101,14 @@ impl Server {
     }
 
     async fn start(config: &KernelControl, tokio_handle: tokio::runtime::Handle) -> JupyterResult<ShutdownReceiver> {
-        let mut heartbeat = bind_socket::<RepSocket>(config, config.hb_port).await?;
+        let heartbeat = bind_socket::<RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<RouterSocket>(config, config.shell_port).await?;
         let control_socket = bind_socket::<RouterSocket>(config, config.control_port).await?;
         let stdin_socket = bind_socket::<RouterSocket>(config, config.stdin_port).await?;
         let iopub_socket = bind_socket::<PubSocket>(config, config.iopub_port).await?;
         let iopub = Arc::new(Mutex::new(iopub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
-        let (execution_sender, mut execution_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (execution_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
         // let (execution_response_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
         let server = Server {
             iopub,
@@ -126,7 +122,7 @@ impl Server {
             tokio_handle,
             shell_socket: Arc::new(Mutex::new(shell_socket)),
         };
-        let mut context = ExecuteProvider::new(SinkExecutor { name: "sink".to_string() });
+        let context = ExecuteProvider::new(SinkExecutor { name: "sink".to_string() });
 
         server.clone().spawn_heart_beat().await.expect("spawn shell executor failed");
         server.clone().spawn_shell_execution(context.clone()).await.expect("spawn heart beat failed");
@@ -171,14 +167,14 @@ impl Server {
         println!("Shell Executor Spawned");
         task.await
     }
-    async fn handle_shell<'a, T>(mut self, executor: ExecuteProvider<T>) -> JupyterResult<()>
+    async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
     where
         T: ExecuteContext + Send + 'static,
     {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
         // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
-        let mut io = &mut self.iopub.lock().await;
+        let io = &mut self.iopub.lock().await;
         let mut shell = &mut self.shell_socket.lock().await;
         let request = JupyterMessage::read(&mut shell).await?;
         let busy = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy"));
@@ -222,7 +218,7 @@ impl Server {
         println!("Queue Executor Spawned");
         task.await
     }
-    async fn handle_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
+    async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>) -> JupyterResult<()>
     where
         T: ExecuteContext + Send + 'static,
     {
@@ -234,7 +230,7 @@ impl Server {
             }
             None => return Ok(()),
         };
-        let mut io = &mut self.iopub.lock().await;
+        let io = &mut self.iopub.lock().await;
         let result = zmq.as_execution_request()?.as_reply(2)?;
         let reply = zmq.as_reply().with_content(result);
         reply.send(io).await
@@ -276,8 +272,8 @@ async fn bind_socket<S: Socket>(config: &KernelControl, port: u16) -> JupyterRes
 }
 
 async fn handle_completion_request<T>(
-    context: &Arc<std::sync::Mutex<ExecuteProvider<T>>>,
-    message: JupyterMessage,
+    _context: &Arc<std::sync::Mutex<ExecuteProvider<T>>>,
+    _message: JupyterMessage,
 ) -> JupyterResult<Value> {
     // let context = Arc::clone(context);
     // tokio::task::spawn_blocking(move || {

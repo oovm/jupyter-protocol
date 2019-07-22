@@ -1,6 +1,6 @@
 use super::*;
 use serde::{ser::SerializeStruct, Serializer};
-use std::fmt::Display;
+
 
 impl Serialize for JupyterMessageHeader {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

@@ -15,16 +15,16 @@ use generic_array::GenericArray;
 use hmac::Mac;
 use serde::{Deserialize, Serialize};
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{from_slice, from_str, to_string, to_vec, Map, Value};
+use serde_json::{from_slice, to_vec, Value};
 use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
     str::FromStr,
     {self},
 };
-use tokio::task::JoinError;
+
 use uuid::Uuid;
-use zeromq::{SocketRecv, SocketSend, ZmqMessage};
+use zeromq::{SocketRecv, SocketSend};
 mod common_info;
 mod der;
 mod execute;
@@ -36,7 +36,7 @@ pub use self::{
     kernel_info::KernelInfo,
     message_type::JupyterMessageType,
 };
-use std::collections::HashMap;
+
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,

@@ -1,6 +1,6 @@
 use super::*;
 use crate::errors::JupyterError;
-use chrono::{DateTime, ParseResult, TimeZone};
+use chrono::{DateTime};
 use serde::{
     de::{Error, MapAccess, Visitor},
     Deserializer,
@@ -106,7 +106,7 @@ impl<'de> Deserialize<'de> for JupiterContent {
 }
 
 impl Error for JupyterError {
-    fn custom<T>(msg: T) -> Self
+    fn custom<T>(_msg: T) -> Self
     where
         T: Display,
     {

@@ -1,6 +1,6 @@
 use super::*;
-use crate::{client::ExecuteProvider, ExecuteContext, LanguageInfo};
-use std::ops::Deref;
+use crate::{ExecuteContext, LanguageInfo};
+
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KernelInfo {

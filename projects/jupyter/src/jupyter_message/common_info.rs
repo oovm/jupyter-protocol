@@ -11,13 +11,13 @@ pub struct CommonInfoReply {
 }
 
 impl From<CommonInfoReply> for JupiterContent {
-    fn from(value: CommonInfoReply) -> Self {
+    fn from(_value: CommonInfoReply) -> Self {
         todo!()
     }
 }
 
 impl CommonInfoRequest {
-    pub fn as_reply<T>(&self, data: T) -> JupyterResult<CommonInfoReply>
+    pub fn as_reply<T>(&self, _data: T) -> JupyterResult<CommonInfoReply>
     where
         T: Serialize,
     {
@@ -29,7 +29,7 @@ impl CommonInfoRequest {
 }
 
 impl CommonInfoReply {
-    pub fn with_meta<T>(self, data: T) -> JupyterResult<CommonInfoReply>
+    pub fn with_meta<T>(self, _data: T) -> JupyterResult<CommonInfoReply>
     where
         T: Serialize,
     {
