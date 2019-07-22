@@ -11,20 +11,16 @@ use crate::{
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
     ExecuteContext, ExecutionState, KernelControl, SinkExecutor,
 };
-
-
-
+use std::collections::HashMap;
 
 use serde_json::Value;
-use std::{
-    sync::Arc,
-};
+use std::sync::Arc;
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
         Mutex,
     },
-    task::{JoinError},
+    task::{JoinError, JoinHandle},
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
 
@@ -122,27 +118,25 @@ impl Server {
             tokio_handle,
             shell_socket: Arc::new(Mutex::new(shell_socket)),
         };
-        let context = ExecuteProvider::new(SinkExecutor { name: "sink".to_string() });
-
-        server.clone().spawn_heart_beat().await.expect("spawn shell executor failed");
-        server.clone().spawn_shell_execution(context.clone()).await.expect("spawn heart beat failed");
-        server.clone().spawn_execution_queue(context.clone()).await.expect("spawn execution queue failed");
-        server.clone().spawn_control().await.expect("spawn control channel failed");
+        let context = ExecuteProvider::new(SinkExecutor::default());
+        server.clone().spawn_heart_beat();
+        server.clone().spawn_shell_execution(context.clone());
+        // server.clone().spawn_execution_queue(context.clone());
+        // server.clone().spawn_control();
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
 
     async fn signal_shutdown(&mut self) {
         self.shutdown_sender.lock().await.take();
     }
-    async fn spawn_heart_beat(self) -> Result<(), JoinError> {
-        let task = tokio::spawn(async move {
+    fn spawn_heart_beat(self) -> JoinHandle<()> {
+        tokio::spawn(async move {
             loop {
                 if let Err(e) = self.clone().handle_heart_beat().await {
                     eprintln!("Error sending heartbeat: {:?}", e);
                 }
             }
-        });
-        task.await
+        })
     }
     async fn handle_heart_beat(self) -> JupyterResult<()> {
         let mut connection = match self.heartbeat.try_lock() {
@@ -153,19 +147,18 @@ impl Server {
         connection.socket.send(ZmqMessage::from(b"ping".to_vec())).await?;
         Ok(())
     }
-    async fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
+    fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
     where
         T: ExecuteContext + Send + 'static,
     {
-        let task = tokio::spawn(async move {
+        tokio::spawn(async move {
+            println!("Shell Executor Spawned");
             loop {
                 if let Err(e) = self.clone().handle_shell(executor.clone()).await {
                     eprintln!("Error sending shell execution: {:?}", e);
                 }
             }
-        });
-        println!("Shell Executor Spawned");
-        task.await
+        })
     }
     async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
     where
@@ -184,11 +177,17 @@ impl Server {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
                 let cont = JupiterContent::build_kernel_info(info);
-                println!("Sending kernel info: {:?}", cont);
                 request.as_reply().with_content(cont).send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
-                self.execution_request_sender.lock().await.send(request)?;
+                let mut data: HashMap<String, Value> = HashMap::new();
+                data.insert(
+                    "text/html".into(),
+                    Value::String(format!("<span style=\"color: rgba(0,0,0,0.4);\">Took {}ms</span>", 0)),
+                );
+
+                let result = request.as_execution_request()?.as_reply(2, data.clone())?.with_meta(data)?;
+                request.as_reply().with_content(result).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
                 println!("Unsupported message: {:?}", request.kind());
@@ -204,36 +203,39 @@ impl Server {
         Ok(())
     }
 
-    async fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> Result<(), JoinError>
-    where
-        T: ExecuteContext + Send + 'static,
-    {
-        let task = tokio::spawn(async move {
-            loop {
-                if let Err(e) = self.clone().handle_execution_queue(executor.clone()).await {
-                    eprintln!("Error sending heartbeat: {:?}", e);
-                }
-            }
-        });
-        println!("Queue Executor Spawned");
-        task.await
-    }
-    async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>) -> JupyterResult<()>
+    fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
     where
         T: ExecuteContext + Send + 'static,
     {
         let mut running_count = 0;
-        let zmq = match self.execution_request_receiver.lock().await.recv().await {
-            Some(s) => {
+        tokio::spawn(async move {
+            println!("Queue Executor Spawned");
+            loop {
+                if let Err(e) = self.clone().handle_execution_queue(executor.clone(), running_count).await {
+                    eprintln!("Error sending execution queue: {:?}", e);
+                }
                 running_count += 1;
-                s
             }
+        })
+    }
+    async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, count: i32) -> JupyterResult<()>
+    where
+        T: ExecuteContext + Send + 'static,
+    {
+        let zmq = match self.execution_request_receiver.lock().await.recv().await {
+            Some(s) => s,
             None => return Ok(()),
         };
-        let io = &mut self.iopub.lock().await;
-        let result = zmq.as_execution_request()?.as_reply(2)?;
+        println!("Waiting for execution request {}: {:?}", count, zmq);
+        let io = &mut self.shell_socket.try_lock()?;
+        println!("ok1");
+        let result = zmq.as_execution_request()?.as_reply(2, 1)?;
+        println!("ok2");
         let reply = zmq.as_reply().with_content(result);
-        reply.send(io).await
+        println!("ok3");
+        reply.send(io).await?;
+        println!("Finished execution request {}: {:?}", count, reply);
+        Ok(())
     }
 
     async fn spawn_control(self) -> Result<(), JoinError> {

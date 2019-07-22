@@ -5,7 +5,6 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-
 use serde_derive::{Deserialize, Serialize};
 
 use hex::FromHexError;
@@ -14,8 +13,12 @@ use std::{
     error::Error,
     fmt::{Debug, Display, Formatter, Write as _},
     ops::Range,
+    str::Utf8Error,
 };
-use tokio::sync::mpsc::error::SendError;
+use tokio::{
+    sync::{mpsc::error::SendError, TryLockError},
+    task::JoinError,
+};
 use zeromq::ZmqError;
 
 pub type JupyterResult<T> = Result<T, JupyterError>;
@@ -155,8 +158,8 @@ impl From<serde_json::Error> for JupyterError {
     }
 }
 
-impl From<std::str::Utf8Error> for JupyterError {
-    fn from(error: std::str::Utf8Error) -> Self {
+impl From<Utf8Error> for JupyterError {
+    fn from(error: Utf8Error) -> Self {
         JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }
@@ -174,6 +177,16 @@ impl From<FromHexError> for JupyterError {
 
 impl From<ZmqError> for JupyterError {
     fn from(error: ZmqError) -> Self {
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
+    }
+}
+impl From<JoinError> for JupyterError {
+    fn from(error: JoinError) -> Self {
+        JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
+    }
+}
+impl From<TryLockError> for JupyterError {
+    fn from(error: TryLockError) -> Self {
         JupyterError { kind: Box::new(JupyterErrorKind::Message(error.to_string())) }
     }
 }

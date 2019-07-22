@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::client::Server;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::{
@@ -33,8 +34,7 @@ impl StartAction {
         if let Err(error) = legacy_install::update_if_necessary() {
             eprintln!("Warning: tried to update client, but failed: {}", error);
         }
-        let config = KernelControl::parse_control_file(&control_file)?;
-        crate::client::Server::run(&config)?;
+        Server::run(&KernelControl::parse_control_file(&control_file)?)?;
         Ok(())
     }
 }

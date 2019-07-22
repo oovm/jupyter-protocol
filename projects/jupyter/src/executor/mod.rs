@@ -1,7 +1,6 @@
 use crate::JupyterResult;
 use async_trait::async_trait;
 
-
 #[async_trait]
 pub trait ExecuteContext {
     fn language_info(&self) -> LanguageInfo;
@@ -20,8 +19,15 @@ pub struct LanguageInfo {
 }
 
 pub struct SinkExecutor {
-    pub name: String,
+    name: String,
 }
+
+impl Default for SinkExecutor {
+    fn default() -> Self {
+        Self { name: "sink".to_string() }
+    }
+}
+
 #[async_trait]
 impl ExecuteContext for SinkExecutor {
     fn language_info(&self) -> LanguageInfo {
