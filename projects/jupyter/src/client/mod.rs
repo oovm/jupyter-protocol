@@ -183,11 +183,11 @@ impl Server {
             JupyterMessageType::ExecuteRequest => {
                 *count += 1;
                 let task = request.as_execution_request()?;
-                let return1 = task.as_result("text/plain", 2)?.with_data("text/html", "<b>hello</b>")?;
-                request.as_reply().with_content(return1).send(io).await?;
-                let return2 = task.as_result("text/html", "<b>world</b>")?;
-                request.as_reply().with_content(return2).send(io).await?;
-                let reply = request.as_execution_request()?.as_reply(false, *count)?;
+                let return1 = task.as_result("text/plain", 2, *count)?;
+                request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(return1).send(io).await?;
+                let return2 = task.as_result("text/html", "<b>world</b>", *count)?.with_metadata("text/html", "meta")?;
+                request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(return2).send(io).await?;
+                let reply = request.as_execution_request()?.as_reply(true, *count)?;
                 request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {

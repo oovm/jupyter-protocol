@@ -320,8 +320,8 @@ impl JupyterMessage {
         self
     }
 
-    pub(crate) fn with_message_type(mut self, msg_type: &str) -> JupyterMessage {
-        self.header.msg_type = JupyterMessageType::from_str(msg_type).unwrap_or_default();
+    pub(crate) fn with_message_type(mut self, msg_type: JupyterMessageType) -> JupyterMessage {
+        self.header.msg_type = msg_type;
         self
     }
 

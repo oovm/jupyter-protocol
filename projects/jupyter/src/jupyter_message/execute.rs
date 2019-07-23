@@ -10,10 +10,12 @@ pub struct ExecutionGroup {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionResult {
+    execution_count: u32,
     data: Map<String, Value>,
     metadata: Map<String, Value>,
     transient: Map<String, Value>,
 }
+
 
 impl From<ExecutionResult> for JupiterContent {
     fn from(value: ExecutionResult) -> Self {
@@ -117,11 +119,13 @@ impl ExecutionRequest {
             ],
         })
     }
-    pub fn as_result<T>(&self, mime: &str, data: T) -> JupyterResult<ExecutionResult> where T: Serialize {
-        let mut map = serde_json::Map::new();
-        map.insert(mime.to_string(), serde_json::to_value(data)?);
+    pub fn as_result<T>(&self, mime: &str, data: T, count: u32) -> JupyterResult<ExecutionResult> where T: Serialize {
+        let mut dict = serde_json::Map::new();
+        dict.insert(mime.to_string(), serde_json::to_value(data)?);
+        println!("data: {:?}", dict);
         Ok(ExecutionResult {
-            data: map,
+            execution_count: count,
+            data: dict,
             metadata: serde_json::Map::new(),
             transient: serde_json::Map::new(),
         })
@@ -134,6 +138,7 @@ impl ExecutionResult {
             T: Serialize,
     {
         self.data.insert(mime.to_string(), serde_json::to_value(data)?);
+        println!("data: {:?}", self.data);
         Ok(self)
     }
     pub fn with_metadata<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
