@@ -51,8 +51,8 @@ impl<T> Clone for ExecuteProvider<T> {
 
 impl<T> ExecuteProvider<T> {
     pub fn new(context: T) -> Self
-    where
-        T: ExecuteContext + 'static,
+        where
+            T: ExecuteContext + 'static,
     {
         Self { context: Arc::new(Mutex::new(context)) }
     }
@@ -148,21 +148,22 @@ impl Server {
         Ok(())
     }
     fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-    where
-        T: ExecuteContext + Send + 'static,
+        where
+            T: ExecuteContext + Send + 'static,
     {
+        let mut count = 0;
         tokio::spawn(async move {
             println!("Shell Executor Spawned");
             loop {
-                if let Err(e) = self.clone().handle_shell(executor.clone()).await {
+                if let Err(e) = self.clone().handle_shell(executor.clone(), &mut count).await {
                     eprintln!("Error sending shell execution: {:?}", e);
                 }
             }
         })
     }
-    async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
-    where
-        T: ExecuteContext + Send + 'static,
+    async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>, count: &mut u32) -> JupyterResult<()>
+        where
+            T: ExecuteContext + Send + 'static,
     {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
@@ -180,18 +181,13 @@ impl Server {
                 request.as_reply().with_content(cont).send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
+                *count += 1;
                 let task = request.as_execution_request()?;
-
-
-                let mut map1 = HashMap::new();
-                map1.insert("text/plain".to_string(), "2".to_string());
-
-                let return1 = task.as_result(2)?;
+                let return1 = task.as_result("text/plain", 2)?.with_data("text/html", "<b>hello</b>")?;
                 request.as_reply().with_content(return1).send(io).await?;
-                let return2 = task.as_result(3)?;
+                let return2 = task.as_result("text/html", "<b>world</b>")?;
                 request.as_reply().with_content(return2).send(io).await?;
-
-                let reply = request.as_execution_request()?.as_reply(false, 5)?;
+                let reply = request.as_execution_request()?.as_reply(false, *count)?;
                 request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
@@ -209,8 +205,8 @@ impl Server {
     }
 
     fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-    where
-        T: ExecuteContext + Send + 'static,
+        where
+            T: ExecuteContext + Send + 'static,
     {
         let mut running_count = 0;
         tokio::spawn(async move {
@@ -224,8 +220,8 @@ impl Server {
         })
     }
     async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, _count: i32) -> JupyterResult<()>
-    where
-        T: ExecuteContext + Send + 'static,
+        where
+            T: ExecuteContext + Send + 'static,
     {
         todo!();
         // let zmq = match self.execution_request_receiver.lock().await.recv().await {

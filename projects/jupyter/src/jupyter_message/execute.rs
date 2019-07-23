@@ -1,6 +1,7 @@
 use super::*;
 use serde::{ser::SerializeMap, Serializer};
 use serde::ser::SerializeStruct;
+use serde_json::Map;
 
 pub struct ExecutionGroup {
     pub message: JupyterMessage,
@@ -9,9 +10,9 @@ pub struct ExecutionGroup {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionResult {
-    data: Value,
-    metadata: Value,
-    transient: Value,
+    data: Map<String, Value>,
+    metadata: Map<String, Value>,
+    transient: Map<String, Value>,
 }
 
 impl From<ExecutionResult> for JupiterContent {
@@ -118,27 +119,35 @@ impl ExecutionRequest {
     }
     pub fn as_result<T>(&self, mime: &str, data: T) -> JupyterResult<ExecutionResult> where T: Serialize {
         let mut map = serde_json::Map::new();
+        map.insert(mime.to_string(), serde_json::to_value(data)?);
         Ok(ExecutionResult {
-            data: serde_json::to_value(data)?,
-            metadata: Value::Null,
-            transient: Value::Null,
+            data: map,
+            metadata: serde_json::Map::new(),
+            transient: serde_json::Map::new(),
         })
     }
 }
 
 impl ExecutionResult {
-    pub fn with_metadata<T>(mut self, data: T) -> JupyterResult<ExecutionResult>
+    pub fn with_data<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
         where
             T: Serialize,
     {
-        self.metadata = serde_json::to_value(data)?;
+        self.data.insert(mime.to_string(), serde_json::to_value(data)?);
         Ok(self)
     }
-    pub fn with_transient<T>(mut self, data: T) -> JupyterResult<ExecutionResult>
+    pub fn with_metadata<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
         where
             T: Serialize,
     {
-        self.transient = serde_json::to_value(data)?;
+        self.metadata.insert(mime.to_string(), serde_json::to_value(data)?);
+        Ok(self)
+    }
+    pub fn with_transient<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
+        where
+            T: Serialize,
+    {
+        self.transient.insert(mime.to_string(), serde_json::to_value(data)?);
         Ok(self)
     }
 }
