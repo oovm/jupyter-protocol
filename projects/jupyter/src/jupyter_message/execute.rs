@@ -1,9 +1,23 @@
 use super::*;
 use serde::{ser::SerializeMap, Serializer};
+use serde::ser::SerializeStruct;
 
 pub struct ExecutionGroup {
     pub message: JupyterMessage,
     pub request: ExecutionRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExecutionResult {
+    data: Value,
+    metadata: Value,
+    transient: Value,
+}
+
+impl From<ExecutionResult> for JupiterContent {
+    fn from(value: ExecutionResult) -> Self {
+        JupiterContent::ExecutionResult(Box::new(value))
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -15,6 +29,7 @@ pub struct ExecutionRequest {
     pub stop_on_error: bool,
     pub user_expressions: Value,
 }
+
 /// {
 //   "source": "page",
 //   # mime-bundle of data to display in the pager.
@@ -23,12 +38,26 @@ pub struct ExecutionRequest {
 //   # line offset to start from
 //   "start": int,
 // }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 pub struct ExecutionReply {
-    execution_count: i32,
-    data: Value,
-    metadata: Value,
-    // payload: Vec<ExecutionPayload>,
+    success: bool,
+    execution_count: u32,
+    payload: Vec<ExecutionPayload>,
+}
+
+impl Serialize for ExecutionReply {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut map = serializer.serialize_struct("ExecutionReply", 5)?;
+        match self.success {
+            true => map.serialize_field("status", "ok")?,
+            false => map.serialize_field("status", "error")?,
+        }
+        map.serialize_field("execution_count", &self.execution_count)?;
+        if !self.payload.is_empty() {
+            map.serialize_field("payload", &self.payload)?;
+        }
+        map.end()
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -46,8 +75,8 @@ pub enum ExecutionPayload {
 
 impl Serialize for ExecutionPayload {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+        where
+            S: Serializer,
     {
         match self {
             ExecutionPayload::Page { mime: data, start } => {
@@ -75,36 +104,41 @@ impl From<ExecutionReply> for JupiterContent {
 }
 
 impl ExecutionRequest {
-    pub fn as_reply<T>(&self, count: i32, data: T) -> JupyterResult<ExecutionReply>
-    where
-        T: Serialize,
+    pub fn as_reply(&self, success: bool, count: u32) -> JupyterResult<ExecutionReply>
     {
         Ok(ExecutionReply {
+            success,
             execution_count: count,
-            data: serde_json::to_value(data)?,
-            metadata: Value::Null,
-            // payload: vec![
-            //     ExecutionPayload::Page { mime: "".to_string(), start: 1 },
-            //     ExecutionPayload::NextInput { text: "all".to_string(), replace: false },
-            //     ExecutionPayload::NextInput { text: "other".to_string(), replace: false },
-            // ],
+            payload: vec![
+                ExecutionPayload::Page { mime: "".to_string(), start: 1 },
+                ExecutionPayload::NextInput { text: "all".to_string(), replace: false },
+                ExecutionPayload::NextInput { text: "other".to_string(), replace: false },
+            ],
         })
     }
-    pub fn as_error(&self) {
-        unimplemented!()
+    pub fn as_result<T>(&self, mime: &str, data: T) -> JupyterResult<ExecutionResult> where T: Serialize {
+        let mut map = serde_json::Map::new();
+        Ok(ExecutionResult {
+            data: serde_json::to_value(data)?,
+            metadata: Value::Null,
+            transient: Value::Null,
+        })
     }
 }
 
-impl ExecutionReply {
-    pub fn with_meta<T>(self, data: T) -> JupyterResult<ExecutionReply>
-    where
-        T: Serialize,
+impl ExecutionResult {
+    pub fn with_metadata<T>(mut self, data: T) -> JupyterResult<ExecutionResult>
+        where
+            T: Serialize,
     {
-        Ok(ExecutionReply {
-            execution_count: self.execution_count,
-            data: self.data,
-            metadata: serde_json::to_value(data)?,
-            // payload: self.payload,
-        })
+        self.metadata = serde_json::to_value(data)?;
+        Ok(self)
+    }
+    pub fn with_transient<T>(mut self, data: T) -> JupyterResult<ExecutionResult>
+        where
+            T: Serialize,
+    {
+        self.transient = serde_json::to_value(data)?;
+        Ok(self)
     }
 }

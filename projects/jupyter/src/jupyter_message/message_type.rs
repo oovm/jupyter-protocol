@@ -11,6 +11,8 @@ pub enum JupyterMessageType {
     /// - [execute_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#code-inputs)
     ExecuteRequest,
     /// - [execute_result](https://jupyter-client.readthedocs.io/en/stable/messaging.html#execution-results)
+    ExecuteResult,
+    /// - [execute_result](https://jupyter-client.readthedocs.io/en/stable/messaging.html#execution-results)
     ExecuteReply,
     /// - [kernel_info_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
     KernelInfoRequest,
@@ -43,7 +45,8 @@ impl AsRef<str> for JupyterMessageType {
             JupyterMessageType::CommonInfoRequest => "comm_info_request",
             JupyterMessageType::CommonInfoReply => "comm_info_reply",
             JupyterMessageType::ExecuteRequest => "execute_request",
-            JupyterMessageType::ExecuteReply => "execute_result",
+            JupyterMessageType::ExecuteResult => "execute_result",
+            JupyterMessageType::ExecuteReply => "execute_reply",
             JupyterMessageType::Custom(v) => v,
         }
     }
@@ -60,11 +63,8 @@ impl JupyterMessageType {
         match kind {
             "status" => JupyterMessageType::StatusReply,
             "kernel_info" | "kernel_info_request" => JupyterMessageType::KernelInfoRequest,
-            "kernel_info_reply" => JupyterMessageType::KernelInfoReply,
             "comm_info_request" => JupyterMessageType::CommonInfoRequest,
-            "comm_info_reply" => JupyterMessageType::CommonInfoReply,
             "execute_request" => JupyterMessageType::ExecuteRequest,
-            "execute_reply" => JupyterMessageType::ExecuteReply,
             s => JupyterMessageType::Custom(s.to_string()),
         }
     }

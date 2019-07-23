@@ -12,4 +12,5 @@ time-travel.*
 # Rust
 target/
 Cargo.lock
+.ipynb_checkpoints/
 Untitled.ipynb

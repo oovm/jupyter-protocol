@@ -1,17 +1,14 @@
 use crate::JupyterResult;
 use async_trait::async_trait;
+use serde_json::Value;
 
 #[async_trait]
 pub trait ExecuteContext {
     fn language_info(&self) -> LanguageInfo;
 
-    async fn run(&mut self, code: &str, count: i32) -> JupyterResult<ExecuteResult>;
+    async fn run(&mut self, code: &str) -> JupyterResult<Value>;
 }
 
-pub enum ExecuteResult {
-    Success,
-    Error,
-}
 
 pub struct LanguageInfo {
     pub language: String,
@@ -34,7 +31,7 @@ impl ExecuteContext for SinkExecutor {
         LanguageInfo { language: "Rust".to_string(), file_extensions: ".rs".to_string() }
     }
 
-    async fn run(&mut self, _code: &str, _count: i32) -> JupyterResult<ExecuteResult> {
+    async fn run(&mut self, code: &str) -> JupyterResult<Value> {
         todo!()
     }
 }

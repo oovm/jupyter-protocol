@@ -25,6 +25,8 @@ use std::{
 
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
+use crate::jupyter_message::execute::ExecutionResult;
+
 mod common_info;
 mod der;
 mod execute;
@@ -73,7 +75,6 @@ impl RawMessage {
     }
 
     async fn send<S: SocketSend>(self, connection: &mut Connection<S>) -> JupyterResult<()> {
-        use hmac::Mac;
         let hmac = if let Some(mac_template) = &connection.mac {
             let mut mac = mac_template.clone();
             self.digest(&mut mac);
@@ -119,6 +120,7 @@ pub struct JupyterMessage {
 pub enum JupiterContent {
     State(Box<ExecutionState>),
     ExecutionRequest(Box<ExecutionRequest>),
+    ExecutionResult(Box<ExecutionResult>),
     ExecutionReply(Box<ExecutionReply>),
     KernelInfo(Box<KernelInfo>),
     Custom(Box<Value>),
@@ -149,6 +151,7 @@ impl Debug for JupiterContent {
             JupiterContent::State(v) => Debug::fmt(v, f),
             JupiterContent::ExecutionRequest(v) => Debug::fmt(v, f),
             JupiterContent::ExecutionReply(v) => Debug::fmt(v, f),
+            JupiterContent::ExecutionResult(v) => Debug::fmt(v, f),
         }
     }
 }

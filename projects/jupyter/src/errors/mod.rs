@@ -94,14 +94,6 @@ pub enum Theme {
     Dark,
 }
 
-fn span_to_byte_range(source: &str, span: &Span) -> Range<usize> {
-    fn line_and_number_to_byte_offset(source: &str, line_number: usize, column: usize) -> usize {
-        source.lines().take(line_number - 1).map(|x| x.len()).sum::<usize>() + column + line_number - 2
-    }
-    line_and_number_to_byte_offset(source, span.start_line, span.start_column)
-        ..line_and_number_to_byte_offset(source, span.end_line, span.end_column)
-}
-
 fn sanitize_message(message: &str) -> String {
     // Any references to `evcxr_variable_store` are beyond the end of what the
     // user typed, so we replace such references with something more meaningful.

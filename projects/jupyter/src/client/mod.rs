@@ -180,20 +180,19 @@ impl Server {
                 request.as_reply().with_content(cont).send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
+                let task = request.as_execution_request()?;
+
+
                 let mut map1 = HashMap::new();
                 map1.insert("text/plain".to_string(), "2".to_string());
 
-                // {
-                //     let mut map2 = HashMap::new();
-                //     map2.insert(
-                //         "text/html".to_string(),
-                //         "<span style=\"color: rgba(0,0,0,0.4);\">Took 0.154ms</span>".to_string(),
-                //     );
-                //     data.push(map2);
-                // }
-                let result = request.as_execution_request()?.as_reply(2, map1.clone())?.with_meta(map1)?;
-                request.as_reply().with_content(result.clone()).send(io).await?;
-                request.as_reply().with_content(result.clone()).send(shell).await?;
+                let return1 = task.as_result(2)?;
+                request.as_reply().with_content(return1).send(io).await?;
+                let return2 = task.as_result(3)?;
+                request.as_reply().with_content(return2).send(io).await?;
+
+                let reply = request.as_execution_request()?.as_reply(false, 5)?;
+                request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
                 println!("Unsupported message: {:?}", request.kind());
