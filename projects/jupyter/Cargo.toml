@@ -1,10 +1,14 @@
 [package]
 name = "jupyter"
-version = "0.0.0"
+version = "0.1.0"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
-#repository = "https://github.com/evcxr/evcxr"
-readme = "README.md"
+homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
+repository = " https://github.com/oovm/jupyter-protocol"
+documentation = "https://docs.rs/jupyter"
+keywords = ["jupyter", "kernel", "protocol"]
+categories = ["science"]
+readme = "readme.md"
 authors = ["The Evcxr Authors"]
 edition = "2021"
 exclude = ["third_party/.ipynb_checkpoints/"]
@@ -12,7 +16,6 @@ exclude = ["third_party/.ipynb_checkpoints/"]
 [dependencies]
 clap = "4.2.7"
 clap_derive = "4.2.0"
-#evcxr = { version = "=0.14.2", path = "../evcxr" }
 serde = "1.0.163"
 serde_json = "1.0.96"
 serde_derive = "1.0.163"
@@ -29,7 +32,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 unicode-segmentation = "1.7.1"
 generic-array = "0.14.4"
 crossbeam-channel = "0.5.5"
-ariadne = "0.2.0"
+syntax-error = "0.0.1"
 async-trait = "0.1.68"
 zeromq = { version = "0.3.3", default_features = false, features = ["tokio-runtime", "tcp-transport"] }
 

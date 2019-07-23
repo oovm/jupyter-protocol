@@ -31,6 +31,8 @@ pub struct ExecutionRequest {
     pub allow_stdin: bool,
     pub stop_on_error: bool,
     pub user_expressions: Value,
+    #[serde(default)]
+    pub execution_count: u32,
 }
 
 /// {

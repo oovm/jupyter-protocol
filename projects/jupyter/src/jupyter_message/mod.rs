@@ -100,7 +100,7 @@ impl RawMessage {
     }
 
     fn digest(&self, mac: &mut HmacSha256) {
-        use hmac::Mac;
+
         for part in &self.jparts {
             mac.update(part);
         }

@@ -1,5 +1,6 @@
 [package]
 name = "calculator"
+publish = false
 version = "0.0.0"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
@@ -14,5 +15,5 @@ clap = "4.2.7"
 clap_derive = "4.2.0"
 
 [dependencies.jupyter]
-version = "0.0.0"
+version = "*"
 path = "../jupyter"

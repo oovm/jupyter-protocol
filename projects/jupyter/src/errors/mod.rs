@@ -12,7 +12,7 @@ use hex::FromHexError;
 use std::{
     error::Error,
     fmt::{Debug, Display, Formatter, Write as _},
-    ops::Range,
+
     str::Utf8Error,
 };
 use tokio::{
