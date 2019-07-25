@@ -3,7 +3,7 @@ use crate::{ExecutionRequest, JupyterResult};
 use async_trait::async_trait;
 use serde_json::Value;
 
-pub trait Executed {
+pub trait Executed: Send {
     fn mime_type(&self) -> String;
     fn as_json(&self) -> Value;
 }

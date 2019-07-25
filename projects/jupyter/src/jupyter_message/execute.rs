@@ -121,7 +121,7 @@ impl ExecutionRequest {
             ],
         })
     }
-    pub fn as_result<T>(&self, mime: &str, data: T, count: u32) -> JupyterResult<ExecutionResult> where T: Serialize {
+    pub fn as_result<M, T>(&self, mime: M, data: T, count: u32) -> JupyterResult<ExecutionResult> where T: Serialize, M: ToString {
         let mut dict = serde_json::Map::new();
         dict.insert(mime.to_string(), serde_json::to_value(data)?);
         println!("data: {:?}", dict);

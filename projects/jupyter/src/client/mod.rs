@@ -23,6 +23,7 @@ use tokio::{
     task::{JoinError, JoinHandle},
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
+use crate::executor::Executed;
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
 #[derive(Clone)]
@@ -55,11 +56,6 @@ impl<T> ExecuteProvider<T> {
             T: ExecuteContext + 'static,
     {
         Self { context: Arc::new(Mutex::new(context)) }
-    }
-
-    pub(crate) fn execute(&self, p0: &str) -> JupyterResult<()> {
-        println!("execute: {}", p0);
-        Ok(())
     }
 }
 
@@ -182,11 +178,13 @@ impl Server {
             }
             JupyterMessageType::ExecuteRequest => {
                 *count += 1;
-                let task = request.as_execution_request()?;
-                let return1 = task.as_result("text/plain", 2, *count)?;
-                request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(return1).send(io).await?;
-                let return2 = task.as_result("text/html", "<b>world</b>", *count)?.with_metadata("text/html", "meta")?;
-                request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(return2).send(io).await?;
+                let mut task = request.as_execution_request()?;
+                task.execution_count = *count;
+                let mut runner = executor.context.lock().await;
+                for result in runner.running(task.clone()).await {
+                    let return1 = task.as_result(result.mime_type(), 2, *count)?;
+                    request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(return1).send(io).await?;
+                }
                 let reply = request.as_execution_request()?.as_reply(true, *count)?;
                 request.as_reply().with_content(reply).send(shell).await?;
             }
