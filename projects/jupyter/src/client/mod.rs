@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 use serde_json::{json, Value};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime, SystemTimeError};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -177,14 +178,28 @@ impl Server {
                 request.as_reply().with_content(cont).send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
+                let time = SystemTime::now();
                 *count += 1;
                 let mut task = request.as_execution_request()?;
                 task.execution_count = *count;
+                // reply busy event
                 let mut runner = executor.context.lock().await;
                 for result in runner.running(task.clone()).await {
-                    let return1 = task.as_result(result.mime_type(), 2, *count)?;
-                    request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(return1).send(io).await?;
+                    let any = task.as_result(result.mime_type(), result.as_json(), *count)?;
+                    request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(any).send(io).await?;
                 }
+                // Check elapsed time
+                match time.elapsed() {
+                    Ok(o) => {
+                        let escape = runner.running_time(o.as_secs_f64());
+                        if !escape.is_empty() {
+                            let time = task.as_result("text/html", escape, *count)?;
+                            request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(time).send(io).await?;
+                        }
+                    }
+                    Err(_) => {}
+                }
+                // reply finish event
                 let reply = request.as_execution_request()?.as_reply(true, *count)?;
                 request.as_reply().with_content(reply).send(shell).await?;
             }

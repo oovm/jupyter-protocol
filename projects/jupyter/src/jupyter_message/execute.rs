@@ -115,9 +115,9 @@ impl ExecutionRequest {
             success,
             execution_count: count,
             payload: vec![
-                ExecutionPayload::Page { mime: "".to_string(), start: 1 },
-                ExecutionPayload::NextInput { text: "all".to_string(), replace: false },
-                ExecutionPayload::NextInput { text: "other".to_string(), replace: false },
+                // ExecutionPayload::Page { mime: "".to_string(), start: 1 },
+                // ExecutionPayload::NextInput { text: "all".to_string(), replace: false },
+                // ExecutionPayload::NextInput { text: "other".to_string(), replace: false },
             ],
         })
     }

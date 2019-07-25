@@ -1,7 +1,7 @@
 use std::vec::IntoIter;
 use crate::{ExecutionRequest, JupyterResult};
 use async_trait::async_trait;
-use serde_json::Value;
+use serde_json::{to_value, Value};
 
 pub trait Executed: Send {
     fn mime_type(&self) -> String;
@@ -18,6 +18,16 @@ impl Executed for String {
     }
 }
 
+impl Executed for Value {
+    fn mime_type(&self) -> String {
+        "application/json".to_string()
+    }
+
+    fn as_json(&self) -> Value {
+        self.clone()
+    }
+}
+
 #[async_trait]
 #[allow(unused_variables)]
 pub trait ExecuteContext {
@@ -30,10 +40,9 @@ pub trait ExecuteContext {
     ///
     /// - unit: seconds
     fn running_time(&self, time: f64) -> String {
-        format!("<div>Elapsed time: {:.2} seconds.</div>", time)
+        format!("<sub>Elapsed time: {:.2} seconds.</sub>", time)
     }
 }
-
 
 pub struct LanguageInfo {
     pub language: String,
@@ -52,13 +61,16 @@ impl Default for SinkExecutor {
 
 #[async_trait]
 impl ExecuteContext for SinkExecutor {
-    type Executed = String;
+    type Executed = Value;
 
     fn language_info(&self) -> LanguageInfo {
         LanguageInfo { language: "Rust".to_string(), file_extensions: ".rs".to_string() }
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed> {
-        vec!["Hello, world!".to_string(), "Hello, world2!".to_string()]
+        vec![to_value(code).unwrap_or(Value::Null)]
+    }
+    fn running_time(&self, _: f64) -> String {
+        String::new()
     }
 }
