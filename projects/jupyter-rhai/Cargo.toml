@@ -10,9 +10,12 @@ edition = "2021"
 exclude = []
 
 [dependencies]
-rhai = "1.14.0"
 clap = "4.2.7"
 clap_derive = "4.2.0"
+
+[dependencies.rhai]
+version = "1.14.0"
+features = ["sync"]
 
 [dependencies.jupyter]
 version = "*"

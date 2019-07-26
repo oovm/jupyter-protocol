@@ -19,6 +19,8 @@ pub use async_trait::async_trait;
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},
-    executor::{ExecuteContext, LanguageInfo, SinkExecutor},
+    executor::{ExecuteContext, LanguageInfo, SinkExecutor, Executed},
     jupyter_message::*,
 };
+pub use serde::{Serialize};
+pub use serde_json::{Value, to_value};
