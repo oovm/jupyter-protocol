@@ -1,3 +1,4 @@
+use crate::{ExecuteContext, LanguageInfo};
 use super::*;
 
 #[derive(Parser)]
@@ -15,8 +16,8 @@ pub struct KernelConfig {
 }
 
 impl InstallAction {
-    pub fn run(&self) -> JupyterResult<()> {
-        legacy_install::install();
+    pub fn run(&self, config: &LanguageInfo) -> JupyterResult<()>  {
+        legacy_install::install(config)?;
         Ok(())
     }
 }

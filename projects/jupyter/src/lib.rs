@@ -14,6 +14,8 @@ mod executor;
 mod jupyter_message;
 mod legacy_install;
 
+pub use async_trait::async_trait;
+
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},

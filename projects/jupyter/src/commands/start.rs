@@ -31,9 +31,9 @@ impl StartAction {
     pub fn run(&self) -> JupyterResult<()> {
         let control_file = PathBuf::from(&self.control_file).canonicalize()?;
         println!("Starting jupyter kernel with control file: {}", Url::from_file_path(&control_file)?);
-        if let Err(error) = legacy_install::update_if_necessary() {
-            eprintln!("Warning: tried to update client, but failed: {}", error);
-        }
+        // if let Err(error) = legacy_install::update_if_necessary() {
+        //     eprintln!("Warning: tried to update client, but failed: {}", error);
+        // }
         Server::run(&KernelControl::parse_control_file(&control_file)?)?;
         Ok(())
     }

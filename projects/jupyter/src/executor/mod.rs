@@ -28,6 +28,16 @@ impl Executed for Value {
     }
 }
 
+impl Executed for f64 {
+    fn mime_type(&self) -> String {
+        "text/plain".to_string()
+    }
+
+    fn as_json(&self) -> Value {
+        Value::Number(serde_json::Number::from_f64(*self).unwrap_or(serde_json::Number::from(0)))
+    }
+}
+
 #[async_trait]
 #[allow(unused_variables)]
 pub trait ExecuteContext {
@@ -45,7 +55,10 @@ pub trait ExecuteContext {
 }
 
 pub struct LanguageInfo {
+    /// Language display
     pub language: String,
+    /// Language key
+    pub language_key: String,
     pub file_extensions: String,
 }
 
@@ -64,7 +77,7 @@ impl ExecuteContext for SinkExecutor {
     type Executed = Value;
 
     fn language_info(&self) -> LanguageInfo {
-        LanguageInfo { language: "Rust".to_string(), file_extensions: ".rs".to_string() }
+        LanguageInfo { language: "Rust".to_string(), language_key: "rust".to_string(), file_extensions: ".rs".to_string() }
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed> {

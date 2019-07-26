@@ -1,0 +1,19 @@
+[package]
+name = "jupyter-rhai"
+version = "0.0.0"
+license = "MIT OR Apache-2.0"
+description = "Jupyter Kernel Protocol in Rust"
+repository = "https://github.com/evcxr/evcxr"
+readme = "README.md"
+authors = ["The Evcxr Authors"]
+edition = "2021"
+exclude = []
+
+[dependencies]
+rhai = "1.14.0"
+clap = "4.2.7"
+clap_derive = "4.2.0"
+
+[dependencies.jupyter]
+version = "*"
+path = "../jupyter"

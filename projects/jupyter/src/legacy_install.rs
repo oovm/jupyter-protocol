@@ -5,7 +5,7 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{get_kernel_dir, JupyterResult, KernelConfig};
+use crate::{ExecuteContext, get_kernel_dir, JupyterResult, KernelConfig, LanguageInfo};
 use serde_json::to_string_pretty;
 use std::{
     fs,
@@ -22,10 +22,10 @@ const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/li
 const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 
-pub(crate) fn install() -> JupyterResult<()> {
+pub(crate) fn install(info: &LanguageInfo) -> JupyterResult<()> {
     let kernel_dir = get_kernel_dir()?;
     fs::create_dir_all(&kernel_dir)?;
-    let kernel_config = KernelConfig::new("rust", "Rust")?;
+    let kernel_config = KernelConfig::new(&info.language_key, &info.language)?;
     let kernel_json = to_string_pretty(&kernel_config)?;
     let kernel_json_filename = kernel_dir.join("kernel.json");
     println!("Writing {}", kernel_json_filename.to_string_lossy());
@@ -57,7 +57,7 @@ pub(crate) fn update_if_necessary() -> JupyterResult<()> {
     }
     let installed_version = std::fs::read(kernel_dir.join("version.txt")).unwrap_or_default();
     if installed_version != VERSION_TXT {
-        install()?;
+        // install()?;
         eprintln!(
             "\n\n==================================================================\n\
             Updated Evcxr Jupyter installation. Note, updates unfortunately \n\
