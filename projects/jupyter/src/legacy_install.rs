@@ -23,7 +23,7 @@ const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 
 pub(crate) fn install(info: &LanguageInfo) -> JupyterResult<()> {
-    let kernel_dir = get_kernel_dir()?;
+    let kernel_dir = get_kernel_dir(&info.language_key)?;
     fs::create_dir_all(&kernel_dir)?;
     let kernel_config = KernelConfig::new(&info.language_key, &info.language)?;
     let kernel_json = to_string_pretty(&kernel_config)?;
@@ -47,8 +47,8 @@ pub(crate) fn install(info: &LanguageInfo) -> JupyterResult<()> {
 
 /// Checks if the current installation is out-of-date, by looking at what's in
 /// version.txt. If it is out of date, then updates it.
-pub(crate) fn update_if_necessary() -> JupyterResult<()> {
-    let kernel_dir = get_kernel_dir()?;
+pub(crate) fn update_if_necessary(info: &LanguageInfo) -> JupyterResult<()> {
+    let kernel_dir = get_kernel_dir(&info.language_key)?;
     // If the kernel directory doesn't exist, then we're probably being run from
     // a wrapper, so we shouldn't "update", since that would in effect be
     // installing ourselves when we weren't already installed.

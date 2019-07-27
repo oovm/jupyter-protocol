@@ -2,7 +2,7 @@ use clap::Parser;
 use clap_derive::{Parser, Subcommand};
 use jupyter::{async_trait, ExecuteContext, Executed, ExecutionRequest, InstallAction, JupyterResult, LanguageInfo, OpenAction, Serialize, StartAction, to_value, UninstallAction, Value};
 use std::path::PathBuf;
-use rhai::{Engine, EvalAltResult};
+use rhai::Engine;
 
 
 pub struct JupyterRhai {
@@ -88,7 +88,7 @@ impl JupyterApplication {
             JupyterCommands::Open(v) => v.run(),
             JupyterCommands::Start(v) => v.run(),
             JupyterCommands::Install(v) => v.run(&config),
-            JupyterCommands::Uninstall(v) => v.run(),
+            JupyterCommands::Uninstall(v) => v.run(&config),
         }
     }
 }
