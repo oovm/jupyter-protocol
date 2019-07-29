@@ -1,7 +1,9 @@
 use std::vec::IntoIter;
 use crate::{ExecutionRequest, JupyterResult};
 use async_trait::async_trait;
+use image::RgbaImage;
 use serde_json::{to_value, Value};
+use crate::helper::bytes_to_png;
 
 pub trait Executed: Send {
     fn mime_type(&self) -> String;
@@ -42,6 +44,9 @@ impl Executed for f64 {
 #[allow(unused_variables)]
 pub trait ExecuteContext {
     type Executed: Executed;
+
+    fn logo(&self) -> RgbaImage;
+
     fn language_info(&self) -> LanguageInfo;
 
     async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed>;
@@ -75,6 +80,10 @@ impl Default for SinkExecutor {
 #[async_trait]
 impl ExecuteContext for SinkExecutor {
     type Executed = Value;
+
+    fn logo(&self) -> RgbaImage {
+        bytes_to_png(include_bytes!("../../third_party/rust/rust-logo-64x64.png")).expect("Failed to decode rust logo")
+    }
 
     fn language_info(&self) -> LanguageInfo {
         LanguageInfo { language: "Rust".to_string(), language_key: "rust".to_string(), file_extensions: ".rs".to_string() }

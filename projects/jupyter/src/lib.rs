@@ -13,6 +13,7 @@ mod errors;
 mod executor;
 mod jupyter_message;
 mod legacy_install;
+pub mod helper;
 
 pub use async_trait::async_trait;
 

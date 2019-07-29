@@ -16,7 +16,7 @@ pub struct KernelConfig {
 }
 
 impl InstallAction {
-    pub fn run(&self, config: &LanguageInfo) -> JupyterResult<()>  {
+    pub fn run<T: ExecuteContext>(&self, config: &T) -> JupyterResult<()>  {
         legacy_install::install(config)?;
         Ok(())
     }

@@ -22,7 +22,8 @@ const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/li
 const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 
-pub(crate) fn install(info: &LanguageInfo) -> JupyterResult<()> {
+pub(crate) fn install<T: ExecuteContext>(info: &T) -> JupyterResult<()> {
+    let info = info.language_info();
     let kernel_dir = get_kernel_dir(&info.language_key)?;
     fs::create_dir_all(&kernel_dir)?;
     let kernel_config = KernelConfig::new(&info.language_key, &info.language)?;
