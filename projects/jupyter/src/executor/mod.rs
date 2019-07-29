@@ -63,6 +63,8 @@ pub struct LanguageInfo {
     /// Language display
     pub language: String,
     /// Language key
+    pub png_64: &'static [u8],
+    pub png_32: &'static [u8],
     pub language_key: String,
     pub file_extensions: String,
 }
@@ -86,7 +88,7 @@ impl ExecuteContext for SinkExecutor {
     }
 
     fn language_info(&self) -> LanguageInfo {
-        LanguageInfo { language: "Rust".to_string(), language_key: "rust".to_string(), file_extensions: ".rs".to_string() }
+        LanguageInfo { language: "Rust".to_string(), png_64: include_bytes!("../../third_party/rust/rust-logo-32x32.png"), png_32: include_bytes!("../../third_party/rust/rust-logo-64x64.png"), language_key: "rust".to_string(), file_extensions: ".rs".to_string() }
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed> {

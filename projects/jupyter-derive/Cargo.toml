@@ -1,0 +1,19 @@
+[package]
+name = "jupyter-derive"
+version = "0.0.0"
+license = "MIT OR Apache-2.0"
+description = "Jupyter Kernel Protocol in Rust"
+repository = "https://github.com/evcxr/evcxr"
+readme = "README.md"
+authors = ["The Evcxr Authors"]
+edition = "2021"
+exclude = []
+
+# proc-macro crate
+[lib]
+crate-type = ["proc-macro"]
+
+[dependencies]
+syn = "2.0.16"
+quote = "1.0.9"
+image = "0.24.6"
