@@ -1,6 +1,8 @@
 use super::*;
-use serde::{ser::SerializeMap, Serializer};
-use serde::ser::SerializeStruct;
+use serde::{
+    ser::{SerializeMap, SerializeStruct},
+    Serializer,
+};
 use serde_json::Map;
 
 pub struct ExecutionGroup {
@@ -15,7 +17,6 @@ pub struct ExecutionResult {
     metadata: Map<String, Value>,
     transient: Map<String, Value>,
 }
-
 
 impl From<ExecutionResult> for JupiterContent {
     fn from(value: ExecutionResult) -> Self {
@@ -51,7 +52,10 @@ pub struct ExecutionReply {
 }
 
 impl Serialize for ExecutionReply {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut map = serializer.serialize_struct("ExecutionReply", 5)?;
         match self.success {
             true => map.serialize_field("status", "ok")?,
@@ -80,8 +84,8 @@ pub enum ExecutionPayload {
 
 impl Serialize for ExecutionPayload {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         match self {
             ExecutionPayload::Page { mime: data, start } => {
@@ -109,9 +113,8 @@ impl From<ExecutionReply> for JupiterContent {
 }
 
 impl ExecutionRequest {
-    pub fn as_reply(&self, success: bool, count: u32) -> JupyterResult<ExecutionReply>
-    {
-        Ok(ExecutionReply {
+    pub fn as_reply(&self, success: bool, count: u32) -> ExecutionReply {
+        ExecutionReply {
             success,
             execution_count: count,
             payload: vec![
@@ -119,9 +122,13 @@ impl ExecutionRequest {
                 // ExecutionPayload::NextInput { text: "all".to_string(), replace: false },
                 // ExecutionPayload::NextInput { text: "other".to_string(), replace: false },
             ],
-        })
+        }
     }
-    pub fn as_result<M, T>(&self, mime: M, data: T, count: u32) -> JupyterResult<ExecutionResult> where T: Serialize, M: ToString {
+    pub fn as_result<M, T>(&self, mime: M, data: T, count: u32) -> JupyterResult<ExecutionResult>
+    where
+        T: Serialize,
+        M: ToString,
+    {
         let mut dict = serde_json::Map::new();
         dict.insert(mime.to_string(), serde_json::to_value(data)?);
         println!("data: {:?}", dict);
@@ -136,23 +143,23 @@ impl ExecutionRequest {
 
 impl ExecutionResult {
     pub fn with_data<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
-        where
-            T: Serialize,
+    where
+        T: Serialize,
     {
         self.data.insert(mime.to_string(), serde_json::to_value(data)?);
         println!("data: {:?}", self.data);
         Ok(self)
     }
     pub fn with_metadata<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
-        where
-            T: Serialize,
+    where
+        T: Serialize,
     {
         self.metadata.insert(mime.to_string(), serde_json::to_value(data)?);
         Ok(self)
     }
     pub fn with_transient<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
-        where
-            T: Serialize,
+    where
+        T: Serialize,
     {
         self.transient.insert(mime.to_string(), serde_json::to_value(data)?);
         Ok(self)

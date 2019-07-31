@@ -1,6 +1,5 @@
 use super::*;
-use crate::{ExecuteContext, LanguageInfo};
-
+use crate::{JupyterServerProtocol, LanguageInfo};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct KernelInfo {

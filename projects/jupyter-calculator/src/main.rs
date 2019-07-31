@@ -1,13 +1,15 @@
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
-use jupyter::{async_trait, ExecuteContext, ExecutionRequest, InstallAction, JupyterResult, LanguageInfo, OpenAction, StartAction, UninstallAction};
+use jupyter::{
+    async_trait, ExecutionRequest, InstallAction, JupyterResult, JupyterServerProtocol, LanguageInfo, OpenAction, StartAction,
+    UninstallAction,
+};
 use std::path::PathBuf;
-
 
 pub struct CalculatorContext;
 
 #[async_trait]
-impl ExecuteContext for CalculatorContext {
+impl JupyterServerProtocol for CalculatorContext {
     type Executed = f64;
 
     fn language_info(&self) -> LanguageInfo {

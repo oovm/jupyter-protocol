@@ -1,3 +1,4 @@
+#![feature(generator_trait)]
 // Copyright 2020 The Evcxr Authors.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE or
@@ -5,23 +6,22 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-
 mod client;
 mod commands;
 mod connection;
 mod errors;
 mod executor;
+pub mod helper;
 mod jupyter_message;
 mod legacy_install;
-pub mod helper;
 
 pub use async_trait::async_trait;
 
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},
-    executor::{ExecuteContext, LanguageInfo, SinkExecutor, Executed},
+    executor::{Executed, JupyterServerProtocol, LanguageInfo, SinkExecutor},
     jupyter_message::*,
 };
-pub use serde::{Serialize};
-pub use serde_json::{Value, to_value};
+pub use serde::Serialize;
+pub use serde_json::{to_value, Value};

@@ -1,9 +1,13 @@
-use std::vec::IntoIter;
-use crate::{ExecutionRequest, JupyterResult};
+use crate::{helper::bytes_to_png, ExecutionReply, ExecutionRequest, JupyterResult};
 use async_trait::async_trait;
 use image::RgbaImage;
 use serde_json::{to_value, Value};
-use crate::helper::bytes_to_png;
+use std::{
+    ops::{Generator, GeneratorState},
+    vec::IntoIter,
+};
+mod sockets;
+pub use self::sockets::JupyterServerSockets;
 
 pub trait Executed: Send {
     fn mime_type(&self) -> String;
@@ -42,14 +46,13 @@ impl Executed for f64 {
 
 #[async_trait]
 #[allow(unused_variables)]
-pub trait ExecuteContext {
-    type Executed: Executed;
-
-    fn logo(&self) -> RgbaImage;
-
+pub trait JupyterServerProtocol {
     fn language_info(&self) -> LanguageInfo;
 
-    async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed>;
+    /// since Generator is not stable, we use sender instead
+    ///
+    /// `Generator<Yield = dyn Executed, Return = ExecutionReply>`
+    async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply;
 
     /// Show the running time of the code, return nil if not supported
     ///
@@ -67,34 +70,4 @@ pub struct LanguageInfo {
     pub png_32: &'static [u8],
     pub language_key: String,
     pub file_extensions: String,
-}
-
-pub struct SinkExecutor {
-    name: String,
-}
-
-impl Default for SinkExecutor {
-    fn default() -> Self {
-        Self { name: "sink".to_string() }
-    }
-}
-
-#[async_trait]
-impl ExecuteContext for SinkExecutor {
-    type Executed = Value;
-
-    fn logo(&self) -> RgbaImage {
-        bytes_to_png(include_bytes!("../../third_party/rust/rust-logo-64x64.png")).expect("Failed to decode rust logo")
-    }
-
-    fn language_info(&self) -> LanguageInfo {
-        LanguageInfo { language: "Rust".to_string(), png_64: include_bytes!("../../third_party/rust/rust-logo-32x32.png"), png_32: include_bytes!("../../third_party/rust/rust-logo-64x64.png"), language_key: "rust".to_string(), file_extensions: ".rs".to_string() }
-    }
-
-    async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed> {
-        vec![to_value(code).unwrap_or(Value::Null)]
-    }
-    fn running_time(&self, _: f64) -> String {
-        String::new()
-    }
 }

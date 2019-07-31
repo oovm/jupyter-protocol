@@ -23,9 +23,9 @@ use std::{
     {self},
 };
 
+pub use self::execute::ExecutionResult;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
-use crate::jupyter_message::execute::ExecutionResult;
 
 mod common_info;
 mod der;
@@ -38,7 +38,6 @@ pub use self::{
     kernel_info::KernelInfo,
     message_type::JupyterMessageType,
 };
-
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -100,7 +99,6 @@ impl RawMessage {
     }
 
     fn digest(&self, mac: &mut HmacSha256) {
-
         for part in &self.jparts {
             mac.update(part);
         }

@@ -9,13 +9,16 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecuteContext, ExecutionState, KernelControl, SinkExecutor,
+    ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl, SinkExecutor,
 };
 use std::collections::HashMap;
 
+use crate::executor::Executed;
 use serde_json::{json, Value};
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, SystemTimeError};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, SystemTimeError},
+};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -24,7 +27,6 @@ use tokio::{
     task::{JoinError, JoinHandle},
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
-use crate::executor::Executed;
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
 #[derive(Clone)]
@@ -35,7 +37,6 @@ pub(crate) struct Server {
     control: Arc<Mutex<Connection<RouterSocket>>>,
     shell_socket: Arc<Mutex<Connection<RouterSocket>>>,
     latest_execution_request: Arc<Mutex<Option<JupyterMessage>>>,
-    execution_request_sender: Arc<Mutex<UnboundedSender<JupyterMessage>>>,
     execution_request_receiver: Arc<Mutex<UnboundedReceiver<JupyterMessage>>>,
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
@@ -53,8 +54,8 @@ impl<T> Clone for ExecuteProvider<T> {
 
 impl<T> ExecuteProvider<T> {
     pub fn new(context: T) -> Self
-        where
-            T: ExecuteContext + 'static,
+    where
+        T: JupyterServerProtocol + 'static,
     {
         Self { context: Arc::new(Mutex::new(context)) }
     }
@@ -101,13 +102,13 @@ impl Server {
         let iopub_socket = bind_socket::<PubSocket>(config, config.iopub_port).await?;
         let iopub = Arc::new(Mutex::new(iopub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
-        let (execution_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
-        // let (execution_response_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (execution_result_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
+        // let (execution_res ponse_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
         let server = Server {
             iopub,
             heartbeat: Arc::new(Mutex::new(heartbeat)),
             latest_execution_request: Arc::new(Mutex::new(None)),
-            execution_request_sender: Arc::new(Mutex::new(execution_sender)),
+            execution_request_sender: Arc::new(Mutex::new(execution_result_sender)),
             execution_request_receiver: Arc::new(Mutex::new(execution_receiver)),
             stdin: Arc::new(Mutex::new(stdin_socket)),
             control: Arc::new(Mutex::new(control_socket)),
@@ -145,8 +146,8 @@ impl Server {
         Ok(())
     }
     fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-        where
-            T: ExecuteContext + Send + 'static,
+    where
+        T: JupyterServerProtocol + Send + 'static,
     {
         let mut count = 0;
         tokio::spawn(async move {
@@ -159,8 +160,8 @@ impl Server {
         })
     }
     async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>, count: &mut u32) -> JupyterResult<()>
-        where
-            T: ExecuteContext + Send + 'static,
+    where
+        T: JupyterServerProtocol + Send + 'static,
     {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
@@ -194,7 +195,12 @@ impl Server {
                         let escape = runner.running_time(o.as_secs_f64());
                         if !escape.is_empty() {
                             let time = task.as_result("text/html", escape, *count)?;
-                            request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(time).send(io).await?;
+                            request
+                                .as_reply()
+                                .with_message_type(JupyterMessageType::ExecuteResult)
+                                .with_content(time)
+                                .send(io)
+                                .await?;
                         }
                     }
                     Err(_) => {}
@@ -218,8 +224,8 @@ impl Server {
     }
 
     fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-        where
-            T: ExecuteContext + Send + 'static,
+    where
+        T: JupyterServerProtocol + Send + 'static,
     {
         let mut running_count = 0;
         tokio::spawn(async move {
@@ -233,8 +239,8 @@ impl Server {
         })
     }
     async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, _count: i32) -> JupyterResult<()>
-        where
-            T: ExecuteContext + Send + 'static,
+    where
+        T: JupyterServerProtocol + Send + 'static,
     {
         todo!();
         // let zmq = match self.execution_request_receiver.lock().await.recv().await {

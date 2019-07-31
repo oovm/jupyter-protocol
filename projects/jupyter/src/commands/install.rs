@@ -1,5 +1,5 @@
-use crate::{ExecuteContext, LanguageInfo};
 use super::*;
+use crate::{JupyterServerProtocol, LanguageInfo};
 
 #[derive(Parser)]
 pub struct InstallAction {
@@ -16,7 +16,7 @@ pub struct KernelConfig {
 }
 
 impl InstallAction {
-    pub fn run<T: ExecuteContext>(&self, config: &T) -> JupyterResult<()>  {
+    pub fn run<T: JupyterServerProtocol>(&self, config: &T) -> JupyterResult<()> {
         legacy_install::install(config)?;
         Ok(())
     }

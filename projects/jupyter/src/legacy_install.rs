@@ -5,13 +5,9 @@
 // or https://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::{ExecuteContext, get_kernel_dir, JupyterResult, KernelConfig, LanguageInfo};
+use crate::{get_kernel_dir, JupyterResult, JupyterServerProtocol, KernelConfig, LanguageInfo};
 use serde_json::to_string_pretty;
-use std::{
-    fs,
-    io::Write,
-    path::{Path},
-};
+use std::{fs, io::Write, path::Path};
 
 const LOGO_32X32: &[u8] = include_bytes!("../third_party/rust/rust-logo-32x32.png");
 const LOGO_64X64: &[u8] = include_bytes!("../third_party/rust/rust-logo-64x64.png");
@@ -22,7 +18,7 @@ const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/li
 const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
 const VERSION_TXT: &[u8] = include_bytes!("../client/version.txt");
 
-pub(crate) fn install<T: ExecuteContext>(info: &T) -> JupyterResult<()> {
+pub(crate) fn install<T: JupyterServerProtocol>(info: &T) -> JupyterResult<()> {
     let info = info.language_info();
     let kernel_dir = get_kernel_dir(&info.language_key)?;
     fs::create_dir_all(&kernel_dir)?;
