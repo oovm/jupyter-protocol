@@ -14,7 +14,7 @@ exclude = []
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.58"
+proc-macro2 = { version = "1.0.58" }
 syn = "2.0.16"
 quote = "1.0.9"
 image = "0.24.6"

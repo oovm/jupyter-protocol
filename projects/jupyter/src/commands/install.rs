@@ -1,5 +1,5 @@
 use super::*;
-use crate::{JupyterServerProtocol, LanguageInfo};
+use crate::{JupyterServerProtocol,};
 
 #[derive(Parser)]
 pub struct InstallAction {
@@ -16,8 +16,11 @@ pub struct KernelConfig {
 }
 
 impl InstallAction {
-    pub fn run<T: JupyterServerProtocol>(&self, config: &T) -> JupyterResult<()> {
-        legacy_install::install(config)?;
+    pub fn run<T>(&self, engine: T) -> JupyterResult<()>
+    where
+        T: JupyterServerProtocol,
+    {
+        legacy_install::install(&engine)?;
         Ok(())
     }
 }

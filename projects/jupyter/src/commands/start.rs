@@ -28,7 +28,10 @@ pub struct KernelControl {
 }
 
 impl StartAction {
-    pub fn run<T: JupyterServerProtocol>(&self, server: T) -> JupyterResult<()> {
+    pub fn run<T>(&self, server: T) -> JupyterResult<()>
+    where
+        T: JupyterServerProtocol + 'static,
+    {
         let control_file = PathBuf::from(&self.control_file).canonicalize()?;
         println!("Starting jupyter kernel with control file: {}", Url::from_file_path(&control_file)?);
         // if let Err(error) = legacy_install::update_if_necessary() {

@@ -1,12 +1,16 @@
 use super::*;
+use crate::{JupyterServerProtocol};
 use std::path::PathBuf;
-use crate::LanguageInfo;
 
 #[derive(Parser)]
 pub struct UninstallAction {}
 
 impl UninstallAction {
-    pub fn run(&self, config: &LanguageInfo) -> JupyterResult<()> {
+    pub fn run<T>(&self, engine: T) -> JupyterResult<()>
+    where
+        T: JupyterServerProtocol,
+    {
+        let config = engine.language_info();
         let kernel_dir = get_kernel_dir(&config.language_key)?;
         println!("Deleting {}", kernel_dir.to_string_lossy());
         std::fs::remove_dir_all(kernel_dir)?;

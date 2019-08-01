@@ -1,54 +1,20 @@
-use crate::{helper::bytes_to_png, ExecutionReply, ExecutionRequest, ExecutionResult, JupyterResult};
+use crate::{ExecutionReply, ExecutionRequest, ExecutionResult};
 use async_trait::async_trait;
-use image::RgbaImage;
 use serde_json::{to_value, Value};
-use std::{
-    ops::{Generator, GeneratorState},
-    vec::IntoIter,
-};
 use tokio::sync::mpsc::UnboundedSender;
 
-mod sockets;
-pub use self::sockets::JupyterServerSockets;
+pub mod sockets;
+mod value_type;
 
 pub trait Executed: Send {
     fn mime_type(&self) -> String;
     fn as_json(&self) -> Value;
 }
 
-impl Executed for String {
-    fn mime_type(&self) -> String {
-        "text/plain".to_string()
-    }
-
-    fn as_json(&self) -> Value {
-        Value::String(self.clone())
-    }
-}
-
-impl Executed for Value {
-    fn mime_type(&self) -> String {
-        "application/json".to_string()
-    }
-
-    fn as_json(&self) -> Value {
-        self.clone()
-    }
-}
-
-impl Executed for f64 {
-    fn mime_type(&self) -> String {
-        "text/plain".to_string()
-    }
-
-    fn as_json(&self) -> Value {
-        Value::Number(serde_json::Number::from_f64(*self).unwrap_or(serde_json::Number::from(0)))
-    }
-}
 
 #[async_trait]
 #[allow(unused_variables)]
-pub trait JupyterServerProtocol: Send {
+pub trait JupyterServerProtocol: Send + Sync + 'static {
     fn language_info(&self) -> LanguageInfo;
 
     /// since Generator is not stable, we use sender instead
@@ -64,7 +30,7 @@ pub trait JupyterServerProtocol: Send {
     }
 
     /// Bind the execution socket, recommended to use [JupyterServerSockets].
-    fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
+    async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
         // sink socket, do nothing
     }
 }

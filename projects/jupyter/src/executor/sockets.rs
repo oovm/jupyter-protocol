@@ -19,11 +19,18 @@ impl Clone for JupyterServerSockets {
 }
 
 impl JupyterServerSockets {
-    pub fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
-        let mut channel = self.execution_result.blocking_lock();
+    pub async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
+        let mut channel = self.execution_result.lock().await;
         *channel = Some(sender);
     }
-    pub async fn send_executed(&self, executed: impl Executed) -> JupyterResult<()> {
+    pub async fn send_executed(&self, executed: impl Executed) {
+        match self.try_send_executed(executed).await {
+            Ok(_) => (),
+            Err(_) => ()
+        }
+    }
+
+    async fn try_send_executed(&self, executed: impl Executed) -> JupyterResult<()> {
         let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_json())?;
         self.send_executed_result(data).await
     }

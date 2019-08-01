@@ -11,17 +11,17 @@ use crate::{
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
     ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
 };
-use std::collections::HashMap;
 
-use crate::executor::Executed;
-use serde_json::{json, Value};
+
+
+use serde_json::{ Value};
 use std::{
     sync::Arc,
-    time::{Duration, SystemTime, SystemTimeError},
+    time::{ SystemTime,},
 };
 use tokio::{
     sync::{
-        mpsc::{UnboundedReceiver, UnboundedSender},
+        mpsc::{UnboundedReceiver, },
         Mutex,
     },
     task::{JoinError, JoinHandle},
@@ -114,7 +114,9 @@ impl SealedServer {
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
         let (execution_result_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
         // let (execution_res ponse_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
-        server.bind_execution_socket(execution_result_sender);
+
+        server.bind_execution_socket(execution_result_sender).await;
+
         let here = SealedServer {
             iopub,
             heartbeat: Arc::new(Mutex::new(heartbeat)),
@@ -197,8 +199,8 @@ impl SealedServer {
                 let mut runner = executor.context.lock().await;
                 let mut rev = self.execution_request_receiver.lock().await;
                 loop {
-                    match rev.recv().await {
-                        Some(result) => {
+                    match rev.try_recv() {
+                        Ok(result) => {
                             let any = result.with_count(*count);
                             request
                                 .as_reply()
@@ -207,8 +209,9 @@ impl SealedServer {
                                 .send(io)
                                 .await?;
                         }
-                        None => {
-                            break;
+                        Err(e) => {
+                           eprint!("Send Executed Failed: {e}");
+                            break
                         }
                     }
                 }

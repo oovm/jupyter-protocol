@@ -28,6 +28,9 @@ pub struct JupyterError {
 }
 
 impl JupyterError {
+    pub fn any<T: ToString>(message: T) -> Self {
+        Self { kind: Box::new(JupyterErrorKind::Custom(message.to_string())) }
+    }
     pub fn missing_field(field: &'static str) -> Self {
         Self { kind: Box::new(JupyterErrorKind::MissingField(field)) }
     }
@@ -43,6 +46,7 @@ impl JupyterError {
 pub enum JupyterErrorKind {
     CompilationErrors(Vec<CompilationError>),
     TypeRedefinedVariablesLost(Vec<String>),
+    Custom(String),
     Message(String),
     MissingField(&'static str),
     ExceptType(&'static str),
@@ -59,20 +63,25 @@ impl Display for JupyterError {
     }
 }
 impl Display for JupyterErrorKind {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-        // match self {
-        //     JupyterErrorKind::CompilationErrors(errors) => {
-        //         for error in errors {
-        //             write!(f, "{}", error.message())?;
-        //         }
-        //     }
-        //     JupyterErrorKind::TypeRedefinedVariablesLost(variables) => {
-        //         write!(f, "A type redefinition resulted in the following variables being lost: {}", variables.join(", "))?;
-        //     }
-        //     JupyterErrorKind::Message(message) | JupyterErrorKind::SubprocessTerminated(message) => write!(f, "{message}")?,
-        // }
-        todo!();
-        Ok(())
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JupyterErrorKind::CompilationErrors(_) => {
+                todo!()
+            }
+            JupyterErrorKind::TypeRedefinedVariablesLost(variables) => {
+                writeln!(f, "Type redefined, variables lost:")?;
+                for variable in variables {
+                    writeln!(f, "{}", variable)?;
+                }
+                Ok(())
+            }
+            JupyterErrorKind::Custom(message) => write!(f, "{}", message),
+            JupyterErrorKind::Message(message) => write!(f, "{}", message),
+            JupyterErrorKind::MissingField(field) => write!(f, "Missing field: {}", field),
+            JupyterErrorKind::ExceptType(except_type) => write!(f, "Except type: {}", except_type),
+            JupyterErrorKind::ChannelBlockage(channel) => write!(f, "Channel blockage: {}", channel),
+            JupyterErrorKind::SubprocessTerminated(message) => write!(f, "Subprocess terminated: {}", message),
+        }
     }
 }
 
