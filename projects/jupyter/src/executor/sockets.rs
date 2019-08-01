@@ -1,4 +1,4 @@
-use crate::{Executed, ExecutionResult};
+use crate::{Executed, ExecutionResult, JupyterError, JupyterResult};
 use std::sync::Arc;
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
 
@@ -19,22 +19,19 @@ impl Clone for JupyterServerSockets {
 }
 
 impl JupyterServerSockets {
-    pub async fn bind_execution_result(&self, sender: UnboundedSender<ExecutionResult>) {
-        let channel = self.execution_result.lock().await;
+    pub fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
+        let mut channel = self.execution_result.blocking_lock();
         *channel = Some(sender);
     }
-    pub async fn send_executed(&self, executed: impl Executed) {
-        executed.as_json()
+    pub async fn send_executed(&self, executed: impl Executed) -> JupyterResult<()> {
+        let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_json())?;
+        self.send_executed_result(data).await
     }
-    pub async fn send_execution_result(&self, result: ExecutionResult) {
-        let channel = self.execution_result.lock().await;
-        if let Some(channel) = &*channel {
-            match channel.send(result) {
-                Ok(_) => {}
-                Err(e) => {
-                    eprintln!("Error sending execution result: {}", e);
-                }
-            }
+    pub async fn send_executed_result(&self, result: ExecutionResult) -> JupyterResult<()> {
+        let mut channel = self.execution_result.lock().await;
+        match channel.as_mut() {
+            Some(sender) => Ok(sender.send(result)?),
+            None => Err(JupyterError::channel_block("ExecutionResult")),
         }
     }
 }

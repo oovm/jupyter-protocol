@@ -20,3 +20,7 @@ features = ["sync"]
 [dependencies.jupyter]
 version = "*"
 path = "../jupyter"
+
+[dependencies.jupyter-derive]
+version = "*"
+path = "../jupyter-derive"

@@ -20,7 +20,7 @@ pub use async_trait::async_trait;
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},
-    executor::{Executed, JupyterServerProtocol, LanguageInfo, SinkExecutor},
+    executor::{Executed, JupyterServerProtocol, LanguageInfo},
     jupyter_message::*,
 };
 pub use serde::Serialize;

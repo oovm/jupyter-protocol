@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::client::Server;
+use crate::{client::SealedServer, JupyterServerProtocol};
 use serde_derive::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::{
@@ -28,13 +28,13 @@ pub struct KernelControl {
 }
 
 impl StartAction {
-    pub fn run(&self) -> JupyterResult<()> {
+    pub fn run<T: JupyterServerProtocol>(&self, server: T) -> JupyterResult<()> {
         let control_file = PathBuf::from(&self.control_file).canonicalize()?;
         println!("Starting jupyter kernel with control file: {}", Url::from_file_path(&control_file)?);
         // if let Err(error) = legacy_install::update_if_necessary() {
         //     eprintln!("Warning: tried to update client, but failed: {}", error);
         // }
-        Server::run(&KernelControl::parse_control_file(&control_file)?)?;
+        SealedServer::run(&KernelControl::parse_control_file(&control_file)?, server)?;
         Ok(())
     }
 }

@@ -18,6 +18,12 @@ pub struct ExecutionResult {
     transient: Map<String, Value>,
 }
 
+impl Default for ExecutionResult {
+    fn default() -> Self {
+        Self { execution_count: 0, data: Map::new(), metadata: Map::new(), transient: Map::new() }
+    }
+}
+
 impl From<ExecutionResult> for JupiterContent {
     fn from(value: ExecutionResult) -> Self {
         JupiterContent::ExecutionResult(Box::new(value))
@@ -124,7 +130,7 @@ impl ExecutionRequest {
             ],
         }
     }
-    pub fn as_result<M, T>(&self, mime: M, data: T, count: u32) -> JupyterResult<ExecutionResult>
+    pub fn as_result<M, T>(&self, mime: M, data: T) -> JupyterResult<ExecutionResult>
     where
         T: Serialize,
         M: ToString,
@@ -133,7 +139,7 @@ impl ExecutionRequest {
         dict.insert(mime.to_string(), serde_json::to_value(data)?);
         println!("data: {:?}", dict);
         Ok(ExecutionResult {
-            execution_count: count,
+            execution_count: 0,
             data: dict,
             metadata: serde_json::Map::new(),
             transient: serde_json::Map::new(),
@@ -142,9 +148,14 @@ impl ExecutionRequest {
 }
 
 impl ExecutionResult {
-    pub fn with_data<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
+    pub fn with_count(mut self, count: u32) -> ExecutionResult {
+        self.execution_count = count;
+        self
+    }
+    pub fn with_data<S, T>(mut self, mime: S, data: T) -> JupyterResult<ExecutionResult>
     where
         T: Serialize,
+        S: ToString,
     {
         self.data.insert(mime.to_string(), serde_json::to_value(data)?);
         println!("data: {:?}", self.data);

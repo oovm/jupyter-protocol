@@ -1,9 +1,11 @@
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
-use jupyter::{async_trait, ExecuteContext, Executed, ExecutionRequest, InstallAction, JupyterResult, LanguageInfo, OpenAction, Serialize, StartAction, to_value, UninstallAction, Value};
-use std::path::PathBuf;
+use jupyter::{
+    async_trait, to_value, ExecuteContext, Executed, ExecutionRequest, InstallAction, JupyterResult, LanguageInfo, OpenAction,
+    Serialize, StartAction, UninstallAction, Value,
+};
 use rhai::Engine;
-
+use std::path::PathBuf;
 
 pub struct JupyterRhai {
     engine: Engine,
@@ -20,6 +22,8 @@ impl ExecuteContext for JupyterRhai {
     fn language_info(&self) -> LanguageInfo {
         LanguageInfo {
             language: "Rhai".to_string(),
+            png_64: &[],
+            png_32: &[],
             language_key: "rhai".to_string(),
             file_extensions: ".rhai".to_string(),
         }
@@ -27,12 +31,8 @@ impl ExecuteContext for JupyterRhai {
 
     async fn running(&mut self, code: ExecutionRequest) -> Vec<Self::Executed> {
         match self.engine.eval_expression(&code.code) {
-            Ok(v) => vec![RhaiExecuted {
-                result: Ok(v),
-            }],
-            Err(e) => vec![RhaiExecuted {
-                result: Err(format!("{}", e)),
-            }],
+            Ok(v) => vec![RhaiExecuted { result: Ok(v) }],
+            Err(e) => vec![RhaiExecuted { result: Err(format!("{}", e)) }],
         }
     }
     fn running_time(&self, _: f64) -> String {
@@ -40,7 +40,10 @@ impl ExecuteContext for JupyterRhai {
     }
 }
 
-impl<T> Executed for RhaiExecuted<T> where T: Serialize + Send {
+impl<T> Executed for RhaiExecuted<T>
+where
+    T: Serialize + Send,
+{
     fn mime_type(&self) -> String {
         "text/plain".to_string()
     }
@@ -48,12 +51,8 @@ impl<T> Executed for RhaiExecuted<T> where T: Serialize + Send {
     fn as_json(&self) -> Value {
         match &self.result {
             Ok(v) => match to_value(v) {
-                Ok(o) => {
-                    o
-                }
-                Err(e) => {
-                    Value::String(format!("{}", e))
-                }
+                Ok(o) => o,
+                Err(e) => Value::String(format!("{}", e)),
             },
             Err(e) => Value::String(format!("{}", e)),
         }

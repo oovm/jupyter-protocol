@@ -1,4 +1,4 @@
-use crate::{helper::bytes_to_png, ExecutionReply, ExecutionRequest, JupyterResult};
+use crate::{helper::bytes_to_png, ExecutionReply, ExecutionRequest, ExecutionResult, JupyterResult};
 use async_trait::async_trait;
 use image::RgbaImage;
 use serde_json::{to_value, Value};
@@ -6,6 +6,8 @@ use std::{
     ops::{Generator, GeneratorState},
     vec::IntoIter,
 };
+use tokio::sync::mpsc::UnboundedSender;
+
 mod sockets;
 pub use self::sockets::JupyterServerSockets;
 
@@ -46,7 +48,7 @@ impl Executed for f64 {
 
 #[async_trait]
 #[allow(unused_variables)]
-pub trait JupyterServerProtocol {
+pub trait JupyterServerProtocol: Send {
     fn language_info(&self) -> LanguageInfo;
 
     /// since Generator is not stable, we use sender instead
@@ -59,6 +61,11 @@ pub trait JupyterServerProtocol {
     /// - unit: seconds
     fn running_time(&self, time: f64) -> String {
         format!("<sub>Elapsed time: {:.2} seconds.</sub>", time)
+    }
+
+    /// Bind the execution socket, recommended to use [JupyterServerSockets].
+    fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
+        // sink socket, do nothing
     }
 }
 

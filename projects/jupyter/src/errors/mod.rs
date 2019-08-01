@@ -12,7 +12,6 @@ use hex::FromHexError;
 use std::{
     error::Error,
     fmt::{Debug, Display, Formatter, Write as _},
-
     str::Utf8Error,
 };
 use tokio::{
@@ -35,6 +34,9 @@ impl JupyterError {
     pub fn except_type(except_type: &'static str) -> Self {
         Self { kind: Box::new(JupyterErrorKind::ExceptType(except_type)) }
     }
+    pub fn channel_block(channel: &'static str) -> Self {
+        Self { kind: Box::new(JupyterErrorKind::ChannelBlockage(channel)) }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +46,7 @@ pub enum JupyterErrorKind {
     Message(String),
     MissingField(&'static str),
     ExceptType(&'static str),
+    ChannelBlockage(&'static str),
     SubprocessTerminated(String),
 }
 

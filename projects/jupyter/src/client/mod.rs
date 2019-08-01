@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl, SinkExecutor,
+    ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
 };
 use std::collections::HashMap;
 
@@ -30,14 +30,14 @@ use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend,
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
 #[derive(Clone)]
-pub(crate) struct Server {
+pub(crate) struct SealedServer {
     heartbeat: Arc<Mutex<Connection<RepSocket>>>,
     iopub: Arc<Mutex<Connection<PubSocket>>>,
     stdin: Arc<Mutex<Connection<RouterSocket>>>,
     control: Arc<Mutex<Connection<RouterSocket>>>,
     shell_socket: Arc<Mutex<Connection<RouterSocket>>>,
     latest_execution_request: Arc<Mutex<Option<JupyterMessage>>>,
-    execution_request_receiver: Arc<Mutex<UnboundedReceiver<JupyterMessage>>>,
+    execution_request_receiver: Arc<Mutex<UnboundedReceiver<ExecutionResult>>>,
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
 }
@@ -68,8 +68,11 @@ struct ShutdownReceiver {
     recv: crossbeam_channel::Receiver<()>,
 }
 
-impl Server {
-    pub(crate) fn run(config: &KernelControl) -> JupyterResult<()> {
+impl SealedServer {
+    pub(crate) fn run<T>(config: &KernelControl, server: T) -> JupyterResult<()>
+    where
+        T: JupyterServerProtocol + 'static,
+    {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             // We only technically need 1 thread. However we've observed that
             // when using vscode's jupyter extension, we can get requests on the
@@ -86,7 +89,7 @@ impl Server {
             .unwrap();
         let handle = runtime.handle().clone();
         runtime.block_on(async {
-            let shutdown_receiver = Self::start(config, handle).await?;
+            let shutdown_receiver = Self::start(config, handle, server).await?;
             shutdown_receiver.wait_for_shutdown().await;
             let result: JupyterResult<()> = Ok(());
             result
@@ -94,7 +97,14 @@ impl Server {
         Ok(())
     }
 
-    async fn start(config: &KernelControl, tokio_handle: tokio::runtime::Handle) -> JupyterResult<ShutdownReceiver> {
+    async fn start<T>(
+        config: &KernelControl,
+        tokio_handle: tokio::runtime::Handle,
+        server: T,
+    ) -> JupyterResult<ShutdownReceiver>
+    where
+        T: JupyterServerProtocol + 'static,
+    {
         let heartbeat = bind_socket::<RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<RouterSocket>(config, config.shell_port).await?;
         let control_socket = bind_socket::<RouterSocket>(config, config.control_port).await?;
@@ -104,11 +114,11 @@ impl Server {
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
         let (execution_result_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
         // let (execution_res ponse_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
-        let server = Server {
+        server.bind_execution_socket(execution_result_sender);
+        let here = SealedServer {
             iopub,
             heartbeat: Arc::new(Mutex::new(heartbeat)),
             latest_execution_request: Arc::new(Mutex::new(None)),
-            execution_request_sender: Arc::new(Mutex::new(execution_result_sender)),
             execution_request_receiver: Arc::new(Mutex::new(execution_receiver)),
             stdin: Arc::new(Mutex::new(stdin_socket)),
             control: Arc::new(Mutex::new(control_socket)),
@@ -116,9 +126,9 @@ impl Server {
             tokio_handle,
             shell_socket: Arc::new(Mutex::new(shell_socket)),
         };
-        let context = ExecuteProvider::new(SinkExecutor::default());
-        server.clone().spawn_heart_beat();
-        server.clone().spawn_shell_execution(context.clone());
+        let context = ExecuteProvider::new(server);
+        here.clone().spawn_heart_beat();
+        here.clone().spawn_shell_execution(context.clone());
         // server.clone().spawn_execution_queue(context.clone());
         // server.clone().spawn_control();
         Ok(ShutdownReceiver { recv: shutdown_receiver })
@@ -185,16 +195,30 @@ impl Server {
                 task.execution_count = *count;
                 // reply busy event
                 let mut runner = executor.context.lock().await;
-                for result in runner.running(task.clone()).await {
-                    let any = task.as_result(result.mime_type(), result.as_json(), *count)?;
-                    request.as_reply().with_message_type(JupyterMessageType::ExecuteResult).with_content(any).send(io).await?;
+                let mut rev = self.execution_request_receiver.lock().await;
+                loop {
+                    match rev.recv().await {
+                        Some(result) => {
+                            let any = result.with_count(*count);
+                            request
+                                .as_reply()
+                                .with_message_type(JupyterMessageType::ExecuteResult)
+                                .with_content(any)
+                                .send(io)
+                                .await?;
+                        }
+                        None => {
+                            break;
+                        }
+                    }
                 }
+                let reply = runner.running(task.clone()).await;
                 // Check elapsed time
                 match time.elapsed() {
                     Ok(o) => {
                         let escape = runner.running_time(o.as_secs_f64());
                         if !escape.is_empty() {
-                            let time = task.as_result("text/html", escape, *count)?;
+                            let time = task.as_result("text/html", escape)?.with_count(*count);
                             request
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
@@ -206,7 +230,6 @@ impl Server {
                     Err(_) => {}
                 }
                 // reply finish event
-                let reply = request.as_execution_request()?.as_reply(true, *count)?;
                 request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
