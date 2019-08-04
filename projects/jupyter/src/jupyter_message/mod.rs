@@ -7,7 +7,7 @@
 use crate::{
     connection::{Connection, HmacSha256},
     errors::JupyterError,
-    JupyterResult,
+    ExecutionReply, JupyterResult,
 };
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
@@ -33,11 +33,7 @@ mod execute;
 mod kernel_info;
 mod message_type;
 mod ser;
-pub use self::{
-    execute::{ExecutionGroup, ExecutionReply, ExecutionRequest},
-    kernel_info::KernelInfo,
-    message_type::JupyterMessageType,
-};
+pub use self::{execute::ExecutionRequest, kernel_info::KernelInfo, message_type::JupyterMessageType};
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -193,7 +189,7 @@ impl JupyterMessage {
         &self.header.msg_type
     }
 
-    pub fn as_execution_request(&self) -> JupyterResult<ExecutionRequest> {
+    pub(crate) fn as_execution_request(&self) -> JupyterResult<ExecutionRequest> {
         match &self.content {
             JupiterContent::ExecutionRequest(s) => Ok(s.as_ref().clone()),
             _ => Err(JupyterError::except_type("JupiterContent::ExecutionRequest")),

@@ -13,6 +13,8 @@ use image::{
 use proc_macro2::Span;
 use std::{io::Cursor, path::Path};
 
+const DEFAULT_LOGO: &[u8] = include_bytes!("rust-logo.png");
+
 pub fn bytes_to_png(bytes: &[u8], size: u32) -> ImageResult<RgbaImage> {
     let mut reader = Reader::new(Cursor::new(bytes));
     reader.set_format(ImageFormat::Png);
@@ -40,21 +42,15 @@ impl Parse for LogoProvider {
 impl ToTokens for LogoProvider {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let slice = match &self.path {
-            None => {
-                quote! {
-                    &[]
-                }
-            }
-            Some(s) => {
-                let bytes = self.load_image(s).unwrap();
-                quote! {
-                    &[#(#bytes),*]
-                }
-            }
+            None => DEFAULT_LOGO.to_vec(),
+            Some(s) => self.load_image(s).unwrap(),
         };
-        tokens.extend(slice);
+        tokens.extend(quote! {
+            &[#(#slice),*]
+        });
     }
 }
+
 impl LogoProvider {
     pub fn with_size(self, size: u32) -> Self {
         Self { size, path: self.path }

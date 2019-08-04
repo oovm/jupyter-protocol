@@ -44,7 +44,6 @@ impl JupyterError {
 
 #[derive(Debug, Clone)]
 pub enum JupyterErrorKind {
-    CompilationErrors(Vec<CompilationError>),
     TypeRedefinedVariablesLost(Vec<String>),
     Custom(String),
     Message(String),
@@ -65,9 +64,6 @@ impl Display for JupyterError {
 impl Display for JupyterErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            JupyterErrorKind::CompilationErrors(_) => {
-                todo!()
-            }
             JupyterErrorKind::TypeRedefinedVariablesLost(variables) => {
                 writeln!(f, "Type redefined, variables lost:")?;
                 for variable in variables {
@@ -85,15 +81,6 @@ impl Display for JupyterErrorKind {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct CompilationError {
-    message: String,
-    pub json: serde_json::Value,
-    pub(crate) code_origins: Vec<CodeKind>,
-    spanned_messages: Vec<SpannedMessage>,
-    spanned_helps: Vec<SpannedMessage>,
-    level: String,
-}
 #[derive(Debug, Clone)]
 pub enum CodeKind {
     UserCode,

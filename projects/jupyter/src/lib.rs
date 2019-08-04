@@ -1,5 +1,3 @@
-
-
 mod client;
 mod commands;
 mod connection;
@@ -14,7 +12,11 @@ pub use async_trait::async_trait;
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},
-    executor::{sockets::JupyterServerSockets, Executed, JupyterServerProtocol, LanguageInfo},
+    executor::{
+        execution_reply::{ExecutionPayload, ExecutionReply},
+        sockets::JupyterServerSockets,
+        Executed, JupyterServerProtocol, LanguageInfo,
+    },
     jupyter_message::*,
 };
 pub use serde::Serialize;

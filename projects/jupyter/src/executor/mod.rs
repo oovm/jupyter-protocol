@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use serde_json::{to_value, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
+pub mod execution_reply;
 pub mod sockets;
 mod value_type;
 
@@ -10,7 +11,6 @@ pub trait Executed: Send {
     fn mime_type(&self) -> String;
     fn as_json(&self) -> Value;
 }
-
 
 #[async_trait]
 #[allow(unused_variables)]

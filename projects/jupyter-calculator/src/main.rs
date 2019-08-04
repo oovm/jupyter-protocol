@@ -48,7 +48,7 @@ enum JupyterCommands {
 
 impl JupyterApplication {
     pub fn run(&self) -> JupyterResult<()> {
-        let mut config = CalculatorContext {};
+        let config = CalculatorContext {};
         match &self.command {
             JupyterCommands::Open(v) => v.run(),
             JupyterCommands::Start(v) => v.run(config),
