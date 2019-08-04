@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::{client::SealedServer, JupyterServerProtocol};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::{
     fs::read_to_string,

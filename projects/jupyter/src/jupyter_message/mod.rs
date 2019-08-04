@@ -1,9 +1,3 @@
-// Copyright 2020 The Evcxr Authors.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE or
-// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE
-// or https://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 use crate::{
     connection::{Connection, HmacSha256},
     errors::JupyterError,
@@ -14,7 +8,6 @@ use chrono::{DateTime, Utc};
 use generic_array::GenericArray;
 use hmac::Mac;
 use serde::{Deserialize, Serialize};
-use serde_derive::{Deserialize, Serialize};
 use serde_json::{from_slice, to_vec, Value};
 use std::{
     fmt,
@@ -214,46 +207,6 @@ impl JupyterMessage {
         })
     }
 
-    pub(crate) fn message_type(&self) -> &str {
-        self.header.msg_type.as_ref()
-    }
-
-    pub(crate) fn code(&self) -> &str {
-        match &self.content {
-            JupiterContent::Custom(v) => v["code"].as_str().unwrap_or(""),
-            _ => "",
-        }
-    }
-
-    pub(crate) fn cursor_pos(&self) -> usize {
-        match &self.content {
-            JupiterContent::Custom(v) => v["cursor_pos"].as_u64().unwrap_or(0) as usize,
-            _ => 0,
-        }
-        // self.content["cursor_pos"].as_usize().unwrap_or_default()
-    }
-
-    pub(crate) fn target_name(&self) -> &str {
-        match &self.content {
-            JupiterContent::Custom(v) => v["target_name"].as_str().unwrap_or(""),
-            _ => "",
-        }
-    }
-
-    pub(crate) fn data(&self) -> &Value {
-        match &self.content {
-            JupiterContent::Custom(v) => &v["data"],
-            _ => &Value::Null,
-        }
-    }
-
-    pub(crate) fn comm_id(&self) -> &str {
-        match &self.content {
-            JupiterContent::Custom(v) => v["comm_id"].as_str().unwrap_or(""),
-            _ => "",
-        }
-    }
-
     pub fn new(msg_type: &str) -> JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
@@ -314,14 +267,13 @@ impl JupyterMessage {
         self
     }
 
-    pub(crate) fn with_message_type(mut self, msg_type: JupyterMessageType) -> JupyterMessage {
+    pub fn with_message_type(mut self, msg_type: JupyterMessageType) -> JupyterMessage {
         self.header.msg_type = msg_type;
         self
     }
 
-    pub(crate) fn without_parent_header(mut self) -> JupyterMessage {
+    pub fn drop_parent_header(&mut self) {
         self.parent_header = JupyterMessageHeader::default();
-        self
     }
 
     pub(crate) async fn send<S: SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {

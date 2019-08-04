@@ -26,12 +26,12 @@ impl JupyterServerSockets {
     pub async fn send_executed(&self, executed: impl Executed) {
         match self.try_send_executed(executed).await {
             Ok(_) => (),
-            Err(_) => ()
+            Err(_) => (),
         }
     }
 
     async fn try_send_executed(&self, executed: impl Executed) -> JupyterResult<()> {
-        let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_json())?;
+        let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_data())?;
         self.send_executed_result(data).await
     }
     pub async fn send_executed_result(&self, result: ExecutionResult) -> JupyterResult<()> {

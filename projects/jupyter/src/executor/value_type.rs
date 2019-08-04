@@ -6,7 +6,7 @@ impl Executed for JupyterError {
         "text/html".to_string()
     }
 
-    fn as_json(&self) -> Value {
+    fn as_data(&self) -> Value {
         format!("<div class=\"error\">{}</div>", self).into()
     }
 }
@@ -16,7 +16,7 @@ impl Executed for String {
         "text/plain".to_string()
     }
 
-    fn as_json(&self) -> Value {
+    fn as_data(&self) -> Value {
         Value::String(self.clone())
     }
 }
@@ -26,7 +26,7 @@ impl Executed for Value {
         "application/json".to_string()
     }
 
-    fn as_json(&self) -> Value {
+    fn as_data(&self) -> Value {
         self.clone()
     }
 }
@@ -36,7 +36,7 @@ impl Executed for f64 {
         "text/plain".to_string()
     }
 
-    fn as_json(&self) -> Value {
+    fn as_data(&self) -> Value {
         Value::Number(serde_json::Number::from_f64(*self).unwrap_or(serde_json::Number::from(0)))
     }
 }

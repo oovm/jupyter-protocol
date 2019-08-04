@@ -1,17 +1,8 @@
-// Copyright 2020 The Evcxr Authors.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE or
-// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE
-// or https://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
-
-use serde_derive::{Deserialize, Serialize};
-
 use hex::FromHexError;
 
 use std::{
     error::Error,
-    fmt::{Debug, Display, Formatter, Write as _},
+    fmt::{Debug, Display, Formatter},
     str::Utf8Error,
 };
 use tokio::{
@@ -82,47 +73,9 @@ impl Display for JupyterErrorKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum CodeKind {
-    UserCode,
-    MacroExpansion,
-    ExternalCrate,
-}
-#[derive(Debug, Clone)]
 pub enum Theme {
     Light,
     Dark,
-}
-
-fn sanitize_message(message: &str) -> String {
-    // Any references to `evcxr_variable_store` are beyond the end of what the
-    // user typed, so we replace such references with something more meaningful.
-    // This is mostly helpful with missing semicolons on let statements, which
-    // produce errors such as "expected `;`, found `evcxr_variable_store`"
-    message.replace("`evcxr_variable_store`", "<end of input>")
-}
-
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Span {
-    /// 1-based line number in the original user code on which the span starts (inclusive).
-    pub start_line: usize,
-    /// 1-based column (character) number in the original user code on which the span starts
-    /// (inclusive).
-    pub start_column: usize,
-    /// 1-based line number in the original user code on which the span ends (inclusive).
-    pub end_line: usize,
-    /// 1-based column (character) number in the original user code on which the span ends
-    /// (exclusive).
-    pub end_column: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpannedMessage {
-    pub span: Option<Span>,
-    /// Output lines relevant to the message.
-    pub lines: Vec<String>,
-    pub label: String,
-    pub is_primary: bool,
 }
 
 impl From<JupyterErrorKind> for JupyterError {

@@ -12,18 +12,10 @@ use crate::{
     ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
 };
 
-
-
-use serde_json::{ Value};
-use std::{
-    sync::Arc,
-    time::{ SystemTime,},
-};
+use serde_json::Value;
+use std::{sync::Arc, time::SystemTime};
 use tokio::{
-    sync::{
-        mpsc::{UnboundedReceiver, },
-        Mutex,
-    },
+    sync::{mpsc::UnboundedReceiver, Mutex},
     task::{JoinError, JoinHandle},
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
@@ -210,8 +202,8 @@ impl SealedServer {
                                 .await?;
                         }
                         Err(e) => {
-                           eprint!("Send Executed Failed: {e}");
-                            break
+                            eprint!("Send Executed Failed: {e}");
+                            break;
                         }
                     }
                 }
@@ -331,47 +323,4 @@ async fn handle_completion_request<T>(
     // })
     // .await?
     todo!()
-}
-
-/// Returns the byte offset for the start of the specified grapheme. Any grapheme beyond the last
-/// grapheme will return the end position of the input.
-fn grapheme_offset_to_byte_offset(code: &str, grapheme_offset: usize) -> usize {
-    unicode_segmentation::UnicodeSegmentation::grapheme_indices(code, true)
-        .nth(grapheme_offset)
-        .map(|(byte_offset, _)| byte_offset)
-        .unwrap_or_else(|| code.len())
-}
-
-/// Returns the grapheme offset of the grapheme that starts at
-fn byte_offset_to_grapheme_offset(code: &str, target_byte_offset: usize) -> JupyterResult<usize> {
-    let mut grapheme_offset = 0;
-    for (byte_offset, _) in unicode_segmentation::UnicodeSegmentation::grapheme_indices(code, true) {
-        if byte_offset == target_byte_offset {
-            break;
-        }
-        if byte_offset > target_byte_offset {
-            panic!("Byte offset {} is not on a grapheme boundary in '{}'", target_byte_offset, code);
-        }
-        grapheme_offset += 1;
-    }
-    Ok(grapheme_offset)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn grapheme_offsets() {
-        let src = "a̐éx";
-        assert_eq!(grapheme_offset_to_byte_offset(src, 0), 0);
-        assert_eq!(grapheme_offset_to_byte_offset(src, 1), 3);
-        assert_eq!(grapheme_offset_to_byte_offset(src, 2), 6);
-        assert_eq!(grapheme_offset_to_byte_offset(src, 3), 7);
-
-        assert_eq!(byte_offset_to_grapheme_offset(src, 0).unwrap(), 0);
-        assert_eq!(byte_offset_to_grapheme_offset(src, 3).unwrap(), 1);
-        assert_eq!(byte_offset_to_grapheme_offset(src, 6).unwrap(), 2);
-        assert_eq!(byte_offset_to_grapheme_offset(src, 7).unwrap(), 3);
-    }
 }

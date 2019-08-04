@@ -21,7 +21,7 @@ impl JupyterServerProtocol for CalculatorContext {
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply {
-        todo!()
+        ExecutionReply::new(true, code.execution_count)
     }
 }
 

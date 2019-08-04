@@ -1,3 +1,5 @@
+#![doc = include_str!("../readme.md")]
+
 mod client;
 mod commands;
 mod connection;
@@ -9,6 +11,7 @@ mod legacy_install;
 
 pub use async_trait::async_trait;
 
+#[allow(deprecated)]
 pub use crate::{
     commands::*,
     errors::{JupyterError, JupyterErrorKind, JupyterResult},

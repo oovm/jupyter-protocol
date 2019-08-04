@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use crate::JupiterContent;
 use serde::{
     ser::{SerializeMap, SerializeStruct},

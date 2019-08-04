@@ -10,4 +10,4 @@ pub use self::{
     uninstall::{get_kernel_dir, UninstallAction},
 };
 use crate::{legacy_install, JupyterResult};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
