@@ -1,6 +1,5 @@
 use crate::{ExecutionReply, ExecutionRequest, ExecutionResult};
 use async_trait::async_trait;
-use serde::__private::de::Content;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -10,7 +9,7 @@ mod value_type;
 
 pub trait Executed: Send {
     fn mime_type(&self) -> String;
-    fn as_data(&self) -> Content;
+    fn as_json(&self) -> Value;
 }
 
 #[async_trait]

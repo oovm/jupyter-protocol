@@ -1,18 +1,19 @@
 use super::*;
 use crate::ExecutionReply;
 use serde_json::Map;
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionResult {
     execution_count: u32,
-    data: Map<String, Value>,
+    data: BTreeMap<String, String>,
     metadata: Map<String, Value>,
     transient: Map<String, Value>,
 }
 
 impl Default for ExecutionResult {
     fn default() -> Self {
-        Self { execution_count: 0, data: Map::new(), metadata: Map::new(), transient: Map::new() }
+        Self { execution_count: 0, data: BTreeMap::new(), metadata: Map::new(), transient: Map::new() }
     }
 }
 
@@ -40,12 +41,11 @@ impl ExecutionRequest {
     }
     pub fn as_result<M, T>(&self, mime: M, data: T) -> JupyterResult<ExecutionResult>
     where
-        T: Serialize,
+        T: ToString,
         M: ToString,
     {
-        let mut dict = serde_json::Map::new();
-        dict.insert(mime.to_string(), serde_json::to_value(data)?);
-        println!("data: {:?}", dict);
+        let mut dict = BTreeMap::new();
+        dict.insert(mime.to_string(), data.to_string());
         Ok(ExecutionResult {
             execution_count: 0,
             data: dict,
@@ -62,11 +62,10 @@ impl ExecutionResult {
     }
     pub fn with_data<S, T>(mut self, mime: S, data: T) -> JupyterResult<ExecutionResult>
     where
-        T: Serialize,
+        T: ToString,
         S: ToString,
     {
-        self.data.insert(mime.to_string(), serde_json::to_value(data)?);
-        println!("data: {:?}", self.data);
+        self.data.insert(mime.to_string(), data.to_string());
         Ok(self)
     }
     pub fn with_metadata<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>

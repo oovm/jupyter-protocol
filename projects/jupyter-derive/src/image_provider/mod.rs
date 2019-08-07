@@ -23,7 +23,7 @@ pub fn bytes_to_png(bytes: &[u8], size: u32) -> ImageResult<RgbaImage> {
 
 pub fn png_to_bytes(image: &RgbaImage) -> ImageResult<Vec<u8>> {
     let mut bytes = Vec::new();
-    let mut encoder = PngEncoder::new(&mut bytes);
+    let encoder = PngEncoder::new(&mut bytes);
     encoder.write_image(image.as_raw(), image.width(), image.height(), ColorType::Rgba8)?;
     Ok(bytes)
 }
@@ -35,7 +35,11 @@ pub struct LogoProvider {
 
 impl Parse for LogoProvider {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        input.parse::<LitStr>().map(|path| LogoProvider { size: 64, path: Some(path) })
+        let logo = match input.parse::<LitStr>() {
+            Ok(s) => LogoProvider { size: 64, path: Some(s) },
+            Err(_) => LogoProvider { size: 64, path: None },
+        };
+        Ok(logo)
     }
 }
 
