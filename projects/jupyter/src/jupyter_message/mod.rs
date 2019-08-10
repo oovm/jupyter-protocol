@@ -207,12 +207,12 @@ impl JupyterMessage {
         })
     }
 
-    pub fn new(msg_type: &str) -> JupyterMessage {
+    pub fn new(msg_type: JupyterMessageType) -> JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
             header: JupyterMessageHeader {
                 username: "kernel".to_string(),
-                msg_type: JupyterMessageType::new(msg_type),
+                msg_type,
                 date: Utc::now(),
                 msg_id: Uuid::new_v4(),
                 session: Uuid::nil(),

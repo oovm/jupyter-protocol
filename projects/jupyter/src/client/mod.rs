@@ -15,7 +15,10 @@ use crate::{
 use serde_json::Value;
 use std::{sync::Arc, time::SystemTime};
 use tokio::{
-    sync::{mpsc::UnboundedReceiver, Mutex},
+    sync::{
+        mpsc::{error::TryRecvError, UnboundedReceiver},
+        Mutex,
+    },
     task::{JoinError, JoinHandle},
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
@@ -105,7 +108,7 @@ impl SealedServer {
         let iopub = Arc::new(Mutex::new(iopub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
         let (execution_result_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
-        // let (execution_res ponse_sender, mut execution_response_receiver) = tokio::sync::mpsc::unbounded_channel();
+        // let (execution_result_sender2, execution_receiver2) = tokio::sync::mpsc::unbounded_channel();
 
         server.bind_execution_socket(execution_result_sender).await;
 
@@ -189,6 +192,7 @@ impl SealedServer {
                 task.execution_count = *count;
                 // reply busy event
                 let mut runner = executor.context.lock().await;
+                let reply = runner.running(task.clone()).await;
                 let mut rev = self.execution_request_receiver.lock().await;
                 loop {
                     match rev.try_recv() {
@@ -201,19 +205,15 @@ impl SealedServer {
                                 .send(io)
                                 .await?;
                         }
-                        Err(e) => {
-                            eprint!("Send Executed Failed: {e}");
-                            break;
-                        }
+                        Err(_) => break,
                     }
                 }
-                let reply = runner.running(task.clone()).await;
                 // Check elapsed time
                 match time.elapsed() {
                     Ok(o) => {
                         let escape = runner.running_time(o.as_secs_f64());
                         if !escape.is_empty() {
-                            let time = task.as_result("text/html", escape)?.with_count(*count);
+                            let time = task.as_result("text/html".to_string(), Value::String(escape)).with_count(*count);
                             request
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
@@ -260,21 +260,9 @@ impl SealedServer {
     where
         T: JupyterServerProtocol + Send + 'static,
     {
-        todo!();
-        // let zmq = match self.execution_request_receiver.lock().await.recv().await {
-        //     Some(s) => s,
-        //     None => return Ok(()),
-        // };
-        // println!("Waiting for execution request {}: {:?}", count, zmq);
-        // let io = &mut self.shell_socket.try_lock()?;
-        // println!("ok1");
-        // let result = zmq.as_execution_request()?.as_reply(2, 1)?;
-        // println!("ok2");
-        // let reply = zmq.as_reply().with_content(result);
-        // println!("ok3");
-        // reply.send(io).await?;
-        // println!("Finished execution request {}: {:?}", count, reply);
-        // Ok(())
+        // let io = self.iopub.try_lock()?;
+        // let exec = self.execution_request_receiver.try_lock()?;
+        todo!()
     }
 
     async fn spawn_control(self) -> Result<(), JoinError> {
