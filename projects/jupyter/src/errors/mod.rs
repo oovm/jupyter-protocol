@@ -73,7 +73,7 @@ impl Display for JupyterErrorKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum Theme {
+pub enum JupyterTheme {
     Light,
     Dark,
 }
