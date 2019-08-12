@@ -72,12 +72,6 @@ impl Display for JupyterErrorKind {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum JupyterTheme {
-    Light,
-    Dark,
-}
-
 impl From<JupyterErrorKind> for JupyterError {
     fn from(value: JupyterErrorKind) -> Self {
         JupyterError { kind: Box::new(value) }

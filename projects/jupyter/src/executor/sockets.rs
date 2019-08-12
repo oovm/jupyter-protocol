@@ -1,4 +1,4 @@
-use crate::{errors::JupyterTheme, Executed, ExecutionResult, JupyterError, JupyterResult};
+use crate::{Executed, ExecutionResult, JupyterError, JupyterResult, JupyterTheme};
 use std::sync::Arc;
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
 

@@ -18,7 +18,7 @@ pub use crate::{
     executor::{
         execution_reply::{ExecutionPayload, ExecutionReply},
         sockets::JupyterServerSockets,
-        Executed, JupyterServerProtocol, LanguageInfo,
+        Executed, JupyterServerProtocol, JupyterTheme, LanguageInfo,
     },
     jupyter_message::*,
 };

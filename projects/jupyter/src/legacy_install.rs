@@ -9,7 +9,6 @@ use crate::{get_kernel_dir, JupyterResult, JupyterServerProtocol, KernelConfig, 
 use serde_json::to_string_pretty;
 use std::{io::Write, path::Path};
 
-const LOGO_LICENSE: &[u8] = include_bytes!("../third_party/rust/LICENSE.md");
 const KERNEL_JS: &[u8] = include_bytes!("../client/kernel.js");
 const LINT_JS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/lint.js");
 const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/lint.css");
@@ -30,7 +29,6 @@ pub(crate) fn install<T: JupyterServerProtocol>(info: &T) -> JupyterResult<()> {
 
     install_resource(&kernel_dir, "logo-32x32.png", info.png_32)?;
     install_resource(&kernel_dir, "logo-64x64.png", info.png_64)?;
-    install_resource(&kernel_dir, "logo-LICENSE.md", LOGO_LICENSE)?;
     install_resource(&kernel_dir, "kernel.js", KERNEL_JS)?;
     install_resource(&kernel_dir, "lint.js", LINT_JS)?;
     install_resource(&kernel_dir, "lint.css", LINT_CSS)?;
