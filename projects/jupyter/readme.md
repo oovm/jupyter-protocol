@@ -1,7 +1,7 @@
 # Easy Jupyter Client for your Language
 
 
-```rust
+```rust, ignore
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
 use jupyter::{InstallAction, JupyterResult, OpenAction, StartAction, UninstallAction};

@@ -5,12 +5,9 @@ use syn::{
 };
 
 use image::{
-    codecs::png::{PngDecoder, PngEncoder},
-    imageops::FilterType,
-    io::Reader,
-    ColorType, GenericImage, ImageDecoder, ImageEncoder, ImageFormat, ImageResult, RgbaImage,
+    codecs::png::PngEncoder, imageops::FilterType, io::Reader, ColorType, ImageEncoder, ImageFormat, ImageResult, RgbaImage,
 };
-use proc_macro2::Span;
+
 use std::{io::Cursor, path::Path};
 
 const DEFAULT_LOGO: &[u8] = include_bytes!("rust-logo.png");

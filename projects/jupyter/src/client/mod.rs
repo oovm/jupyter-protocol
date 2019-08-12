@@ -15,10 +15,7 @@ use crate::{
 use serde_json::Value;
 use std::{sync::Arc, time::SystemTime};
 use tokio::{
-    sync::{
-        mpsc::{error::TryRecvError, UnboundedReceiver},
-        Mutex,
-    },
+    sync::{mpsc::UnboundedReceiver, Mutex},
     task::{JoinError, JoinHandle},
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};

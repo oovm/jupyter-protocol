@@ -26,7 +26,7 @@ impl<'a> Executed for &'a str {
         "text/plain".to_string()
     }
     fn as_json(&self, _: JupyterTheme) -> Value {
-        self.clone().into()
+        self.to_string().into()
     }
 }
 

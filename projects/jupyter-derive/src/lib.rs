@@ -1,7 +1,7 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{parse::Parser, parse_macro_input};
+use syn::parse_macro_input;
 
 mod image_provider;
 
