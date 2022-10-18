@@ -1,4 +1,9 @@
 use super::*;
+use url::Url;
+
+#[cfg(feature = "image")]
+mod for_image;
+
 use crate::JupyterError;
 
 impl Executed for JupyterError {
@@ -37,6 +42,16 @@ impl Executed for Value {
 
     fn as_json(&self, _: JupyterTheme) -> Value {
         self.clone()
+    }
+}
+
+impl Executed for Url {
+    fn mime_type(&self) -> String {
+        "text/html".to_string()
+    }
+
+    fn as_json(&self, _: JupyterTheme) -> Value {
+        Value::String(format!(r#"<a href="{}">{}</a>"#, self, self))
     }
 }
 

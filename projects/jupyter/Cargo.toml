@@ -33,6 +33,7 @@ generic-array = "0.14.4"
 crossbeam-channel = "0.5.5"
 syntax-error = "0.0.2"
 async-trait = "0.1.68"
+image = { version = "0.24.6", optional = true }
 zeromq = { version = "0.3.3", default_features = false, features = ["tokio-runtime", "tcp-transport"] }
 
 [features]

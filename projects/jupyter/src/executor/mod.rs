@@ -5,7 +5,6 @@ use tokio::sync::mpsc::UnboundedSender;
 
 pub mod execution_reply;
 pub mod sockets;
-mod value_type;
 
 pub trait Executed: Send {
     fn mime_type(&self) -> String;

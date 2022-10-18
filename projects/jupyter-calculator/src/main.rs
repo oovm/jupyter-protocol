@@ -1,12 +1,14 @@
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
-    async_trait, ExecutionReply, ExecutionRequest, InstallAction, JupyterResult, JupyterServerProtocol, LanguageInfo,
-    OpenAction, StartAction, UninstallAction,
+    async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterResult, JupyterServerProtocol,
+    JupyterServerSockets, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction, Value,
 };
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
-pub struct CalculatorContext;
+pub struct CalculatorContext {
+    sockets: JupyterServerSockets,
+}
 
 #[async_trait]
 impl JupyterServerProtocol for CalculatorContext {
@@ -21,7 +23,17 @@ impl JupyterServerProtocol for CalculatorContext {
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply {
+        self.sockets.send_executed(true);
+        self.sockets.send_executed(0);
+        self.sockets.send_executed(-std::f64::consts::PI);
+        self.sockets.send_executed('c');
+        self.sockets.send_executed("string");
+        let json = Value::from_str(include_str!("../package.json"));
+        self.sockets.send_executed(json.expect("package.json is invalid"));
         ExecutionReply::new(true, code.execution_count)
+    }
+    async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
+        self.sockets.bind_execution_socket(sender)
     }
 }
 
@@ -48,7 +60,7 @@ enum JupyterCommands {
 
 impl JupyterApplication {
     pub fn run(&self) -> JupyterResult<()> {
-        let config = CalculatorContext {};
+        let config = CalculatorContext { sockets: JupyterServerSockets::default() };
         match &self.command {
             JupyterCommands::Open(v) => v.run(),
             JupyterCommands::Start(v) => v.run(config),

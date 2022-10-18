@@ -17,3 +17,4 @@ clap_derive = "4.2.0"
 [dependencies.jupyter]
 version = "*"
 path = "../jupyter"
+features = ["image"]
