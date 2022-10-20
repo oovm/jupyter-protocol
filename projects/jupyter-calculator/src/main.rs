@@ -1,3 +1,4 @@
+use crate::values::{test_mathml, test_svg, test_url};
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
@@ -5,6 +6,8 @@ use jupyter::{
     JupyterServerSockets, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction, Value,
 };
 use std::{path::PathBuf, str::FromStr};
+
+mod values;
 
 pub struct CalculatorContext {
     sockets: JupyterServerSockets,
@@ -23,17 +26,21 @@ impl JupyterServerProtocol for CalculatorContext {
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply {
-        self.sockets.send_executed(true);
-        self.sockets.send_executed(0);
-        self.sockets.send_executed(-std::f64::consts::PI);
-        self.sockets.send_executed('c');
-        self.sockets.send_executed("string");
+        self.sockets.send_executed(true).await;
+        self.sockets.send_executed(0).await;
+        self.sockets.send_executed(-std::f64::consts::PI).await;
+        self.sockets.send_executed('c').await;
+        self.sockets.send_executed("string").await;
         let json = Value::from_str(include_str!("../package.json"));
-        self.sockets.send_executed(json.expect("package.json is invalid"));
+        self.sockets.send_executed(json.expect("package.json is invalid")).await;
+        self.sockets.send_executed(test_url()).await;
+        self.sockets.send_executed(test_mathml()).await;
+        self.sockets.send_executed(test_svg()).await;
+
         ExecutionReply::new(true, code.execution_count)
     }
     async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
-        self.sockets.bind_execution_socket(sender)
+        self.sockets.bind_execution_socket(sender).await
     }
 }
 

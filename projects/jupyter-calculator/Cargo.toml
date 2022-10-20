@@ -13,8 +13,11 @@ exclude = []
 [dependencies]
 clap = "4.2.7"
 clap_derive = "4.2.0"
+mathml-core = "0.1.6"
+mathml-latex = "0.0.3"
+svg = "0.13.1"
 
 [dependencies.jupyter]
 version = "*"
 path = "../jupyter"
-features = ["image"]
+features = ["url", "image", "mathml-core", "svg"]

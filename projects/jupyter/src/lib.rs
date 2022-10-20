@@ -8,7 +8,7 @@ mod executor;
 pub mod helper;
 mod jupyter_message;
 mod legacy_install;
-mod value_type;
+pub mod value_type;
 
 pub use async_trait::async_trait;
 

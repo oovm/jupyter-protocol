@@ -2,7 +2,7 @@
     "private": true,
     "scripts": {
         "run": "python -m jupyterlab",
-        "test": "cargo test --release",
+        "o": "cargo run -- open",
         "fmt": "cargo fmt --all",
         "p": "git push && git push --tags --prune",
         "reset": "git reset Head~ --soft",
