@@ -1,10 +1,12 @@
 [package]
 name = "jupyter-derive"
-version = "0.0.0"
+version = "0.0.2"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
-repository = "https://github.com/evcxr/evcxr"
-readme = "README.md"
+homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
+repository = "https://github.com/oovm/jupyter-protocol"
+documentation = "https://docs.rs/jupyter-derive"
+readme = "readme.md"
 authors = ["The Evcxr Authors"]
 edition = "2021"
 exclude = []

@@ -127,7 +127,6 @@ impl SealedServer {
         // server.clone().spawn_control();
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
-
     async fn signal_shutdown(&mut self) {
         self.shutdown_sender.lock().await.take();
     }
@@ -135,7 +134,7 @@ impl SealedServer {
         tokio::spawn(async move {
             loop {
                 if let Err(e) = self.clone().handle_heart_beat().await {
-                    eprintln!("Error sending heartbeat: {:?}", e);
+                    tracing::warn!("Error sending heartbeat: {:?}", e);
                 }
             }
         })
@@ -225,13 +224,13 @@ impl SealedServer {
                 request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
-                println!("Unsupported message: {:?}", request.kind());
+                tracing::error!("Unsupported message: {:?}", request.kind());
             }
             JupyterMessageType::Custom(v) => {
-                println!("Got custom shell message: {:?}", v);
+                tracing::error!("Got custom shell message: {:?}", v);
             }
             _ => {
-                println!("Got unknown shell message: {:?}", request);
+                tracing::error!("Got unknown shell message: {:?}", request);
             }
         }
         idle.send(io).await?;
@@ -244,7 +243,7 @@ impl SealedServer {
     {
         let mut running_count = 0;
         tokio::spawn(async move {
-            println!("Queue Executor Spawned");
+            tracing::trace!("Queue Executor Spawned");
             loop {
                 if let Err(e) = self.clone().handle_execution_queue(executor.clone(), running_count).await {
                     eprintln!("Error sending execution queue: {:?}", e);

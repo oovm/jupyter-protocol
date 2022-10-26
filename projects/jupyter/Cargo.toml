@@ -1,6 +1,6 @@
 [package]
 name = "jupyter"
-version = "0.1.5"
+version = "0.1.6"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
@@ -32,6 +32,7 @@ unicode-segmentation = "1.7.1"
 generic-array = "0.14.4"
 crossbeam-channel = "0.5.5"
 syntax-error = "0.0.2"
+tracing = "0.1.37"
 async-trait = "0.1.68"
 mathml-core = { version = "0.1.5", optional = true }
 svg = { version = "0.13.1", optional = true }
@@ -42,3 +43,6 @@ zeromq = { version = "0.3.3", default_features = false, features = ["tokio-runti
 [features]
 default = []
 image = ["dep:image", "base64"]
+
+[package.metadata.docs.rs]
+all-features = true
