@@ -17,6 +17,7 @@ use std::{
 };
 
 pub use self::execute::ExecutionResult;
+use crate::jupyter_message::common_info::{CommonInfoReply, CommonInfoRequest};
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
 
@@ -110,6 +111,8 @@ pub enum JupiterContent {
     ExecutionResult(Box<ExecutionResult>),
     ExecutionReply(Box<ExecutionReply>),
     KernelInfo(Box<KernelInfo>),
+    CommonInfoRequest(Box<CommonInfoRequest>),
+    CommonInfoReply(Box<CommonInfoReply>),
     Custom(Box<Value>),
 }
 
@@ -139,6 +142,8 @@ impl Debug for JupiterContent {
             JupiterContent::ExecutionRequest(v) => Debug::fmt(v, f),
             JupiterContent::ExecutionReply(v) => Debug::fmt(v, f),
             JupiterContent::ExecutionResult(v) => Debug::fmt(v, f),
+            JupiterContent::CommonInfoRequest(v) => Debug::fmt(v, f),
+            JupiterContent::CommonInfoReply(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -188,6 +193,13 @@ impl JupyterMessage {
             _ => Err(JupyterError::except_type("JupiterContent::ExecutionRequest")),
         }
     }
+    pub(crate) fn as_common_info_request(&self) -> JupyterResult<CommonInfoRequest> {
+        match &self.content {
+            JupiterContent::CommonInfoRequest(s) => Ok(s.as_ref().clone()),
+            _ => Err(JupyterError::except_type("JupiterContent::CommonInfoRequest")),
+        }
+    }
+
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
         fn message_to_json(message: &[u8]) -> JupyterResult<Value> {
             let out = Value::from_str(std::str::from_utf8(message).unwrap_or("")).unwrap();
@@ -248,11 +260,6 @@ impl JupyterMessage {
         let mut reply = self.create_message(self.header.msg_type.as_reply());
         reply.zmq_identities = self.zmq_identities.clone();
         reply
-    }
-
-    #[must_use = "Need to send this message for it to have any effect"]
-    pub(crate) fn comm_close_message(&self) -> JupyterMessage {
-        todo!()
     }
 
     pub fn get_content(&self) -> &JupiterContent {

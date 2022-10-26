@@ -7,6 +7,7 @@ impl Executed for RgbaImage {
         "image/png".to_string()
     }
 
+    #[allow(deprecated)]
     fn as_json(&self, _: JupyterTheme) -> Value {
         let mut buf = Vec::new();
         let writer = PngEncoder::new(&mut buf);

@@ -9,7 +9,6 @@ use serde::{
 use std::fmt::Display;
 
 pub struct JupyterMessageHeaderVisitor {
-    session: String,
     username: String,
     version: String,
 }
@@ -30,11 +29,7 @@ impl<'de> Deserialize<'de> for JupyterMessageHeader {
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_map(JupyterMessageHeaderVisitor {
-            session: "".to_string(),
-            username: "".to_string(),
-            version: "".to_string(),
-        })
+        deserializer.deserialize_map(JupyterMessageHeaderVisitor { username: "".to_string(), version: "".to_string() })
     }
 }
 
@@ -97,6 +92,9 @@ impl<'de> Deserialize<'de> for JupiterContent {
         }
         if let Ok(o) = ExecutionRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::ExecutionRequest(Box::new(o)));
+        }
+        if let Ok(o) = CommonInfoRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
+            return Ok(JupiterContent::CommonInfoRequest(Box::new(o)));
         }
         if let Ok(o) = Value::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::Custom(Box::new(o)));

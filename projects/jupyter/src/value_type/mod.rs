@@ -38,7 +38,8 @@ impl Executed for bool {
     }
 
     fn as_json(&self, _: JupyterTheme) -> Value {
-        Value::Bool(*self)
+        // bool not support in Jupyter
+        Value::String(self.to_string())
     }
 }
 
@@ -97,7 +98,8 @@ impl Executed for i32 {
     }
 
     fn as_json(&self, _: JupyterTheme) -> Value {
-        Value::Number(serde_json::Number::from(*self))
+        // number not support in Jupyter
+        Value::String(self.to_string())
     }
 }
 
@@ -107,7 +109,7 @@ impl Executed for f64 {
     }
 
     fn as_json(&self, _: JupyterTheme) -> Value {
-        Value::Number(serde_json::Number::from_f64(*self).unwrap_or(serde_json::Number::from(0)))
+        Value::String(self.to_string())
     }
 }
 

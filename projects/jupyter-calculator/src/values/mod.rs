@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 //! <https://github.com/gnestor/notebook/blob/master/notebook/static/notebook/js/outputarea.js#L260>
 use jupyter::value_type::{MathML, Url};
 use mathml_core::MathRoot;

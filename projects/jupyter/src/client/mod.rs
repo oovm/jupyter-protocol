@@ -124,7 +124,7 @@ impl SealedServer {
         here.clone().spawn_heart_beat();
         here.clone().spawn_shell_execution(context.clone());
         // server.clone().spawn_execution_queue(context.clone());
-        // server.clone().spawn_control();
+        here.clone().spawn_control();
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
     async fn signal_shutdown(&mut self) {
@@ -154,10 +154,10 @@ impl SealedServer {
     {
         let mut count = 0;
         tokio::spawn(async move {
-            println!("Shell Executor Spawned");
+            tracing::info!("Shell Executor Spawned");
             loop {
                 if let Err(e) = self.clone().handle_shell(executor.clone(), &mut count).await {
-                    eprintln!("Error sending shell execution: {:?}", e);
+                    tracing::error!("Error sending shell execution: {:?}", e);
                 }
             }
         })
@@ -224,7 +224,8 @@ impl SealedServer {
                 request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
-                tracing::error!("Unsupported message: {:?}", request.kind());
+                let task = request.as_common_info_request()?;
+                request.as_reply().with_content(task.as_reply()).send(shell).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got custom shell message: {:?}", v);
@@ -261,25 +262,24 @@ impl SealedServer {
         todo!()
     }
 
-    async fn spawn_control(self) -> Result<(), JoinError> {
-        let task = tokio::spawn(async move {
+    async fn spawn_control(self) -> JoinHandle<()> {
+        tokio::spawn(async move {
             loop {
                 match self.control.try_lock() {
                     Ok(mut o) => match o.socket.recv().await {
                         Ok(msg) => {
-                            println!("Got control message: {:?}", msg);
+                            tracing::warn!("Got control message: {:?}", msg);
                             o.socket.send(msg).await.unwrap();
                         }
                         Err(e) => {
-                            eprintln!("Error receiving control message: {:?}", e);
+                            tracing::error!("Error receiving control message: {:?}", e);
                             break;
                         }
                     },
                     Err(_) => continue,
                 };
             }
-        });
-        task.await
+        })
     }
 }
 
@@ -294,17 +294,4 @@ async fn bind_socket<S: Socket>(config: &KernelControl, port: u16) -> JupyterRes
     let mut socket = S::new();
     socket.bind(&endpoint).await?;
     Connection::new(socket, &config.key)
-}
-
-async fn handle_completion_request<T>(
-    _context: &Arc<std::sync::Mutex<ExecuteProvider<T>>>,
-    _message: JupyterMessage,
-) -> JupyterResult<Value> {
-    // let context = Arc::clone(context);
-    // tokio::task::spawn_blocking(move || {
-    //     println!("{message:#?}");
-    //     panic!()
-    // })
-    // .await?
-    todo!()
 }

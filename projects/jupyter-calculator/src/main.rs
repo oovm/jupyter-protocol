@@ -1,4 +1,4 @@
-use crate::values::{test_mathml, test_svg, test_url};
+use crate::values::{test_mathml, test_url};
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
@@ -35,7 +35,7 @@ impl JupyterServerProtocol for CalculatorContext {
         self.sockets.send_executed(json.expect("package.json is invalid")).await;
         self.sockets.send_executed(test_url()).await;
         self.sockets.send_executed(test_mathml()).await;
-        self.sockets.send_executed(test_svg()).await;
+        // self.sockets.send_executed(test_svg()).await;
 
         ExecutionReply::new(true, code.execution_count)
     }
@@ -78,6 +78,6 @@ impl JupyterApplication {
 }
 
 fn main() -> JupyterResult<()> {
-    let app = JupyterApplication::parse();
-    app.run()
+    tracing_subscriber::fmt::init();
+    JupyterApplication::parse().run()
 }
