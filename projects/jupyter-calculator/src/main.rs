@@ -5,8 +5,8 @@ use jupyter::{
     async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterResult, JupyterServerProtocol,
     JupyterServerSockets, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction, Value,
 };
+use jupyter_derive::{include_png32, include_png64};
 use std::{path::PathBuf, str::FromStr};
-
 mod values;
 
 pub struct CalculatorContext {
@@ -16,13 +16,13 @@ pub struct CalculatorContext {
 #[async_trait]
 impl JupyterServerProtocol for CalculatorContext {
     fn language_info(&self) -> LanguageInfo {
-        LanguageInfo {
-            language: "Calculate".to_string(),
-            png_64: &[],
-            png_32: &[],
-            language_key: "calc".to_string(),
-            file_extensions: ".calc".to_string(),
-        }
+        let mut info = LanguageInfo::new("calculator", "Calculator")
+            .with_file_extensions(".calc", "text/calculator")
+            .with_language_version(env!("CARGO_PKG_VERSION"));
+        info.png_32 = include_png32!();
+        info.png_64 = include_png64!();
+        info.lexer = "scala".to_string();
+        info
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply {

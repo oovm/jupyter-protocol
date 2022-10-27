@@ -40,12 +40,63 @@ pub trait JupyterServerProtocol: Send + Sync + 'static {
     }
 }
 
+/// The language information and abilities provided by the kernel
 pub struct LanguageInfo {
-    /// Language display
-    pub language: String,
     /// Language key
+    pub language_key: String,
+    /// Language display name
+    pub language: String,
+    /// Language version
+    pub version: String,
     pub png_64: &'static [u8],
     pub png_32: &'static [u8],
-    pub language_key: String,
+    /// One of
     pub file_extensions: String,
+    /// One of
+    pub mimetype: String,
+    /// One of valid name in <https://pygments.org/docs/lexers>
+    ///
+    /// Note that you should use the **Short Name**!
+    pub lexer: String,
+    /// One of valid name in <https://pygments.org/docs/formatters>
+    pub highlighter: String,
+    /// Notebook exporter
+    pub exporter: String,
+}
+
+impl LanguageInfo {
+    pub fn new<T, S>(key: T, display: S) -> Self
+    where
+        T: ToString,
+        S: ToString,
+    {
+        Self {
+            language: display.to_string(),
+            version: "1.0.0".to_string(),
+            png_64: &[],
+            png_32: &[],
+            language_key: key.to_string(),
+            file_extensions: "*.rs".to_string(),
+            mimetype: "text/rust".to_string(),
+            lexer: "rust".to_string(),
+            highlighter: "rust".to_string(),
+            exporter: "rust".to_string(),
+        }
+    }
+    pub fn with_file_extensions<T, S>(mut self, extension: T, mime: S) -> Self
+    where
+        T: ToString,
+        S: ToString,
+    {
+        self.file_extensions = extension.to_string();
+        self.mimetype = mime.to_string();
+        self
+    }
+    pub fn with_language_version<T>(mut self, version: T) -> Self
+    where
+        T: ToString,
+    {
+        self.version = version.to_string();
+        self
+    }
 }

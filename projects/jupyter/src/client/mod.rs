@@ -16,7 +16,7 @@ use serde_json::Value;
 use std::{sync::Arc, time::SystemTime};
 use tokio::{
     sync::{mpsc::UnboundedReceiver, Mutex},
-    task::{JoinError, JoinHandle},
+    task::JoinHandle,
 };
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
 
@@ -124,12 +124,14 @@ impl SealedServer {
         here.clone().spawn_heart_beat();
         here.clone().spawn_shell_execution(context.clone());
         // server.clone().spawn_execution_queue(context.clone());
-        here.clone().spawn_control();
+        here.clone().spawn_control(context.clone());
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
+
     async fn signal_shutdown(&mut self) {
         self.shutdown_sender.lock().await.take();
     }
+
     fn spawn_heart_beat(self) -> JoinHandle<()> {
         tokio::spawn(async move {
             loop {
@@ -228,16 +230,16 @@ impl SealedServer {
                 request.as_reply().with_content(task.as_reply()).send(shell).await?;
             }
             JupyterMessageType::Custom(v) => {
-                tracing::error!("Got custom shell message: {:?}", v);
+                tracing::error!("Got unknown shell message: {:?}", v);
             }
             _ => {
-                tracing::error!("Got unknown shell message: {:?}", request);
+                tracing::warn!("Got custom shell message: {:?}", request);
             }
         }
         idle.send(io).await?;
         Ok(())
     }
-
+    #[allow(dead_code)]
     fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
     where
         T: JupyterServerProtocol + Send + 'static,
@@ -253,6 +255,7 @@ impl SealedServer {
             }
         })
     }
+    #[allow(dead_code)]
     async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, _count: i32) -> JupyterResult<()>
     where
         T: JupyterServerProtocol + Send + 'static,
@@ -262,24 +265,39 @@ impl SealedServer {
         todo!()
     }
 
-    async fn spawn_control(self) -> JoinHandle<()> {
+    fn spawn_control<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
+    where
+        T: JupyterServerProtocol + Send + 'static,
+    {
         tokio::spawn(async move {
+            tracing::info!("Control Executor Spawned");
             loop {
-                match self.control.try_lock() {
-                    Ok(mut o) => match o.socket.recv().await {
-                        Ok(msg) => {
-                            tracing::warn!("Got control message: {:?}", msg);
-                            o.socket.send(msg).await.unwrap();
-                        }
-                        Err(e) => {
-                            tracing::error!("Error receiving control message: {:?}", e);
-                            break;
-                        }
-                    },
-                    Err(_) => continue,
-                };
+                if let Err(e) = self.clone().handle_control(executor.clone()).await {
+                    tracing::error!("Error sending shell execution: {:?}", e);
+                }
             }
         })
+    }
+    async fn handle_control<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
+    where
+        T: JupyterServerProtocol + Send + 'static,
+    {
+        let control = &mut self.control.lock().await;
+        let request = JupyterMessage::read(control).await?;
+        match request.kind() {
+            JupyterMessageType::KernelInfoRequest => {
+                let info = executor.context.lock().await.language_info();
+                let cont = JupiterContent::build_kernel_info(info);
+                request.as_reply().with_content(cont).send(control).await?
+            }
+            JupyterMessageType::Custom(v) => {
+                tracing::error!("Got unknown control message: {:?}", v);
+            }
+            _ => {
+                tracing::warn!("Got custom control message: {:?}", request);
+            }
+        }
+        Ok(())
     }
 }
 

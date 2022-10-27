@@ -18,6 +18,14 @@ pub enum JupyterMessageType {
     KernelInfoRequest,
     /// - [kernel_info_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
     KernelInfoReply,
+    /// - [interrupt_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
+    InterruptRequest,
+    /// - [interrupt_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
+    InterruptReply,
+    /// - [shutdown_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-shutdown)
+    ShutdownRequest,
+    /// - [shutdown_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-shutdown)
+    ShutdownReply,
     /// - [custom](https://jupyter-client.readthedocs.io/en/stable/messaging.html#custom-messages)
     Custom(String),
 }
@@ -47,6 +55,11 @@ impl AsRef<str> for JupyterMessageType {
             JupyterMessageType::ExecuteRequest => "execute_request",
             JupyterMessageType::ExecuteResult => "execute_result",
             JupyterMessageType::ExecuteReply => "execute_reply",
+
+            JupyterMessageType::InterruptRequest => "interrupt_request",
+            JupyterMessageType::InterruptReply => "interrupt_reply",
+            JupyterMessageType::ShutdownRequest => "shutdown_request",
+            JupyterMessageType::ShutdownReply => "shutdown_reply",
             JupyterMessageType::Custom(v) => v,
         }
     }
@@ -65,6 +78,8 @@ impl JupyterMessageType {
             "kernel_info" | "kernel_info_request" => JupyterMessageType::KernelInfoRequest,
             "comm_info_request" => JupyterMessageType::CommonInfoRequest,
             "execute_request" => JupyterMessageType::ExecuteRequest,
+            "interrupt_request" => JupyterMessageType::InterruptRequest,
+            "shutdown_request" => JupyterMessageType::ShutdownRequest,
             s => JupyterMessageType::Custom(s.to_string()),
         }
     }
@@ -80,6 +95,8 @@ impl JupyterMessageType {
             JupyterMessageType::KernelInfoRequest => JupyterMessageType::KernelInfoReply,
             JupyterMessageType::CommonInfoRequest => JupyterMessageType::CommonInfoReply,
             JupyterMessageType::ExecuteRequest => JupyterMessageType::ExecuteReply,
+            JupyterMessageType::InterruptRequest => JupyterMessageType::InterruptReply,
+            JupyterMessageType::ShutdownRequest => JupyterMessageType::ShutdownReply,
             JupyterMessageType::Custom(s) => JupyterMessageType::Custom(s.replace("_request", "_reply")),
             _ => self.clone(),
         }

@@ -24,10 +24,12 @@ use zeromq::{SocketRecv, SocketSend};
 mod common_info;
 mod der;
 mod execute;
+mod interrupt;
 mod kernel_info;
 mod message_type;
 mod ser;
-pub use self::{execute::ExecutionRequest, kernel_info::KernelInfo, message_type::JupyterMessageType};
+mod shutdown;
+pub use self::{execute::ExecutionRequest, kernel_info::KernelInfoReply, message_type::JupyterMessageType};
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -110,7 +112,8 @@ pub enum JupiterContent {
     ExecutionRequest(Box<ExecutionRequest>),
     ExecutionResult(Box<ExecutionResult>),
     ExecutionReply(Box<ExecutionReply>),
-    KernelInfo(Box<KernelInfo>),
+    /// Kernel info request is empty
+    KernelInfoReply(Box<KernelInfoReply>),
     CommonInfoRequest(Box<CommonInfoRequest>),
     CommonInfoReply(Box<CommonInfoReply>),
     Custom(Box<Value>),
@@ -136,7 +139,7 @@ impl ExecutionState {
 impl Debug for JupiterContent {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            JupiterContent::KernelInfo(v) => Debug::fmt(v, f),
+            JupiterContent::KernelInfoReply(v) => Debug::fmt(v, f),
             JupiterContent::Custom(v) => Debug::fmt(v, f),
             JupiterContent::State(v) => Debug::fmt(v, f),
             JupiterContent::ExecutionRequest(v) => Debug::fmt(v, f),

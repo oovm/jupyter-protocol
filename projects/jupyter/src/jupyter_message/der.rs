@@ -87,8 +87,8 @@ impl<'de> Deserialize<'de> for JupiterContent {
         D: Deserializer<'de>,
     {
         let content = Content::deserialize(deserializer)?;
-        if let Ok(o) = KernelInfo::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
-            return Ok(JupiterContent::KernelInfo(Box::new(o)));
+        if let Ok(o) = KernelInfoReply::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
+            return Ok(JupiterContent::KernelInfoReply(Box::new(o)));
         }
         if let Ok(o) = ExecutionRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::ExecutionRequest(Box::new(o)));
