@@ -19,12 +19,7 @@ struct SealedLanguageInfo {
     version: String,
     mimetype: String,
     file_extension: String,
-    // Pygments lexer, for highlighting Only needed if it differs from the 'name' field.
-    // see http://pygments.org/docs/lexers/#lexers-for-the-rust-language
     pygment_lexer: String,
-    // Codemirror mode, for for highlighting in the notebook. Only needed if it differs from the 'name' field.
-    // codemirror use text/x-rustsrc as mimetypes
-    // see https://codemirror.net/mode/rust/
     codemirror_mode: String,
     nbconvert_exporter: String,
 }
@@ -47,13 +42,13 @@ impl KernelInfoReply {
     pub fn build(info: LanguageInfo) -> KernelInfoReply {
         KernelInfoReply {
             status: "ok".to_owned(),
-            protocol_version: "5.3".to_owned(),
+            protocol_version: "5.4".to_owned(),
             implementation: env!("CARGO_PKG_NAME").to_owned(),
             implementation_version: env!("CARGO_PKG_VERSION").to_owned(),
             language_info: SealedLanguageInfo {
                 name: info.language,
                 version: info.version,
-                mimetype: "text/rust".to_owned(),
+                mimetype: info.mimetype,
                 file_extension: info.file_extensions,
                 pygment_lexer: info.lexer,
                 codemirror_mode: info.highlighter,

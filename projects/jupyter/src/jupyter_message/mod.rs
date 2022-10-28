@@ -17,7 +17,10 @@ use std::{
 };
 
 pub use self::execute::ExecutionResult;
-use crate::jupyter_message::common_info::{CommonInfoReply, CommonInfoRequest};
+use crate::jupyter_message::{
+    common_info::{CommonInfoReply, CommonInfoRequest},
+    shutdown::ShutdownRequest,
+};
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
 
@@ -116,6 +119,7 @@ pub enum JupiterContent {
     KernelInfoReply(Box<KernelInfoReply>),
     CommonInfoRequest(Box<CommonInfoRequest>),
     CommonInfoReply(Box<CommonInfoReply>),
+    ShutdownRequest(Box<ShutdownRequest>),
     Custom(Box<Value>),
 }
 
@@ -147,6 +151,7 @@ impl Debug for JupiterContent {
             JupiterContent::ExecutionResult(v) => Debug::fmt(v, f),
             JupiterContent::CommonInfoRequest(v) => Debug::fmt(v, f),
             JupiterContent::CommonInfoReply(v) => Debug::fmt(v, f),
+            JupiterContent::ShutdownRequest(v) => Debug::fmt(v, f),
         }
     }
 }

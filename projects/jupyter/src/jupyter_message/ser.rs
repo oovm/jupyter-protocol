@@ -45,6 +45,7 @@ impl Serialize for JupiterContent {
             JupiterContent::CommonInfoReply(v) => v.serialize(serializer),
             JupiterContent::ExecutionRequest(_) => unreachable!(),
             JupiterContent::CommonInfoRequest(_) => unreachable!(),
+            JupiterContent::ShutdownRequest(_) => unreachable!(),
         }
     }
 }

@@ -48,17 +48,21 @@ pub struct LanguageInfo {
     pub language: String,
     /// Language version
     pub version: String,
+    /// The 64×64 png logo of the language
     pub png_64: &'static [u8],
+    /// The 32×32 png logo of the language
     pub png_32: &'static [u8],
-    /// One of
+    /// The file extensions of the language
+    ///
+    /// e.g. `*.rs; *.rsx`
     pub file_extensions: String,
-    /// One of
+    /// The mimetype of the language
     pub mimetype: String,
     /// One of valid name in <https://pygments.org/docs/lexers>
     ///
     /// Note that you should use the **Short Name**!
     pub lexer: String,
-    /// One of valid name in <https://pygments.org/docs/formatters>
+    /// One of valid name in <https://codemirror.net/5/mode/index.html>
     pub highlighter: String,
     /// Notebook exporter
     pub exporter: String,

@@ -128,7 +128,8 @@ impl SealedServer {
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
 
-    async fn signal_shutdown(&mut self) {
+    async fn signal_shutdown(&self) {
+        // let msg = ShutdownReply::new();
         self.shutdown_sender.lock().await.take();
     }
 
@@ -290,6 +291,7 @@ impl SealedServer {
                 let cont = JupiterContent::build_kernel_info(info);
                 request.as_reply().with_content(cont).send(control).await?
             }
+            JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:?}", v);
             }
