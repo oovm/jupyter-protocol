@@ -7,7 +7,6 @@ mod errors;
 mod executor;
 pub mod helper;
 mod jupyter_message;
-mod legacy_install;
 pub mod value_type;
 
 pub use async_trait::async_trait;

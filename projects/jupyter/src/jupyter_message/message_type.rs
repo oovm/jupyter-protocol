@@ -8,16 +8,20 @@ pub enum JupyterMessageType {
     CommonInfoRequest,
     /// - [comm_info_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#comm-info)
     CommonInfoReply,
+    /// - [kernel_info_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
+    KernelInfoRequest,
+    /// - [kernel_info_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
+    KernelInfoReply,
     /// - [execute_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#code-inputs)
     ExecuteRequest,
     /// - [execute_result](https://jupyter-client.readthedocs.io/en/stable/messaging.html#execution-results)
     ExecuteResult,
     /// - [execute_result](https://jupyter-client.readthedocs.io/en/stable/messaging.html#execution-results)
     ExecuteReply,
-    /// - [kernel_info_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-    KernelInfoRequest,
-    /// - [kernel_info_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
-    KernelInfoReply,
+    /// - [debug_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-request)
+    DebugRequest,
+    /// - [debug_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-request)
+    DebugReply,
     /// - [interrupt_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
     InterruptRequest,
     /// - [interrupt_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
@@ -55,7 +59,8 @@ impl AsRef<str> for JupyterMessageType {
             JupyterMessageType::ExecuteRequest => "execute_request",
             JupyterMessageType::ExecuteResult => "execute_result",
             JupyterMessageType::ExecuteReply => "execute_reply",
-
+            JupyterMessageType::DebugRequest => "debug_request",
+            JupyterMessageType::DebugReply => "debug_reply",
             JupyterMessageType::InterruptRequest => "interrupt_request",
             JupyterMessageType::InterruptReply => "interrupt_reply",
             JupyterMessageType::ShutdownRequest => "shutdown_request",
@@ -78,6 +83,7 @@ impl JupyterMessageType {
             "kernel_info" | "kernel_info_request" => JupyterMessageType::KernelInfoRequest,
             "comm_info_request" => JupyterMessageType::CommonInfoRequest,
             "execute_request" => JupyterMessageType::ExecuteRequest,
+            "debug_request" => JupyterMessageType::DebugRequest,
             "interrupt_request" => JupyterMessageType::InterruptRequest,
             "shutdown_request" => JupyterMessageType::ShutdownRequest,
             s => JupyterMessageType::Custom(s.to_string()),
@@ -97,6 +103,7 @@ impl JupyterMessageType {
             JupyterMessageType::ExecuteRequest => JupyterMessageType::ExecuteReply,
             JupyterMessageType::InterruptRequest => JupyterMessageType::InterruptReply,
             JupyterMessageType::ShutdownRequest => JupyterMessageType::ShutdownReply,
+            JupyterMessageType::DebugRequest => JupyterMessageType::DebugReply,
             JupyterMessageType::Custom(s) => JupyterMessageType::Custom(s.replace("_request", "_reply")),
             _ => self.clone(),
         }

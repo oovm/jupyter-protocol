@@ -2,6 +2,7 @@
     "private": true,
     "scripts": {
         "run": "python -m jupyterlab",
+        "i": "cargo run -- install",
         "o": "cargo run -- open",
         "fmt": "cargo fmt --all",
         "p": "git push && git push --tags --prune",

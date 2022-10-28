@@ -4,10 +4,16 @@ mod open_jupyter;
 mod start;
 mod uninstall;
 pub use self::{
-    install::{InstallAction, KernelConfig},
+    install::InstallAction,
     open_jupyter::OpenAction,
     start::{KernelControl, StartAction},
-    uninstall::{get_kernel_dir, UninstallAction},
+    uninstall::UninstallAction,
 };
-use crate::{legacy_install, JupyterResult};
+use crate::{
+    commands::uninstall::get_kernel_dir,
+    connection::{KERNEL_JS, LINT_CSS, LINT_JS, LINT_LICENSE},
+    JupyterResult, JupyterServerProtocol,
+};
 use serde::{Deserialize, Serialize};
+use serde_json::to_string_pretty;
+use std::{io::Write, path::Path};

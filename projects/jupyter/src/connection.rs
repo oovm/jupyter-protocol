@@ -9,6 +9,11 @@ use crate::errors::JupyterResult;
 use hmac::{digest::KeyInit, Hmac};
 use sha2::Sha256;
 
+pub(crate) const KERNEL_JS: &[u8] = include_bytes!("../client/kernel.js");
+pub(crate) const LINT_JS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/lint.js");
+pub(crate) const LINT_CSS: &[u8] = include_bytes!("../third_party/CodeMirror/addons/lint/lint.css");
+pub(crate) const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror/LICENSE");
+
 pub(crate) type HmacSha256 = Hmac<Sha256>;
 
 pub(crate) struct Connection<S> {
