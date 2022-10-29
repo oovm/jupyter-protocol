@@ -90,16 +90,18 @@ impl<'de> Deserialize<'de> for JupiterContent {
         if let Ok(o) = KernelInfoReply::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::KernelInfoReply(Box::new(o)));
         }
+        if let Ok(o) = CommonInfoRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
+            return Ok(JupiterContent::CommonInfoRequest(Box::new(o)));
+        }
         if let Ok(o) = ExecutionRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::ExecutionRequest(Box::new(o)));
         }
-        if let Ok(o) = CommonInfoRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
-            return Ok(JupiterContent::CommonInfoRequest(Box::new(o)));
+        if let Ok(o) = DapRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
+            return Ok(JupiterContent::DebugInfoRequest(Box::new(o)));
         }
         if let Ok(o) = ShutdownRequest::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::ShutdownRequest(Box::new(o)));
         }
-
         if let Ok(o) = Value::deserialize(ContentRefDeserializer::<D::Error>::new(&content)) {
             return Ok(JupiterContent::Custom(Box::new(o)));
         }

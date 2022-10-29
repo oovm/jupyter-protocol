@@ -292,6 +292,14 @@ impl SealedServer {
                 request.as_reply().with_content(cont).send(control).await?
             }
             JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
+            JupyterMessageType::DebugRequest => {
+                tracing::info!("Got debug request: {:?}", request);
+                request
+                    .as_reply()
+                    .with_content(JupiterContent::Custom(Box::new(Value::Object(serde_json::Map::default()))))
+                    .send(control)
+                    .await?;
+            }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:?}", v);
             }

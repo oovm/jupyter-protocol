@@ -19,12 +19,14 @@ use std::{
 pub use self::execute::ExecutionResult;
 use crate::jupyter_message::{
     common_info::{CommonInfoReply, CommonInfoRequest},
+    debug_info::DapRequest,
     shutdown::ShutdownRequest,
 };
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
 
 mod common_info;
+mod debug_info;
 mod der;
 mod execute;
 mod interrupt;
@@ -120,6 +122,7 @@ pub enum JupiterContent {
     CommonInfoRequest(Box<CommonInfoRequest>),
     CommonInfoReply(Box<CommonInfoReply>),
     ShutdownRequest(Box<ShutdownRequest>),
+    DebugInfoRequest(Box<DapRequest>),
     Custom(Box<Value>),
 }
 
