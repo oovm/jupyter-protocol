@@ -1,30 +1,24 @@
+pub use self::{common_info::CommonInfoRequest, debug_info::DebugRequest, execute::ExecutionResult};
 use crate::{
     connection::{Connection, HmacSha256},
     errors::JupyterError,
+    jupyter_message::{common_info::CommonInfoReply, debug_info::DebugResponse, shutdown::ShutdownRequest},
     ExecutionReply, JupyterResult,
 };
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use generic_array::GenericArray;
 use hmac::Mac;
-use serde::{Deserialize, Serialize};
-use serde_json::{from_slice, to_vec, Value};
+use serde::{de::DeserializeOwned, ser::SerializeMap, Deserialize, Serialize, Serializer};
+use serde_json::{from_slice, from_value, to_value, to_vec, Value};
 use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
     str::FromStr,
     {self},
 };
-
-pub use self::execute::ExecutionResult;
-use crate::jupyter_message::{
-    common_info::{CommonInfoReply, CommonInfoRequest},
-    debug_info::DapRequest,
-    shutdown::ShutdownRequest,
-};
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
-
 mod common_info;
 mod debug_info;
 mod der;
@@ -108,7 +102,7 @@ pub struct JupyterMessage {
     header: JupyterMessageHeader,
     parent_header: JupyterMessageHeader,
     metadata: Value,
-    content: JupiterContent,
+    content: Value,
 }
 
 #[derive(Clone)]
@@ -122,7 +116,8 @@ pub enum JupiterContent {
     CommonInfoRequest(Box<CommonInfoRequest>),
     CommonInfoReply(Box<CommonInfoReply>),
     ShutdownRequest(Box<ShutdownRequest>),
-    DebugInfoRequest(Box<DapRequest>),
+    DebugInfoRequest(Box<DebugRequest>),
+    DebugReply(Box<DebugResponse>),
     Custom(Box<Value>),
 }
 
@@ -155,6 +150,8 @@ impl Debug for JupiterContent {
             JupiterContent::CommonInfoRequest(v) => Debug::fmt(v, f),
             JupiterContent::CommonInfoReply(v) => Debug::fmt(v, f),
             JupiterContent::ShutdownRequest(v) => Debug::fmt(v, f),
+            JupiterContent::DebugInfoRequest(v) => Debug::fmt(v, f),
+            JupiterContent::DebugReply(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -198,19 +195,12 @@ impl JupyterMessage {
         &self.header.msg_type
     }
 
-    pub(crate) fn as_execution_request(&self) -> JupyterResult<ExecutionRequest> {
-        match &self.content {
-            JupiterContent::ExecutionRequest(s) => Ok(s.as_ref().clone()),
-            _ => Err(JupyterError::except_type("JupiterContent::ExecutionRequest")),
+    pub fn cast<T: DeserializeOwned>(&self) -> JupyterResult<T> {
+        match from_value(self.content.clone()) {
+            Ok(v) => Ok(v),
+            Err(e) => Err(JupyterError::any(format!("Expected {} but got {}", std::any::type_name::<T>(), e))),
         }
     }
-    pub(crate) fn as_common_info_request(&self) -> JupyterResult<CommonInfoRequest> {
-        match &self.content {
-            JupiterContent::CommonInfoRequest(s) => Ok(s.as_ref().clone()),
-            _ => Err(JupyterError::except_type("JupiterContent::CommonInfoRequest")),
-        }
-    }
-
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
         fn message_to_json(message: &[u8]) -> JupyterResult<Value> {
             let out = Value::from_str(std::str::from_utf8(message).unwrap_or("")).unwrap();
@@ -226,7 +216,7 @@ impl JupyterMessage {
             header: from_slice(&raw_message.jparts[0])?,
             parent_header: from_slice(&raw_message.jparts[1])?,
             metadata: message_to_json(&raw_message.jparts[2])?,
-            content: from_slice(&raw_message.jparts[3])?,
+            content: from_slice::<Value>(&raw_message.jparts[3])?,
         })
     }
 
@@ -243,7 +233,7 @@ impl JupyterMessage {
             },
             parent_header: JupyterMessageHeader::default(),
             metadata: Value::Null,
-            content: JupiterContent::default(),
+            content: Value::Null,
         }
     }
 
@@ -261,7 +251,7 @@ impl JupyterMessage {
             },
             parent_header: self.header.clone(),
             metadata: Value::Null,
-            content: JupiterContent::default(),
+            content: Value::Null,
         }
     }
 
@@ -273,15 +263,8 @@ impl JupyterMessage {
         reply
     }
 
-    pub fn get_content(&self) -> &JupiterContent {
-        &self.content
-    }
-
-    pub fn with_content<T>(mut self, content: T) -> JupyterMessage
-    where
-        T: Into<JupiterContent>,
-    {
-        self.content = content.into();
+    pub fn with_content<T: Serialize>(mut self, content: T) -> JupyterResult<JupyterMessage> {
+        self.content = to_value(content)?;
         self
     }
 

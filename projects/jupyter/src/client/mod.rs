@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
-    ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
+    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
 };
 
 use serde_json::Value;
@@ -175,19 +175,19 @@ impl SealedServer {
         let io = &mut self.iopub.lock().await;
         let mut shell = &mut self.shell_socket.lock().await;
         let request = JupyterMessage::read(&mut shell).await?;
-        let busy = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy"));
-        let idle = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle"));
+        let busy = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy"))?;
+        let idle = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle"))?;
         busy.send(io).await?;
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
                 let cont = JupiterContent::build_kernel_info(info);
-                request.as_reply().with_content(cont).send(shell).await?
+                request.as_reply().with_content(cont)?.send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
                 let time = SystemTime::now();
                 *count += 1;
-                let mut task = request.as_execution_request()?;
+                let mut task = request.cast::<ExecutionRequest>()?;
                 task.execution_count = *count;
                 // reply busy event
                 let mut runner = executor.context.lock().await;
@@ -227,7 +227,7 @@ impl SealedServer {
                 request.as_reply().with_content(reply).send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
-                let task = request.as_common_info_request()?;
+                let task = request.cast::<CommonInfoRequest>()?;
                 request.as_reply().with_content(task.as_reply()).send(shell).await?;
             }
             JupyterMessageType::Custom(v) => {
@@ -294,9 +294,10 @@ impl SealedServer {
             JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::DebugRequest => {
                 tracing::info!("Got debug request: {:?}", request);
+                let debug = request.cast::<DebugRequest>()?;
                 request
                     .as_reply()
-                    .with_content(JupiterContent::Custom(Box::new(Value::Object(serde_json::Map::default()))))
+                    .with_content(JupiterContent::DebugReply(Box::new(debug.reply_debug_info())))
                     .send(control)
                     .await?;
             }

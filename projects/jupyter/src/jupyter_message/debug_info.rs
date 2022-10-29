@@ -26,13 +26,15 @@ use std::fmt::Formatter;
 //         'exceptionPaths' : list(str),  # exception names used to match leaves or nodes in a tree of exception
 //     }
 // }
-pub struct DapRequest {
+#[derive(Clone, Debug)]
+pub struct DebugRequest {
     command: String,
     seq: u32,
     r#type: String,
     arguments: Value,
 }
 
+#[derive(Clone, Debug)]
 pub enum DebugResponse {
     Custom(DapResponse<Value>),
     DebugInfo(DapResponse<DebugInfoResponseBody>),
@@ -56,7 +58,7 @@ impl Default for DebugResponse {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Clone, Debug)]
 pub struct DapResponse<T> {
     r#type: String,
     success: bool,
@@ -69,15 +71,15 @@ impl<T: Serialize> Serialize for DapResponse<T> {
         S: Serializer,
     {
         let mut s = serializer.serialize_map(Some(3))?;
-        s.serialize_field("type", &self.r#type)?;
-        s.serialize_field("success", &self.success)?;
-        s.serialize_field("body", &self.body)?;
+        s.serialize_entry("type", &self.r#type)?;
+        s.serialize_entry("success", &self.success)?;
+        s.serialize_entry("body", &self.body)?;
         s.end()
     }
 }
 
 #[allow(non_snake_case)]
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct DebugInfoResponseBody {
     /// whether the debugger is started
     isStarted: bool,
@@ -99,13 +101,13 @@ pub struct DebugInfoResponseBody {
     exceptionPaths: Vec<String>,
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SourceBreakpoints {
     source: String,
     breakpoints: Vec<Breakpoint>,
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Breakpoint {}
 
 impl Default for DebugInfoResponseBody {
@@ -124,31 +126,33 @@ impl Default for DebugInfoResponseBody {
     }
 }
 
-impl DapRequest {
-    pub fn reply_debug_info(&self) -> DapResponse<DebugInfoResponseBody> {
+impl DebugRequest {
+    pub fn reply_debug_info(&self) -> DebugResponse {
         match self.command.as_str() {
-            "debugInfo" => {
-                DapResponse { r#type: "response".to_string(), success: true, body: DebugInfoResponseBody::default() }
-            }
+            "debugInfo" => DebugResponse::DebugInfo(DapResponse {
+                r#type: "response".to_string(),
+                success: true,
+                body: DebugInfoResponseBody::default(),
+            }),
             _ => {
                 tracing::error!("Unknown DAP command: {}", self.command);
-                DapResponse { r#type: "response".to_string(), success: false, body: DebugInfoResponseBody::default() }
+                DebugResponse::default()
             }
         }
     }
 }
 
-impl Default for DapRequest {
+impl Default for DebugRequest {
     fn default() -> Self {
         Self { command: "".to_string(), seq: 0, r#type: "".to_string(), arguments: Value::Null }
     }
 }
 
 pub struct DebugInfoVisitor<'i> {
-    wrapper: &'i mut DapRequest,
+    wrapper: &'i mut DebugRequest,
 }
 
-impl<'de> Deserialize<'de> for DapRequest {
+impl<'de> Deserialize<'de> for DebugRequest {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,

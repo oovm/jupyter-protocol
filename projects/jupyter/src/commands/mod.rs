@@ -14,6 +14,6 @@ use crate::{
     connection::{KERNEL_JS, LINT_CSS, LINT_JS, LINT_LICENSE},
     JupyterResult, JupyterServerProtocol,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::to_string_pretty;
 use std::{io::Write, path::Path};

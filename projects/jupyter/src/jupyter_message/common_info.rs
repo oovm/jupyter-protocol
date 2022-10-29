@@ -1,5 +1,4 @@
 use super::*;
-use serde::{ser::SerializeMap, Serializer};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommonInfoRequest {
