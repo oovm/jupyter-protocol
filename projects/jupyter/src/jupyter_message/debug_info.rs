@@ -175,7 +175,7 @@ impl<'i, 'de> Visitor<'de> for DebugInfoVisitor<'i> {
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("struct DebugInfo")
     }
-    fn visit_map<A>(mut self, mut map: A) -> Result<Self::Value, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {

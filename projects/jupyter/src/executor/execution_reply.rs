@@ -1,5 +1,4 @@
 #![allow(deprecated)]
-use crate::JupiterContent;
 use serde::{
     ser::{SerializeMap, SerializeStruct},
     Serialize, Serializer,
@@ -24,12 +23,6 @@ pub enum ExecutionPayload {
         text: String,
         replace: bool,
     },
-}
-
-impl From<ExecutionReply> for JupiterContent {
-    fn from(value: ExecutionReply) -> Self {
-        JupiterContent::ExecutionReply(Box::new(value))
-    }
 }
 
 impl Serialize for ExecutionReply {

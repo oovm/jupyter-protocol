@@ -31,12 +31,6 @@ impl Default for ExecutionResult {
     }
 }
 
-impl From<ExecutionResult> for JupiterContent {
-    fn from(value: ExecutionResult) -> Self {
-        JupiterContent::ExecutionResult(Box::new(value))
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionRequest {
     pub code: String,

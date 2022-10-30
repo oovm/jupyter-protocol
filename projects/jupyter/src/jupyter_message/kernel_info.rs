@@ -30,13 +30,6 @@ pub struct HelpLink {
     url: String,
 }
 
-impl JupiterContent {
-    pub fn build_kernel_info(info: LanguageInfo) -> JupiterContent {
-        let content = KernelInfoReply::build(info);
-        JupiterContent::KernelInfoReply(Box::new(content))
-    }
-}
-
 impl KernelInfoReply {
     /// See [Kernel info documentation](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info)
     pub fn build(info: LanguageInfo) -> KernelInfoReply {

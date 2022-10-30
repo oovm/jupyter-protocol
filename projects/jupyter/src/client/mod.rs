@@ -8,8 +8,9 @@
 use crate::{
     connection::Connection,
     errors::JupyterResult,
-    jupyter_message::{JupiterContent, JupyterMessage, JupyterMessageType},
+    jupyter_message::{JupyterMessage, JupyterMessageType},
     CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
+    KernelInfoReply,
 };
 
 use serde_json::Value;
@@ -181,7 +182,7 @@ impl SealedServer {
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
-                let cont = JupiterContent::build_kernel_info(info);
+                let cont = KernelInfoReply::build(info);
                 request.as_reply().with_content(cont)?.send(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
@@ -200,7 +201,7 @@ impl SealedServer {
                             request
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
-                                .with_content(any)
+                                .with_content(any)?
                                 .send(io)
                                 .await?;
                         }
@@ -216,7 +217,7 @@ impl SealedServer {
                             request
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
-                                .with_content(time)
+                                .with_content(time)?
                                 .send(io)
                                 .await?;
                         }
@@ -224,11 +225,11 @@ impl SealedServer {
                     Err(_) => {}
                 }
                 // reply finish event
-                request.as_reply().with_content(reply).send(shell).await?;
+                request.as_reply().with_content(reply)?.send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
                 let task = request.cast::<CommonInfoRequest>()?;
-                request.as_reply().with_content(task.as_reply()).send(shell).await?;
+                request.as_reply().with_content(task.as_reply())?.send(shell).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown shell message: {:?}", v);
@@ -288,18 +289,14 @@ impl SealedServer {
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
-                let cont = JupiterContent::build_kernel_info(info);
-                request.as_reply().with_content(cont).send(control).await?
+                let cont = KernelInfoReply::build(info);
+                request.as_reply().with_content(cont)?.send(control).await?
             }
             JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::DebugRequest => {
                 tracing::info!("Got debug request: {:?}", request);
                 let debug = request.cast::<DebugRequest>()?;
-                request
-                    .as_reply()
-                    .with_content(JupiterContent::DebugReply(Box::new(debug.reply_debug_info())))
-                    .send(control)
-                    .await?;
+                request.as_reply().with_content(debug.reply_debug_info())?.send(control).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:?}", v);

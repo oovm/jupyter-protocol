@@ -1,10 +1,9 @@
 use super::*;
-use crate::{errors::JupyterError, jupyter_message::shutdown::ShutdownRequest};
+use crate::errors::JupyterError;
 use chrono::DateTime;
 use serde::{
     de::{Error, MapAccess, Visitor},
     Deserializer,
-    __private::de::{Content, ContentRefDeserializer},
 };
 use std::fmt::Display;
 

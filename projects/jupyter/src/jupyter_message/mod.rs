@@ -2,8 +2,7 @@ pub use self::{common_info::CommonInfoRequest, debug_info::DebugRequest, execute
 use crate::{
     connection::{Connection, HmacSha256},
     errors::JupyterError,
-    jupyter_message::{common_info::CommonInfoReply, debug_info::DebugResponse, shutdown::ShutdownRequest},
-    ExecutionReply, JupyterResult,
+    JupyterResult,
 };
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
@@ -105,60 +104,14 @@ pub struct JupyterMessage {
     content: Value,
 }
 
-#[derive(Clone)]
-pub enum JupiterContent {
-    State(Box<ExecutionState>),
-    ExecutionRequest(Box<ExecutionRequest>),
-    ExecutionResult(Box<ExecutionResult>),
-    ExecutionReply(Box<ExecutionReply>),
-    /// Kernel info request is empty
-    KernelInfoReply(Box<KernelInfoReply>),
-    CommonInfoRequest(Box<CommonInfoRequest>),
-    CommonInfoReply(Box<CommonInfoReply>),
-    ShutdownRequest(Box<ShutdownRequest>),
-    DebugInfoRequest(Box<DebugRequest>),
-    DebugReply(Box<DebugResponse>),
-    Custom(Box<Value>),
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionState {
     execution_state: String,
 }
 
-impl From<ExecutionState> for JupiterContent {
-    fn from(value: ExecutionState) -> Self {
-        JupiterContent::State(Box::new(value))
-    }
-}
-
 impl ExecutionState {
     pub fn new<S: ToString>(state: S) -> Self {
         Self { execution_state: state.to_string() }
-    }
-}
-
-impl Debug for JupiterContent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            JupiterContent::KernelInfoReply(v) => Debug::fmt(v, f),
-            JupiterContent::Custom(v) => Debug::fmt(v, f),
-            JupiterContent::State(v) => Debug::fmt(v, f),
-            JupiterContent::ExecutionRequest(v) => Debug::fmt(v, f),
-            JupiterContent::ExecutionReply(v) => Debug::fmt(v, f),
-            JupiterContent::ExecutionResult(v) => Debug::fmt(v, f),
-            JupiterContent::CommonInfoRequest(v) => Debug::fmt(v, f),
-            JupiterContent::CommonInfoReply(v) => Debug::fmt(v, f),
-            JupiterContent::ShutdownRequest(v) => Debug::fmt(v, f),
-            JupiterContent::DebugInfoRequest(v) => Debug::fmt(v, f),
-            JupiterContent::DebugReply(v) => Debug::fmt(v, f),
-        }
-    }
-}
-
-impl Default for JupiterContent {
-    fn default() -> Self {
-        JupiterContent::Custom(Box::new(Value::Null))
     }
 }
 
@@ -265,7 +218,7 @@ impl JupyterMessage {
 
     pub fn with_content<T: Serialize>(mut self, content: T) -> JupyterResult<JupyterMessage> {
         self.content = to_value(content)?;
-        self
+        Ok(self)
     }
 
     pub fn with_message_type(mut self, msg_type: JupyterMessageType) -> JupyterMessage {

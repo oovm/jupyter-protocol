@@ -8,12 +8,6 @@ pub struct CommonInfoRequest {
 #[derive(Clone, Debug)]
 pub struct CommonInfoReply {}
 
-impl From<CommonInfoReply> for JupiterContent {
-    fn from(value: CommonInfoReply) -> Self {
-        JupiterContent::CommonInfoReply(Box::new(value))
-    }
-}
-
 impl CommonInfoRequest {
     pub fn as_reply(&self) -> CommonInfoReply {
         CommonInfoReply {}
