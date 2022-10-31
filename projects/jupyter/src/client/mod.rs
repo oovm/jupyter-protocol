@@ -47,8 +47,8 @@ impl<T> Clone for ExecuteProvider<T> {
 
 impl<T> ExecuteProvider<T> {
     pub fn new(context: T) -> Self
-    where
-        T: JupyterServerProtocol + 'static,
+        where
+            T: JupyterServerProtocol + 'static,
     {
         Self { context: Arc::new(Mutex::new(context)) }
     }
@@ -63,8 +63,8 @@ struct ShutdownReceiver {
 
 impl SealedServer {
     pub(crate) fn run<T>(config: &KernelControl, server: T) -> JupyterResult<()>
-    where
-        T: JupyterServerProtocol + 'static,
+        where
+            T: JupyterServerProtocol + 'static,
     {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             // We only technically need 1 thread. However we've observed that
@@ -95,8 +95,8 @@ impl SealedServer {
         tokio_handle: tokio::runtime::Handle,
         server: T,
     ) -> JupyterResult<ShutdownReceiver>
-    where
-        T: JupyterServerProtocol + 'static,
+        where
+            T: JupyterServerProtocol + 'static,
     {
         let heartbeat = bind_socket::<RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<RouterSocket>(config, config.shell_port).await?;
@@ -153,8 +153,8 @@ impl SealedServer {
         Ok(())
     }
     fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-    where
-        T: JupyterServerProtocol + Send + 'static,
+        where
+            T: JupyterServerProtocol + Send + 'static,
     {
         let mut count = 0;
         tokio::spawn(async move {
@@ -167,8 +167,8 @@ impl SealedServer {
         })
     }
     async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>, count: &mut u32) -> JupyterResult<()>
-    where
-        T: JupyterServerProtocol + Send + 'static,
+        where
+            T: JupyterServerProtocol + Send + 'static,
     {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
@@ -243,8 +243,8 @@ impl SealedServer {
     }
     #[allow(dead_code)]
     fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-    where
-        T: JupyterServerProtocol + Send + 'static,
+        where
+            T: JupyterServerProtocol + Send + 'static,
     {
         let mut running_count = 0;
         tokio::spawn(async move {
@@ -259,8 +259,8 @@ impl SealedServer {
     }
     #[allow(dead_code)]
     async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, _count: i32) -> JupyterResult<()>
-    where
-        T: JupyterServerProtocol + Send + 'static,
+        where
+            T: JupyterServerProtocol + Send + 'static,
     {
         // let io = self.iopub.try_lock()?;
         // let exec = self.execution_request_receiver.try_lock()?;
@@ -268,8 +268,8 @@ impl SealedServer {
     }
 
     fn spawn_control<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-    where
-        T: JupyterServerProtocol + Send + 'static,
+        where
+            T: JupyterServerProtocol + Send + 'static,
     {
         tokio::spawn(async move {
             tracing::info!("Control Executor Spawned");
@@ -281,8 +281,8 @@ impl SealedServer {
         })
     }
     async fn handle_control<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
-    where
-        T: JupyterServerProtocol + Send + 'static,
+        where
+            T: JupyterServerProtocol + Send + 'static,
     {
         let control = &mut self.control.lock().await;
         let request = JupyterMessage::read(control).await?;
@@ -296,9 +296,9 @@ impl SealedServer {
             JupyterMessageType::DebugRequest => {
                 let debugged = request.recast::<DebugRequest>()?;
                 tracing::warn!("Parsed debug request: {:?}", debugged);
-                let reply = debugged.as_reply()?;
-                tracing::warn!("Replying with debug info: {}", reply);
-                request.as_reply().with_content(reply)?.send(control).await?;
+                let reply = request.as_reply().with_content(debugged.as_reply()?)?;
+                tracing::warn!("Sending debug reply: {:?}", reply);
+                reply.send(control).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:?}", v);
