@@ -1,31 +1,14 @@
+#![allow(non_snake_case)]
+use crate::JupyterResult;
 use serde::{
     de::{MapAccess, Visitor},
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use serde_json::Value;
+use serde_json::{to_value, Value};
 use std::fmt::Formatter;
+use uuid::Uuid;
 
-// {
-//     'type' : 'response',
-//     'success' : bool,
-//     'body' : {
-//         'isStarted' : bool,  # whether the debugger is started,
-//         'hashMethod' : str,  # the hash method for code cell. Default is 'Murmur2',
-//         'hashSeed' : str,  # the seed for the hashing of code cells,
-//         'tmpFilePrefix' : str,  # prefix for temporary file names
-//         'tmpFileSuffix' : str,  # suffix for temporary file names
-//         'breakpoints' : [  # breakpoints currently registered in the debugger.
-//             {
-//                 'source' : str,  # source file
-//                 'breakpoints' : list(source_breakpoints)  # list of breakpoints for that source file
-//             }
-//         ],
-//         'stoppedThreads' : list(int),  # threads in which the debugger is currently in a stopped state
-//         'richRendering' : bool,  # whether the debugger supports rich rendering of variables
-//         'exceptionPaths' : list(str),  # exception names used to match leaves or nodes in a tree of exception
-//     }
-// }
 #[derive(Clone, Debug)]
 pub struct DebugRequest {
     command: String,
@@ -34,33 +17,21 @@ pub struct DebugRequest {
     arguments: Value,
 }
 
-#[derive(Clone, Debug)]
-pub enum DebugResponse {
-    Custom(DapResponse<Value>),
-    DebugInfo(DapResponse<DebugInfoResponseBody>),
+#[derive(Clone, Debug, Serialize)]
+pub struct ModulesResponse {
+    pub modules: Vec<Module>,
+    pub totalModules: u32,
 }
 
-impl Serialize for DebugResponse {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            DebugResponse::Custom(r) => r.serialize(serializer),
-            DebugResponse::DebugInfo(r) => r.serialize(serializer),
-        }
-    }
-}
-
-impl Default for DebugResponse {
-    fn default() -> Self {
-        DebugResponse::Custom(DapResponse { r#type: "response".to_string(), success: true, body: Value::Null })
-    }
+#[derive(Clone, Debug, Serialize)]
+pub struct Module {
+    pub id: u32,
+    pub name: String,
+    pub path: String,
 }
 
 #[derive(Clone, Debug)]
 pub struct DapResponse<T> {
-    r#type: String,
     success: bool,
     body: T,
 }
@@ -71,14 +42,13 @@ impl<T: Serialize> Serialize for DapResponse<T> {
         S: Serializer,
     {
         let mut s = serializer.serialize_map(Some(3))?;
-        s.serialize_entry("type", &self.r#type)?;
+        s.serialize_entry("type", "response")?;
         s.serialize_entry("success", &self.success)?;
         s.serialize_entry("body", &self.body)?;
         s.end()
     }
 }
 
-#[allow(non_snake_case)]
 #[derive(Clone, Debug, Serialize)]
 pub struct DebugInfoResponseBody {
     /// whether the debugger is started
@@ -115,8 +85,8 @@ impl Default for DebugInfoResponseBody {
         Self {
             isStarted: true,
             hashMethod: "Murmur2".to_string(),
-            hashSeed: "42".to_string(),
-            tmpFilePrefix: "_tmp".to_string(),
+            hashSeed: Uuid::new_v4().to_string(),
+            tmpFilePrefix: "_".to_string(),
             tmpFileSuffix: "".to_string(),
             breakpoints: vec![],
             stoppedThreads: vec![],
@@ -126,19 +96,63 @@ impl Default for DebugInfoResponseBody {
     }
 }
 
+impl Default for InspectVariable {
+    fn default() -> Self {
+        Self { name: "name".to_string(), variablesReference: 0, value: "value".to_string(), r#type: "Integer".to_string() }
+    }
+}
+
+//         'variables' : [ # variables defined in the notebook.
+//             {
+//                 'name' : str,
+//                 'variablesReference' : int,
+//                 'value' : str,
+//                 'type' : str
+//             }
+//         ]
+#[derive(Clone, Debug, Serialize)]
+pub struct InspectVariables {
+    variables: Vec<InspectVariable>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct InspectVariable {
+    name: String,
+    variablesReference: i32,
+    value: String,
+    r#type: String,
+}
+
+impl InspectVariable {
+    pub fn new<T>(name: T) -> Self
+    where
+        T: Into<String>,
+    {
+        Self { name: name.into(), ..Self::default() }
+    }
+}
+
 impl DebugRequest {
-    pub fn reply_debug_info(&self) -> DebugResponse {
-        match self.command.as_str() {
-            "debugInfo" => DebugResponse::DebugInfo(DapResponse {
-                r#type: "response".to_string(),
+    pub fn as_reply(&self) -> JupyterResult<Value> {
+        let value = match self.command.as_str() {
+            "debugInfo" => to_value(DapResponse { success: true, body: DebugInfoResponseBody::default() })?,
+            "inspectVariables" => to_value(DapResponse {
                 success: true,
-                body: DebugInfoResponseBody::default(),
-            }),
+                body: InspectVariables { variables: vec![InspectVariable::default(), InspectVariable::new("112233")] },
+            })?,
+            "modules" => {
+                let modules = vec![
+                    Module { id: 1, name: "name".to_string(), path: "path".to_string() },
+                    Module { id: 2, name: "111".to_string(), path: "222".to_string() },
+                ];
+                to_value(DapResponse { success: true, body: ModulesResponse { modules, totalModules: 2 } })?
+            }
             _ => {
                 tracing::error!("Unknown DAP command: {}", self.command);
-                DebugResponse::default()
+                Value::Null
             }
-        }
+        };
+        Ok(value)
     }
 }
 
@@ -179,8 +193,8 @@ impl<'i, 'de> Visitor<'de> for DebugInfoVisitor<'i> {
     where
         A: MapAccess<'de>,
     {
-        while let Some(key) = map.next_key()? {
-            match key {
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
                 "command" => self.wrapper.command = map.next_value()?,
                 "seq" => self.wrapper.seq = map.next_value()?,
                 "type" => self.wrapper.r#type = map.next_value()?,

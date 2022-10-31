@@ -188,7 +188,7 @@ impl SealedServer {
             JupyterMessageType::ExecuteRequest => {
                 let time = SystemTime::now();
                 *count += 1;
-                let mut task = request.cast::<ExecutionRequest>()?;
+                let mut task = request.recast::<ExecutionRequest>()?;
                 task.execution_count = *count;
                 // reply busy event
                 let mut runner = executor.context.lock().await;
@@ -228,7 +228,7 @@ impl SealedServer {
                 request.as_reply().with_content(reply)?.send(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
-                let task = request.cast::<CommonInfoRequest>()?;
+                let task = request.recast::<CommonInfoRequest>()?;
                 request.as_reply().with_content(task.as_reply())?.send(shell).await?;
             }
             JupyterMessageType::Custom(v) => {
@@ -275,7 +275,7 @@ impl SealedServer {
             tracing::info!("Control Executor Spawned");
             loop {
                 if let Err(e) = self.clone().handle_control(executor.clone()).await {
-                    tracing::error!("Error sending shell execution: {:?}", e);
+                    tracing::error!("Error sending control execution: {:?}", e);
                 }
             }
         })
@@ -294,9 +294,11 @@ impl SealedServer {
             }
             JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::DebugRequest => {
-                tracing::info!("Got debug request: {:?}", request);
-                let debug = request.cast::<DebugRequest>()?;
-                request.as_reply().with_content(debug.reply_debug_info())?.send(control).await?;
+                let debugged = request.recast::<DebugRequest>()?;
+                tracing::warn!("Parsed debug request: {:?}", debugged);
+                let reply = debugged.as_reply()?;
+                tracing::warn!("Replying with debug info: {}", reply);
+                request.as_reply().with_content(reply)?.send(control).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:?}", v);

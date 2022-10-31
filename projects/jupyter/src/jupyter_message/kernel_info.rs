@@ -35,7 +35,7 @@ impl KernelInfoReply {
     pub fn build(info: LanguageInfo) -> KernelInfoReply {
         KernelInfoReply {
             status: "ok".to_owned(),
-            protocol_version: "5.4".to_owned(),
+            protocol_version: "5.3".to_owned(),
             implementation: env!("CARGO_PKG_NAME").to_owned(),
             implementation_version: env!("CARGO_PKG_VERSION").to_owned(),
             language_info: SealedLanguageInfo {

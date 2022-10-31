@@ -144,11 +144,12 @@ impl JupyterMessage {
     pub(crate) async fn read<S: SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<JupyterMessage> {
         Self::from_raw_message(RawMessage::read(connection).await?)
     }
+    /// Get the message type.
     pub fn kind(&self) -> &JupyterMessageType {
         &self.header.msg_type
     }
-
-    pub fn cast<T: DeserializeOwned>(&self) -> JupyterResult<T> {
+    /// Change weakly typed content into strongly typed content.
+    pub fn recast<T: DeserializeOwned>(&self) -> JupyterResult<T> {
         match from_value(self.content.clone()) {
             Ok(v) => Ok(v),
             Err(e) => Err(JupyterError::any(format!("Expected {} but got {}", std::any::type_name::<T>(), e))),
@@ -173,34 +174,17 @@ impl JupyterMessage {
         })
     }
 
-    pub fn new(msg_type: JupyterMessageType) -> JupyterMessage {
-        JupyterMessage {
-            zmq_identities: Vec::new(),
-            header: JupyterMessageHeader {
-                username: "kernel".to_string(),
-                msg_type,
-                date: Utc::now(),
-                msg_id: Uuid::new_v4(),
-                session: Uuid::nil(),
-                version: "".to_string(),
-            },
-            parent_header: JupyterMessageHeader::default(),
-            metadata: Value::Null,
-            content: Value::Null,
-        }
-    }
-
     // Creates a new child message of this message. ZMQ identities are not transferred.
     pub fn create_message(&self, kind: JupyterMessageType) -> JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
             header: JupyterMessageHeader {
-                date: Utc::now(),
+                username: "kernel".to_string(),
+                session: self.header.session.clone(),
+                version: self.header.version.clone(),
                 msg_id: Uuid::new_v4(),
                 msg_type: kind,
-                session: self.header.session.clone(),
-                username: "kernel".to_string(),
-                version: self.header.version.clone(),
+                date: Utc::now(),
             },
             parent_header: self.header.clone(),
             metadata: Value::Null,
@@ -231,9 +215,8 @@ impl JupyterMessage {
     }
 
     pub(crate) async fn send<S: SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
-        // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit
-        // of refactoring.
-        let raw_message = RawMessage {
+        // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit of refactoring.
+        let raw = RawMessage {
             zmq_identities: self.zmq_identities.clone(),
             jparts: vec![
                 to_vec(&self.header)?.into(),
@@ -242,6 +225,6 @@ impl JupyterMessage {
                 to_vec(&self.content)?.into(),
             ],
         };
-        raw_message.send(connection).await
+        raw.send(connection).await
     }
 }
