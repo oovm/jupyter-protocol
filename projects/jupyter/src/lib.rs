@@ -17,8 +17,8 @@ pub use crate::{
     errors::{JupyterError, JupyterErrorKind, JupyterResult},
     executor::{
         execution_reply::{ExecutionPayload, ExecutionReply},
-        sockets::JupyterServerSockets,
-        Executed, JupyterServerProtocol, JupyterTheme, LanguageInfo,
+        sockets::JupyterKernelSockets,
+        Executed, JupyterKernelProtocol, JupyterTheme, LanguageInfo,
     },
     jupyter_message::*,
 };

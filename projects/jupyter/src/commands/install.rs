@@ -23,7 +23,7 @@ struct Metadata {
 impl InstallAction {
     pub fn run<T>(&self, engine: T) -> JupyterResult<()>
     where
-        T: JupyterServerProtocol,
+        T: JupyterKernelProtocol,
     {
         do_install(&engine)
     }
@@ -52,7 +52,7 @@ impl KernelConfig {
     }
 }
 
-pub(crate) fn do_install<T: JupyterServerProtocol>(info: &T) -> JupyterResult<()> {
+pub(crate) fn do_install<T: JupyterKernelProtocol>(info: &T) -> JupyterResult<()> {
     let info = info.language_info();
     let kernel_dir = get_kernel_dir(&info.language_key)?;
     std::fs::create_dir_all(&kernel_dir)?;

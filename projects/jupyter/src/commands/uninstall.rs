@@ -1,5 +1,5 @@
 use super::*;
-use crate::{JupyterServerProtocol};
+use crate::JupyterKernelProtocol;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -8,7 +8,7 @@ pub struct UninstallAction {}
 impl UninstallAction {
     pub fn run<T>(&self, engine: T) -> JupyterResult<()>
     where
-        T: JupyterServerProtocol,
+        T: JupyterKernelProtocol,
     {
         let config = engine.language_info();
         let kernel_dir = get_kernel_dir(&config.language_key)?;

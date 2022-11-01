@@ -9,7 +9,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupyterMessage, JupyterMessageType},
-    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterServerProtocol, KernelControl,
+    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterKernelProtocol, KernelControl,
     KernelInfoReply,
 };
 
@@ -47,8 +47,8 @@ impl<T> Clone for ExecuteProvider<T> {
 
 impl<T> ExecuteProvider<T> {
     pub fn new(context: T) -> Self
-        where
-            T: JupyterServerProtocol + 'static,
+    where
+        T: JupyterKernelProtocol + 'static,
     {
         Self { context: Arc::new(Mutex::new(context)) }
     }
@@ -63,8 +63,8 @@ struct ShutdownReceiver {
 
 impl SealedServer {
     pub(crate) fn run<T>(config: &KernelControl, server: T) -> JupyterResult<()>
-        where
-            T: JupyterServerProtocol + 'static,
+    where
+        T: JupyterKernelProtocol + 'static,
     {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             // We only technically need 1 thread. However we've observed that
@@ -95,8 +95,8 @@ impl SealedServer {
         tokio_handle: tokio::runtime::Handle,
         server: T,
     ) -> JupyterResult<ShutdownReceiver>
-        where
-            T: JupyterServerProtocol + 'static,
+    where
+        T: JupyterKernelProtocol + 'static,
     {
         let heartbeat = bind_socket::<RepSocket>(config, config.hb_port).await?;
         let shell_socket = bind_socket::<RouterSocket>(config, config.shell_port).await?;
@@ -126,6 +126,7 @@ impl SealedServer {
         here.clone().spawn_shell_execution(context.clone());
         // server.clone().spawn_execution_queue(context.clone());
         here.clone().spawn_control(context.clone());
+        here.clone().spawn_std_in(context.clone());
         Ok(ShutdownReceiver { recv: shutdown_receiver })
     }
 
@@ -143,6 +144,7 @@ impl SealedServer {
             }
         })
     }
+
     async fn handle_heart_beat(self) -> JupyterResult<()> {
         let mut connection = match self.heartbeat.try_lock() {
             Ok(o) => o,
@@ -153,8 +155,8 @@ impl SealedServer {
         Ok(())
     }
     fn spawn_shell_execution<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-        where
-            T: JupyterServerProtocol + Send + 'static,
+    where
+        T: JupyterKernelProtocol + Send + 'static,
     {
         let mut count = 0;
         tokio::spawn(async move {
@@ -167,8 +169,8 @@ impl SealedServer {
         })
     }
     async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>, count: &mut u32) -> JupyterResult<()>
-        where
-            T: JupyterServerProtocol + Send + 'static,
+    where
+        T: JupyterKernelProtocol + Send + 'static,
     {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
@@ -243,8 +245,8 @@ impl SealedServer {
     }
     #[allow(dead_code)]
     fn spawn_execution_queue<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-        where
-            T: JupyterServerProtocol + Send + 'static,
+    where
+        T: JupyterKernelProtocol + Send + 'static,
     {
         let mut running_count = 0;
         tokio::spawn(async move {
@@ -259,8 +261,8 @@ impl SealedServer {
     }
     #[allow(dead_code)]
     async fn handle_execution_queue<T>(self, _executor: ExecuteProvider<T>, _count: i32) -> JupyterResult<()>
-        where
-            T: JupyterServerProtocol + Send + 'static,
+    where
+        T: JupyterKernelProtocol + Send + 'static,
     {
         // let io = self.iopub.try_lock()?;
         // let exec = self.execution_request_receiver.try_lock()?;
@@ -268,8 +270,8 @@ impl SealedServer {
     }
 
     fn spawn_control<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
-        where
-            T: JupyterServerProtocol + Send + 'static,
+    where
+        T: JupyterKernelProtocol + Send + 'static,
     {
         tokio::spawn(async move {
             tracing::info!("Control Executor Spawned");
@@ -281,8 +283,8 @@ impl SealedServer {
         })
     }
     async fn handle_control<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
-        where
-            T: JupyterServerProtocol + Send + 'static,
+    where
+        T: JupyterKernelProtocol + Send + 'static,
     {
         let control = &mut self.control.lock().await;
         let request = JupyterMessage::read(control).await?;
@@ -305,6 +307,35 @@ impl SealedServer {
             }
             _ => {
                 tracing::warn!("Got custom control message: {:?}", request);
+            }
+        }
+        Ok(())
+    }
+    fn spawn_std_in<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>
+    where
+        T: JupyterKernelProtocol + Send + 'static,
+    {
+        tokio::spawn(async move {
+            tracing::info!("IO Executor Spawned");
+            loop {
+                if let Err(e) = self.clone().handle_std_in(executor.clone()).await {
+                    tracing::error!("Error sending io execution: {:?}", e);
+                }
+            }
+        })
+    }
+    async fn handle_std_in<'a, T>(self, _: ExecuteProvider<T>) -> JupyterResult<()>
+    where
+        T: JupyterKernelProtocol + Send + 'static,
+    {
+        let io = &mut self.stdin.lock().await;
+        let request = JupyterMessage::read(io).await?;
+        match request.kind() {
+            JupyterMessageType::Custom(v) => {
+                tracing::error!("Got unknown io message: {:?}", v);
+            }
+            _ => {
+                tracing::warn!("Got custom io message: {:?}", request);
             }
         }
         Ok(())

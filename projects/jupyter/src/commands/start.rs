@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::{client::SealedServer, JupyterServerProtocol};
+use crate::{client::SealedServer, JupyterKernelProtocol};
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::{
@@ -29,7 +29,7 @@ pub struct KernelControl {
 impl StartAction {
     pub fn run<T>(&self, server: T) -> JupyterResult<()>
     where
-        T: JupyterServerProtocol + 'static,
+        T: JupyterKernelProtocol + 'static,
     {
         let control_file = PathBuf::from(&self.control_file).canonicalize()?;
         #[cfg(feature = "url")]
