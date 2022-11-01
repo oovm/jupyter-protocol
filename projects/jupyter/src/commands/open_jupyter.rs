@@ -6,7 +6,9 @@ pub struct OpenAction {}
 
 impl OpenAction {
     pub fn run(&self) -> JupyterResult<()> {
-        Command::new("jupyter-lab").spawn().expect("jupyter-lab command failed to start");
+        Command::new("python")
+            .args(&["-m", "jupyterlab"])
+            .spawn().expect("jupyter-lab command failed to start");
         Ok(())
     }
 }
