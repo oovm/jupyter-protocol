@@ -7,12 +7,15 @@ pub struct ShutdownRequest {
 
 #[derive(Clone, Debug)]
 pub struct ShutdownReply {
-    restart: bool,
+    /// return true if restart, or false if finally shutdown
+    pub restart: bool,
 }
 
+#[allow(dead_code)]
 impl ShutdownRequest {
+    /// will not send in face, will be killed with no response
     pub fn as_reply(&self) -> ShutdownReply {
-        ShutdownReply { restart: self.restart }
+        ShutdownReply { restart: true }
     }
 }
 
@@ -21,7 +24,8 @@ impl Serialize for ShutdownRequest {
     where
         S: Serializer,
     {
-        let mut s = serializer.serialize_struct("ShutdownRequest", 1)?;
+        let mut s = serializer.serialize_struct("ShutdownRequest", 2)?;
+        s.serialize_field("status", "ok")?;
         s.serialize_field("restart", &self.restart)?;
         s.end()
     }

@@ -12,7 +12,7 @@ pub use self::{
 use crate::{
     commands::uninstall::get_kernel_dir,
     connection::{KERNEL_JS, LINT_CSS, LINT_JS, LINT_LICENSE},
-    JupyterResult, JupyterServerProtocol,
+    JupyterKernelProtocol, JupyterResult,
 };
 use serde::Serialize;
 use serde_json::to_string_pretty;

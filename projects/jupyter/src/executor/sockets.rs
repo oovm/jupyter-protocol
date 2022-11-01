@@ -2,23 +2,23 @@ use crate::{Executed, ExecutionResult, JupyterError, JupyterResult, JupyterTheme
 use std::sync::Arc;
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
 
-pub struct JupyterServerSockets {
+pub struct JupyterKernelSockets {
     execution_result: Arc<Mutex<Option<UnboundedSender<ExecutionResult>>>>,
 }
 
-impl Default for JupyterServerSockets {
+impl Default for JupyterKernelSockets {
     fn default() -> Self {
         Self { execution_result: Arc::new(Mutex::new(None)) }
     }
 }
 
-impl Clone for JupyterServerSockets {
+impl Clone for JupyterKernelSockets {
     fn clone(&self) -> Self {
         Self { execution_result: self.execution_result.clone() }
     }
 }
 
-impl JupyterServerSockets {
+impl JupyterKernelSockets {
     pub async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
         let mut channel = self.execution_result.lock().await;
         *channel = Some(sender);

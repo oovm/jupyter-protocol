@@ -2,26 +2,28 @@ use crate::values::{test_mathml, test_url};
 use clap::Parser;
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
-    async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterResult, JupyterServerProtocol,
-    JupyterServerSockets, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction, Value,
+    async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
+    JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction, Value,
 };
 use jupyter_derive::{include_png32, include_png64};
 use std::{path::PathBuf, str::FromStr};
 mod values;
 
+mod engine;
+
 pub struct CalculatorContext {
-    sockets: JupyterServerSockets,
+    sockets: JupyterKernelSockets,
 }
 
 #[async_trait]
-impl JupyterServerProtocol for CalculatorContext {
+impl JupyterKernelProtocol for CalculatorContext {
     fn language_info(&self) -> LanguageInfo {
         let mut info = LanguageInfo::new("calculator", "Calculator")
             .with_file_extensions(".calc", "text/calculator")
-            .with_language_version(env!("CARGO_PKG_VERSION"));
+            .with_version(env!("CARGO_PKG_VERSION"))
+            .with_syntax("scala", "scala");
         info.png_32 = include_png32!();
         info.png_64 = include_png64!();
-        info.lexer = "scala".to_string();
         info
     }
 
@@ -67,7 +69,7 @@ enum JupyterCommands {
 
 impl JupyterApplication {
     pub fn run(&self) -> JupyterResult<()> {
-        let config = CalculatorContext { sockets: JupyterServerSockets::default() };
+        let config = CalculatorContext { sockets: JupyterKernelSockets::default() };
         match &self.command {
             JupyterCommands::Open(v) => v.run(),
             JupyterCommands::Start(v) => v.run(config),

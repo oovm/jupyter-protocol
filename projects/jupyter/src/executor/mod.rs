@@ -6,11 +6,13 @@ use tokio::sync::mpsc::UnboundedSender;
 pub mod execution_reply;
 pub mod sockets;
 
+/// A executed result that can be render in jupyter notebook.
 pub trait Executed: Send {
     fn mime_type(&self) -> String;
     fn as_json(&self, theme: JupyterTheme) -> Value;
 }
 
+/// The theme of the Jupyter notebook
 #[derive(Debug, Clone)]
 pub enum JupyterTheme {
     Light,
@@ -19,7 +21,7 @@ pub enum JupyterTheme {
 
 #[async_trait]
 #[allow(unused_variables)]
-pub trait JupyterServerProtocol: Send + Sync + 'static {
+pub trait JupyterKernelProtocol: Send + Sync + 'static {
     fn language_info(&self) -> LanguageInfo;
 
     /// since Generator is not stable, we use sender instead
@@ -33,8 +35,7 @@ pub trait JupyterServerProtocol: Send + Sync + 'static {
     fn running_time(&self, time: f64) -> String {
         format!("<sub>Elapsed time: {:.2} seconds.</sub>", time)
     }
-
-    /// Bind the execution socket, recommended to use [JupyterServerSockets].
+    /// Bind the execution socket, recommended to use [JupyterKernelSockets](crate::JupyterKernelSockets).
     async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
         // sink socket, do nothing
     }
@@ -69,6 +70,7 @@ pub struct LanguageInfo {
 }
 
 impl LanguageInfo {
+    /// Create a new language with the language key and language name
     pub fn new<T, S>(key: T, display: S) -> Self
     where
         T: ToString,
@@ -87,6 +89,7 @@ impl LanguageInfo {
             exporter: "rust".to_string(),
         }
     }
+    /// Set the language file extensions and mimetype
     pub fn with_file_extensions<T, S>(mut self, extension: T, mime: S) -> Self
     where
         T: ToString,
@@ -96,7 +99,19 @@ impl LanguageInfo {
         self.mimetype = mime.to_string();
         self
     }
-    pub fn with_language_version<T>(mut self, version: T) -> Self
+    /// Set the language syntax, find lexer name in <https://pygments.org/docs/lexers> and
+    /// highlighter name in <https://codemirror.net/5/mode/index.html>
+    pub fn with_syntax<T, S>(mut self, lexer: T, highlighter: S) -> Self
+    where
+        T: ToString,
+        S: ToString,
+    {
+        self.lexer = lexer.to_string();
+        self.mimetype = highlighter.to_string();
+        self
+    }
+    /// Set the implement version, recommend to use `env!("CARGO_PKG_VERSION")`
+    pub fn with_version<T>(mut self, version: T) -> Self
     where
         T: ToString,
     {
