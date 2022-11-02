@@ -24,7 +24,7 @@ impl LatexText {
 
 impl Executed for JupyterError {
     fn mime_type(&self) -> String {
-        "text/html".to_string()
+        "application/vnd.jupyter.stderr".to_string()
     }
 
     fn as_json(&self, _: JupyterTheme) -> Value {
