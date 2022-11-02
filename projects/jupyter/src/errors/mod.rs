@@ -11,36 +11,50 @@ use tokio::{
 };
 use zeromq::ZmqError;
 
+/// The result type for Jupyter.
 pub type JupyterResult<T> = Result<T, JupyterError>;
 
+/// The error type for Jupyter.
 #[derive(Debug, Clone)]
 pub struct JupyterError {
     kind: Box<JupyterErrorKind>,
 }
 
 impl JupyterError {
-    pub fn any<T: ToString>(message: T) -> Self {
+    /// Create a [JupyterErrorKind::Custom] error.
+    pub fn custom<T: ToString>(message: T) -> Self {
         Self { kind: Box::new(JupyterErrorKind::Custom(message.to_string())) }
     }
+    /// Create a [JupyterErrorKind::MissingField] error.
     pub fn missing_field(field: &'static str) -> Self {
         Self { kind: Box::new(JupyterErrorKind::MissingField(field)) }
     }
+    /// Create a [JupyterErrorKind::ExceptType] error.
     pub fn except_type(except_type: &'static str) -> Self {
         Self { kind: Box::new(JupyterErrorKind::ExceptType(except_type)) }
     }
+    /// Create a [JupyterErrorKind::ChannelBlockage] error.
     pub fn channel_block(channel: &'static str) -> Self {
         Self { kind: Box::new(JupyterErrorKind::ChannelBlockage(channel)) }
     }
 }
 
+/// The error kind for Jupyter.
 #[derive(Debug, Clone)]
 pub enum JupyterErrorKind {
+    /// The type redefined, variables lost.
     TypeRedefinedVariablesLost(Vec<String>),
+    /// Custom error.
     Custom(String),
+    /// Error message.
     Message(String),
+    /// Missing field.
     MissingField(&'static str),
+    /// Except type.
     ExceptType(&'static str),
+    /// Channel blockage.
     ChannelBlockage(&'static str),
+    /// Zmq error.
     SubprocessTerminated(String),
 }
 

@@ -8,14 +8,18 @@ pub mod sockets;
 
 /// A executed result that can be render in jupyter notebook.
 pub trait Executed: Send {
+    /// The mime type of the result.
     fn mime_type(&self) -> String;
+    /// Convert the result to json.
     fn as_json(&self, theme: JupyterTheme) -> Value;
 }
 
 /// The theme of the Jupyter notebook
-#[derive(Debug, Clone)]
+#[derive(Copy, Debug, Clone)]
 pub enum JupyterTheme {
+    /// Light theme
     Light,
+    /// Dark theme
     Dark,
 }
 
@@ -42,6 +46,7 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
 }
 
 /// The language information and abilities provided by the kernel
+#[derive(Clone, Debug)]
 pub struct LanguageInfo {
     /// Language key
     pub language_key: String,

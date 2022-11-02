@@ -152,7 +152,7 @@ impl JupyterMessage {
     pub fn recast<T: DeserializeOwned>(&self) -> JupyterResult<T> {
         match from_value(self.content.clone()) {
             Ok(v) => Ok(v),
-            Err(e) => Err(JupyterError::any(format!("Expected {} but got {}", std::any::type_name::<T>(), e))),
+            Err(e) => Err(JupyterError::custom(format!("Expected {} but got {}", std::any::type_name::<T>(), e))),
         }
     }
     fn from_raw_message(raw_message: RawMessage) -> JupyterResult<JupyterMessage> {
@@ -199,17 +199,17 @@ impl JupyterMessage {
         reply.zmq_identities = self.zmq_identities.clone();
         reply
     }
-
+    /// Set the message content.
     pub fn with_content<T: Serialize>(mut self, content: T) -> JupyterResult<JupyterMessage> {
         self.content = to_value(content)?;
         Ok(self)
     }
-
+    /// Set the message type to "reply".
     pub fn with_message_type(mut self, msg_type: JupyterMessageType) -> JupyterMessage {
         self.header.msg_type = msg_type;
         self
     }
-
+    /// Set the message type to "reply".
     pub fn drop_parent_header(&mut self) {
         self.parent_header = JupyterMessageHeader::default();
     }

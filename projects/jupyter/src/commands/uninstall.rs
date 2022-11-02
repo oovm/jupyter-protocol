@@ -2,19 +2,21 @@ use super::*;
 use crate::JupyterKernelProtocol;
 use std::path::PathBuf;
 
-#[derive(Parser)]
+/// Uninstall the jupyter kernel of language.
+#[derive(Copy, Clone, Debug, Parser)]
 pub struct UninstallAction {}
 
 impl UninstallAction {
+    /// Run the action to uninstall the kernel.
     pub fn run<T>(&self, engine: T) -> JupyterResult<()>
     where
         T: JupyterKernelProtocol,
     {
         let config = engine.language_info();
         let kernel_dir = get_kernel_dir(&config.language_key)?;
-        println!("Deleting {}", kernel_dir.to_string_lossy());
+        tracing::info!("Deleting {}", kernel_dir.to_string_lossy());
         std::fs::remove_dir_all(kernel_dir)?;
-        println!("Uninstall complete");
+        tracing::info!("Uninstall complete");
         Ok(())
     }
 }
