@@ -6,14 +6,16 @@ pub struct CommonInfoRequest {
 }
 
 #[derive(Clone, Debug)]
-pub struct CommonInfoReply {}
+pub struct CommonInfoReply {
+    success: bool,
+}
 
 impl CommonInfoRequest {
     pub fn as_reply(&self) -> CommonInfoReply {
-        CommonInfoReply {}
+        CommonInfoReply { success: true }
     }
-    pub fn as_error(&self) {
-        unimplemented!()
+    pub fn as_error(&self) -> CommonInfoReply {
+        CommonInfoReply { success: false }
     }
 }
 
@@ -23,7 +25,7 @@ impl Serialize for CommonInfoReply {
         S: Serializer,
     {
         let mut s = serializer.serialize_map(Some(2))?;
-        s.serialize_entry("status", "ok")?;
+        s.serialize_entry("status", if self.success { "ok" } else { "error" })?;
         s.end()
     }
 }

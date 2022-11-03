@@ -4,6 +4,7 @@ use serde::{
     Serialize, Serializer,
 };
 
+/// The request to execute code
 #[derive(Clone, Debug)]
 pub struct ExecutionReply {
     success: bool,
@@ -11,16 +12,22 @@ pub struct ExecutionReply {
     payload: Vec<ExecutionPayload>,
 }
 
+/// The result of executing code
 #[deprecated]
 #[derive(Clone, Debug)]
 pub enum ExecutionPayload {
+    /// A page of data
     Page {
+        /// The data
         mime: String,
         /// line offset to start from
         start: i32,
     },
+    /// Set the next input
     NextInput {
+        /// The text to set
         text: String,
+        /// Whether to replace the current input
         replace: bool,
     },
 }
@@ -68,6 +75,7 @@ impl Serialize for ExecutionPayload {
 }
 
 impl ExecutionReply {
+    /// Create a new execution reply
     pub fn new(success: bool, execution_count: u32) -> Self {
         Self { success, execution_count, payload: vec![] }
     }

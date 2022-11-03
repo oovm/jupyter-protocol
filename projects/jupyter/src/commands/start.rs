@@ -28,6 +28,7 @@ pub struct KernelControl {
 }
 
 impl StartAction {
+    /// Start a jupyter kernel for language.
     pub fn run<T>(&self, server: T) -> JupyterResult<()>
     where
         T: JupyterKernelProtocol + 'static,
