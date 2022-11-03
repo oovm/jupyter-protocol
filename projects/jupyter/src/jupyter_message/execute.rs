@@ -4,6 +4,7 @@ use serde::{ser::SerializeStruct, Serializer};
 use serde_json::Map;
 use std::collections::BTreeMap;
 
+/// The result of executing code
 #[derive(Clone, Debug)]
 pub struct ExecutionResult {
     execution_count: u32,
@@ -33,20 +34,29 @@ impl Default for ExecutionResult {
 /// The request to execute code
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionRequest {
+    /// The code to execute
     pub code: String,
+    /// Whether to execute the code as quietly as possible
     pub silent: bool,
+    /// Whether to store history
     pub store_history: bool,
+    /// A mapping of names to expressions to be evaluated in the user's dict.
     pub allow_stdin: bool,
+    /// A mapping of names to expressions to be evaluated in the user's dict.
     pub stop_on_error: bool,
+    /// A mapping of names to expressions to be evaluated in the user's dict.
     pub user_expressions: Value,
+    /// A mapping of names to expressions to be evaluated in the user's dict.
     #[serde(default)]
     pub execution_count: u32,
 }
 
 impl ExecutionRequest {
+    /// Create a new execution request
     pub fn as_reply(&self, success: bool, count: u32) -> ExecutionReply {
         ExecutionReply::new(success, count)
     }
+    /// Create a new execution request
     pub fn as_result(&self, mime: String, data: Value) -> ExecutionResult {
         let mut dict = BTreeMap::new();
         dict.insert(mime.to_string(), data);
@@ -55,14 +65,17 @@ impl ExecutionRequest {
 }
 
 impl ExecutionResult {
+    /// Create a new execution result
     pub fn with_count(mut self, count: u32) -> ExecutionResult {
         self.execution_count = count;
         self
     }
+    /// Create a new execution result
     pub fn with_data(mut self, mime: String, data: Value) -> ExecutionResult {
         self.data.insert(mime, data);
         self
     }
+    /// Create a new execution result
     pub fn with_metadata<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
     where
         T: Serialize,
@@ -70,6 +83,7 @@ impl ExecutionResult {
         self.metadata.insert(mime.to_string(), serde_json::to_value(data)?);
         Ok(self)
     }
+    /// Create a new execution result
     pub fn with_transient<T>(mut self, mime: &str, data: T) -> JupyterResult<ExecutionResult>
     where
         T: Serialize,

@@ -23,6 +23,7 @@ pub enum JupyterTheme {
     Dark,
 }
 
+/// The protocol of the kernel
 #[async_trait]
 #[allow(unused_variables)]
 pub trait JupyterKernelProtocol: Send + Sync + 'static {

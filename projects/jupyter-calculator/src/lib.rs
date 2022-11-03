@@ -20,7 +20,7 @@ impl JupyterKernelProtocol for CalculatorContext {
         let mut info = LanguageInfo::new("calculator", "Calculator")
             .with_file_extensions(".calc", "text/calculator")
             .with_version(env!("CARGO_PKG_VERSION"))
-            .with_syntax("scala", "scala");
+            .with_syntax("rust", "rust");
         info.png_32 = include_png32!();
         info.png_64 = include_png64!();
         info

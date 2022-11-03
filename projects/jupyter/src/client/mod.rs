@@ -1,18 +1,11 @@
-// Copyright 2020 The Evcxr Authors.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE or
-// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE
-// or https://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
-
 use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupyterMessage, JupyterMessageType},
-    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterKernelProtocol, KernelControl,
-    KernelInfoReply,
+    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterKernelProtocol, KernelInfoReply,
 };
 
+use crate::commands::start::KernelControl;
 use serde_json::Value;
 use std::{sync::Arc, time::SystemTime};
 use tokio::{

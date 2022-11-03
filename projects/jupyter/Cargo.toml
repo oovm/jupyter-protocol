@@ -1,6 +1,6 @@
 [package]
 name = "jupyter"
-version = "0.1.8"
+version = "0.1.9"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
@@ -30,7 +30,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 unicode-segmentation = "1.7.1"
 generic-array = "0.14.4"
 crossbeam-channel = "0.5.5"
-syntax-error = "0.0.4"
+#syntax-error = "0.0.4"
 tracing = "0.1.37"
 async-trait = "0.1.68"
 mathml-core = { version = "0.1.5", optional = true }
