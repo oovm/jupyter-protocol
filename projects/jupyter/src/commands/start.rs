@@ -8,7 +8,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Parser)]
+/// To start a jupyter kernel for language.
+#[derive(Clone, Debug, Parser)]
 pub struct StartAction {
     #[arg(short = 'c', long = "control-file")]
     control_file: String,

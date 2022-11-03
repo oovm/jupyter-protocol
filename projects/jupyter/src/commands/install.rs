@@ -1,6 +1,7 @@
 use super::*;
 
-#[derive(Parser)]
+/// To install/overwrite a new kernel to jupyter.
+#[derive(Clone, Debug, Parser)]
 pub struct InstallAction {
     /// Optional name to operate on
     name: Option<String>,
@@ -21,6 +22,7 @@ struct Metadata {
 }
 
 impl InstallAction {
+    /// Run the install action.
     pub fn run<T>(&self, engine: T) -> JupyterResult<()>
     where
         T: JupyterKernelProtocol,

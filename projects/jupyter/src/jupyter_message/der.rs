@@ -85,6 +85,6 @@ impl Error for JupyterError {
     where
         T: Display,
     {
-        JupyterError::any(der.to_string())
+        JupyterError::custom(der.to_string())
     }
 }

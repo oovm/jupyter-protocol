@@ -30,7 +30,7 @@ impl Default for ExecutionResult {
         Self { execution_count: 0, data: BTreeMap::new(), metadata: Map::new(), transient: Map::new() }
     }
 }
-
+/// The request to execute code
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExecutionRequest {
     pub code: String,
