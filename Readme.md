@@ -1,32 +1,44 @@
-Rust Template Project
-=====================
+Jupyter Kernel Protocol in Rust
+===============================
 
-Rust template project for monorepo
+Just implement the following clap application, and then execute `<BIN> install` to get a jupyter kernel of the corresponding language.
 
-## Change the initial commit
+```rust
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+pub struct JupyterApplication {
+    #[arg(short, long, value_name = "FILE")]
+    config: Option<PathBuf>,
+    #[arg(short, long, action = clap::ArgAction::Count)]
+    debug: u8,
+    #[command(subcommand)]
+    command: JupyterCommands,
+}
 
-```shell
-git commit --amend --message "🎂 Project initialized!" --date "2019-6-12"
+#[derive(Subcommand)]
+enum JupyterCommands {
+    Open(Box<OpenAction>),
+    Start(Box<StartAction>),
+    Install(Box<InstallAction>),
+    Uninstall(Box<UninstallAction>),
+}
 ```
-git subtree add --prefix=projects/jupyter_client https://github.com/jupyter/jupyter_client.git master
 
-## Emoji Comment
+- See more usages in example: [jupyter-calculator](./projects/jupyter-calculator/src/lib.rs)
 
-| Emoji  | Meaning                      |  
-|--------|------------------------------|  
-| 🎂     | Project initialized!         |  
-| 🎉     | Release new version          |  
-| 🧪🔮   | Experimental code            |   
-| 🔧🐛🐞 | Bug fix                      |  
-| 🔒     | Security fix                 |  
-| 🐣🐤🐥 | Add feature                  |  
-| 📝🎀   | Documentation                |  
-| 🚀     | Performance improve!         |  
-| 🚧     | Work in progress             |  
-| 🚨     | Test coverage improve!       |  
-| 🚥     | CI improve!                  |  
-| 🔥     | Remove code or files         |
-| 🧹     | Code refactor                |
-| 📈     | Add analytics or branch code |
-| 🤖     | Automation fix               |
-| 📦     | Update dependencies          |
+Supports jupyter lab and vscode
+
+![](.github/jupyter-lab.png)
+
+![](.github/vscode.png)
+
+## Known Issues
+
+- Can't render math formula in vscode
+- Can't send debug info reply to DAP client
+
+## Related Projects
+
+- Document: [Jupyter Kernel Protocol](https://jupyter-client.readthedocs.io/en/stable/messaging.html)
+- [Clap](https://github.com/clap-rs/clap), Used to build command line interface
+- Especially Thanks to [EVCXR](https://github.com/evcxr/evcxr) for `ZmdMessage` decode
