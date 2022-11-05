@@ -6,6 +6,10 @@ fn ready() {
     println!("it works!")
 }
 
+fn parse<L: SqrtAlgebra>(input: &str) -> L::Tag<f64> {
+    todo!()
+}
+
 fn program<L>(interpreter: &mut L) -> L::Tag<f64>
 where
     L: SqrtAlgebra,
@@ -16,18 +20,12 @@ where
     interpreter.sqrt(o1)
 }
 
-fn parse<L: SqrtAlgebra>(input: &str) -> L::Tag<f64> {
-    todo!()
-}
-
 #[test]
 fn main() {
     let mut l1 = Printer {};
     let mut l2 = Evaluator::default();
-
-    let test1_p = program(&mut l1);
-
-    println!("{:?}", test1_p);
-    let test1_b = program(&mut l2);
-    println!("{:?}", test1_b);
+    let t1 = program(&mut l1);
+    println!("{:?}", t1);
+    let t2 = program(&mut l2);
+    println!("{:?}", t2);
 }
