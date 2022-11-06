@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 //! <https://github.com/gnestor/notebook/blob/master/notebook/static/notebook/js/outputarea.js#L260>
+use image::RgbaImage;
 use jupyter::value_type::{MathML, Url};
 use mathml_core::MathRoot;
 use mathml_latex::{parse_latex, LaTeXEngine};
@@ -28,4 +29,9 @@ pub fn test_url() -> Url {
 
 pub fn test_json() -> jupyter::Value {
     toml::from_str(include_str!("../../Cargo.toml")).expect("invalid toml")
+}
+
+pub fn test_png() -> RgbaImage {
+    let data = include_bytes!("../../third_party/rust/rust-logo-32x32.png");
+    image::load_from_memory(data).unwrap().to_rgba8()
 }

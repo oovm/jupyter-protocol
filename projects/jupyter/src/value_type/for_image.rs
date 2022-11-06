@@ -4,7 +4,9 @@ use serde_json::Value;
 
 impl Executed for RgbaImage {
     fn mime_type(&self) -> String {
-        "image/png".to_string()
+        // not work for vscode
+        // "image/png".to_string();
+        "text/html".to_string()
     }
 
     #[allow(deprecated)]
@@ -13,14 +15,17 @@ impl Executed for RgbaImage {
         let writer = PngEncoder::new(&mut buf);
         writer.write_image(self.as_raw(), self.width(), self.height(), ColorType::Rgba8).unwrap();
         let data = base64::encode(&buf);
-        let data_url = format!("data:image/png;base64,{}", data);
-        Value::String(format!(r#"<img src="{}"/>"#, data_url,))
+        // when use image/png
+        // Value::String(data)
+        Value::String(format!(r#"<img src="data:image/png;base64,{}"/>"#, data))
     }
 }
 
 impl Executed for DynamicImage {
     fn mime_type(&self) -> String {
-        "image/png".to_string()
+        // not work for vscode
+        // "image/png".to_string();
+        "text/html".to_string()
     }
 
     fn as_json(&self, theme: JupyterTheme) -> Value {

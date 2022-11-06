@@ -34,9 +34,11 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     /// `Generator<Yield = dyn Executed, Return = ExecutionReply>`
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply;
 
-    /// Show the running time of the code, return nil if not supported
+    /// Show the running time of the code.
     ///
     /// - unit: seconds
+    ///
+    /// *You can suppress statistics by returning `String::new()` directly, which will not cause heap allocation.*
     fn running_time(&self, time: f64) -> String {
         format!("<sub>Elapsed time: {:.2} seconds.</sub>", time)
     }
