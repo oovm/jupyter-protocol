@@ -171,14 +171,12 @@ impl SealedServer {
         let io = &mut self.iopub.lock().await;
         let mut shell = &mut self.shell_socket.lock().await;
         let request = JupyterMessage::read(&mut shell).await?;
-        let busy = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("busy"))?;
-        let idle = request.create_message(JupyterMessageType::StatusReply).with_content(ExecutionState::new("idle"))?;
-        busy.send(io).await?;
+        request.send_state(io, true).await?;
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
                 let cont = KernelInfoReply::build(info);
-                request.as_reply().with_content(cont)?.send(shell).await?
+                request.as_reply().with_content(cont)?.send_by(shell).await?
             }
             JupyterMessageType::ExecuteRequest => {
                 let time = SystemTime::now();
@@ -197,7 +195,7 @@ impl SealedServer {
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
                                 .with_content(any)?
-                                .send(io)
+                                .send_by(io)
                                 .await?;
                         }
                         Err(_) => break,
@@ -213,18 +211,18 @@ impl SealedServer {
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
                                 .with_content(time)?
-                                .send(io)
+                                .send_by(io)
                                 .await?;
                         }
                     }
                     Err(_) => {}
                 }
                 // reply finish event
-                request.as_reply().with_content(reply)?.send(shell).await?;
+                request.as_reply().with_content(reply)?.send_by(shell).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
                 let task = request.recast::<CommonInfoRequest>()?;
-                request.as_reply().with_content(task.as_reply())?.send(shell).await?;
+                request.as_reply().with_content(task.as_reply())?.send_by(shell).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown shell message: {:?}", v);
@@ -233,7 +231,7 @@ impl SealedServer {
                 tracing::warn!("Got custom shell message: {:?}", request);
             }
         }
-        idle.send(io).await?;
+        request.send_state(io, false).await?;
         Ok(())
     }
     #[allow(dead_code)]
@@ -279,29 +277,34 @@ impl SealedServer {
     where
         T: JupyterKernelProtocol + Send + 'static,
     {
+        let io = &mut self.iopub.lock().await;
         let control = &mut self.control.lock().await;
         let request = JupyterMessage::read(control).await?;
+        // FUCK_ME: Time wasted here = two weeks
+        // Who the hell designed this process and it's not mentioned in the docs!!!!!!!
+        request.send_state(io, true).await?;
+        // main reply
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
                 let cont = KernelInfoReply::build(info);
-                request.as_reply().with_content(cont)?.send(control).await?
+                request.as_reply().with_content(cont)?.send_by(control).await?
             }
             JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::DebugRequest => {
                 let debugged = request.recast::<DebugRequest>()?;
                 tracing::warn!("Parsed debug request: {:?}", debugged);
                 let reply = request.as_reply().with_content(debugged.as_reply()?)?;
-                tracing::warn!("Sending debug reply: {:?}", reply);
-                reply.send(control).await?;
+                reply.send_by(control).await?;
             }
             JupyterMessageType::Custom(v) => {
-                tracing::error!("Got unknown control message: {:?}", v);
+                tracing::error!("Got unknown control message: {:#?}", v);
             }
             _ => {
-                tracing::warn!("Got custom control message: {:?}", request);
+                tracing::warn!("Got custom control message: {:#?}", request);
             }
         }
+        request.send_state(io, false).await?;
         Ok(())
     }
     fn spawn_std_in<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>

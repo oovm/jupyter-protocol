@@ -22,6 +22,9 @@ pub enum JupyterMessageType {
     DebugRequest,
     /// - [debug_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-request)
     DebugReply,
+    /// - [debug_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-request)
+    DebugEvent,
+
     /// - [interrupt_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
     InterruptRequest,
     /// - [interrupt_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)

@@ -192,6 +192,12 @@ impl JupyterMessage {
         }
     }
 
+    /// Creates a reply to this message. This is a child message.
+    pub async fn send_state<S: SocketSend>(&self, connection: &mut Connection<S>, busy: bool) -> JupyterResult<()> {
+        let state = ExecutionState::new(if busy { "busy" } else { "idle" });
+        let msg = self.create_message(JupyterMessageType::StatusReply).with_content(state)?;
+        msg.send_by(connection).await
+    }
     // Creates a reply to this message. This is a child with the message type determined
     // automatically by replacing "request" with "reply". ZMQ identities are transferred.
     pub fn as_reply(&self) -> JupyterMessage {
@@ -214,7 +220,7 @@ impl JupyterMessage {
         self.parent_header = JupyterMessageHeader::default();
     }
 
-    pub(crate) async fn send<S: SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
+    pub(crate) async fn send_by<S: SocketSend>(&self, connection: &mut Connection<S>) -> JupyterResult<()> {
         // If performance is a concern, we can probably avoid the clone and to_vec calls with a bit of refactoring.
         let raw = RawMessage {
             zmq_identities: self.zmq_identities.clone(),
