@@ -14,8 +14,10 @@ use std::{
     fmt,
     fmt::{Debug, Display, Formatter},
     str::FromStr,
+    sync::Arc,
     {self},
 };
+use tokio::sync::Mutex;
 use uuid::Uuid;
 use zeromq::{SocketRecv, SocketSend};
 mod common_info;
@@ -193,10 +195,10 @@ impl JupyterMessage {
     }
 
     /// Creates a reply to this message. This is a child message.
-    pub async fn send_state<S: SocketSend>(&self, connection: &mut Connection<S>, busy: bool) -> JupyterResult<()> {
+    pub async fn send_state<S: SocketSend>(&self, connection: Arc<Mutex<Connection<S>>>, busy: bool) -> JupyterResult<()> {
         let state = ExecutionState::new(if busy { "busy" } else { "idle" });
         let msg = self.create_message(JupyterMessageType::StatusReply).with_content(state)?;
-        msg.send_by(connection).await
+        msg.send_by(&mut &mut connection.lock().await).await
     }
     // Creates a reply to this message. This is a child with the message type determined
     // automatically by replacing "request" with "reply". ZMQ identities are transferred.

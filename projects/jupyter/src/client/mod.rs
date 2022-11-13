@@ -168,15 +168,13 @@ impl SealedServer {
         // Processing of every message should be enclosed between "busy" and "idle"
         // see https://jupyter-client.readthedocs.io/en/latest/messaging.html#messages-on-the-shell-router-dealer-channel
         // Jupiter Lab doesn't use the kernel until it received "idle" for kernel_info_request
-        let io = &mut self.iopub.lock().await;
-        let mut shell = &mut self.shell_socket.lock().await;
-        let request = JupyterMessage::read(&mut shell).await?;
-        request.send_state(io, true).await?;
+        let request = JupyterMessage::read(&mut &mut self.shell_socket.lock().await).await?;
+        request.send_state(self.iopub.clone(), true).await?;
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
                 let info = executor.context.lock().await.language_info();
                 let cont = KernelInfoReply::build(info);
-                request.as_reply().with_content(cont)?.send_by(shell).await?
+                request.as_reply().with_content(cont)?.send_by(&mut &mut self.shell_socket.lock().await).await?
             }
             JupyterMessageType::ExecuteRequest => {
                 let time = SystemTime::now();
@@ -195,7 +193,7 @@ impl SealedServer {
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
                                 .with_content(any)?
-                                .send_by(io)
+                                .send_by(&mut &mut self.iopub.lock().await)
                                 .await?;
                         }
                         Err(_) => break,
@@ -211,18 +209,18 @@ impl SealedServer {
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)
                                 .with_content(time)?
-                                .send_by(io)
+                                .send_by(&mut &mut self.iopub.lock().await)
                                 .await?;
                         }
                     }
                     Err(_) => {}
                 }
                 // reply finish event
-                request.as_reply().with_content(reply)?.send_by(shell).await?;
+                request.as_reply().with_content(reply)?.send_by(&mut &mut self.shell_socket.lock().await).await?;
             }
             JupyterMessageType::CommonInfoRequest => {
                 let task = request.recast::<CommonInfoRequest>()?;
-                request.as_reply().with_content(task.as_reply())?.send_by(shell).await?;
+                request.as_reply().with_content(task.as_reply())?.send_by(&mut &mut self.shell_socket.lock().await).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown shell message: {:?}", v);
@@ -231,7 +229,7 @@ impl SealedServer {
                 tracing::warn!("Got custom shell message: {:?}", request);
             }
         }
-        request.send_state(io, false).await?;
+        request.send_state(self.iopub, false).await?;
         Ok(())
     }
     #[allow(dead_code)]
@@ -277,12 +275,11 @@ impl SealedServer {
     where
         T: JupyterKernelProtocol + Send + 'static,
     {
-        let io = &mut self.iopub.lock().await;
         let control = &mut self.control.lock().await;
         let request = JupyterMessage::read(control).await?;
         // FUCK_ME: Time wasted here = two weeks
         // Who the hell designed this process and it's not mentioned in the docs!!!!!!!
-        request.send_state(io, true).await?;
+        request.send_state(self.iopub.clone(), true).await?;
         // main reply
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
@@ -304,7 +301,7 @@ impl SealedServer {
                 tracing::warn!("Got custom control message: {:#?}", request);
             }
         }
-        request.send_state(io, false).await?;
+        request.send_state(self.iopub.clone(), false).await?;
         Ok(())
     }
     fn spawn_std_in<T>(self, executor: ExecuteProvider<T>) -> JoinHandle<()>

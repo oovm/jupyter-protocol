@@ -22,9 +22,8 @@ pub enum JupyterMessageType {
     DebugRequest,
     /// - [debug_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-request)
     DebugReply,
-    /// - [debug_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-request)
+    /// - [debug_event](https://jupyter-client.readthedocs.io/en/stable/messaging.html#debug-event)
     DebugEvent,
-
     /// - [interrupt_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
     InterruptRequest,
     /// - [interrupt_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-interrupt)
@@ -64,6 +63,7 @@ impl AsRef<str> for JupyterMessageType {
             JupyterMessageType::ExecuteReply => "execute_reply",
             JupyterMessageType::DebugRequest => "debug_request",
             JupyterMessageType::DebugReply => "debug_reply",
+            JupyterMessageType::DebugEvent => "debug_event",
             JupyterMessageType::InterruptRequest => "interrupt_request",
             JupyterMessageType::InterruptReply => "interrupt_reply",
             JupyterMessageType::ShutdownRequest => "shutdown_request",

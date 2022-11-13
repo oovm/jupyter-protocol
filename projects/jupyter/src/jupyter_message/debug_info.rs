@@ -205,10 +205,41 @@ impl<T> DapResponse<T> {
     }
 }
 
+#[derive(Clone, Debug, Serialize)]
+struct DebugCapability {
+    supportsConditionalBreakpoints: bool,
+    supportsHitConditionalBreakpoints: bool,
+    supportsLogPoints: bool,
+    supportsCompletionsRequest: bool,
+    supportTerminateDebuggee: bool,
+    supportsDelayedStackTraceLoading: bool,
+    supportsLoadedSourcesRequest: bool,
+    supportsBreakpointLocationsRequest: bool,
+    // exceptionBreakpointFilters: Vec<ExceptionBreakpointsFilter>,
+    supportsStepBack: bool,
+}
+
+impl Default for DebugCapability {
+    fn default() -> Self {
+        Self {
+            supportsConditionalBreakpoints: true,
+            supportsHitConditionalBreakpoints: true,
+            supportsLogPoints: true,
+            supportsCompletionsRequest: true,
+            supportTerminateDebuggee: true,
+            supportsDelayedStackTraceLoading: true,
+            supportsLoadedSourcesRequest: true,
+            supportsBreakpointLocationsRequest: true,
+            supportsStepBack: true,
+        }
+    }
+}
+
 impl DebugRequest {
     pub fn as_reply(&self) -> JupyterResult<Value> {
         match self.command.as_str() {
             "debugInfo" => DapResponse::success(self, DebugInfoResponseBody::default()),
+            "initialize" => DapResponse::success(self, DebugCapability::default()),
             "inspectVariables" => DapResponse::success(self, vec![InspectVariable::default(), InspectVariable::new("112233")]),
             "source" => Ok(Value::Null),
             "richInspectVariables" => {
