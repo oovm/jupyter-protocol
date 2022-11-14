@@ -101,36 +101,9 @@ impl Default for DebugInfoResponseBody {
     }
 }
 
-impl Default for InspectVariable {
-    fn default() -> Self {
-        Self { name: "name".to_string(), variablesReference: 0, value: "value".to_string(), r#type: "Integer".to_string() }
-    }
-}
-
-//         'variables' : [ # variables defined in the notebook.
-//             {
-//                 'name' : str,
-//                 'variablesReference' : int,
-//                 'value' : str,
-//                 'type' : str
-//             }
-//         ]
-#[derive(Clone, Debug, Serialize)]
-pub struct InspectVariables {
-    variables: Vec<InspectVariable>,
-}
-
 #[derive(Clone, Debug, Serialize)]
 pub struct DumpCell {
     sourcePath: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct InspectVariable {
-    name: String,
-    variablesReference: i32,
-    value: String,
-    r#type: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -206,32 +179,114 @@ impl<T> DapResponse<T> {
 }
 
 #[derive(Clone, Debug, Serialize)]
+struct ExceptionBreakpointFilter {
+    pub filter: String,
+    pub label: String,
+    pub default: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
 struct DebugCapability {
-    supportsConditionalBreakpoints: bool,
-    supportsHitConditionalBreakpoints: bool,
-    supportsLogPoints: bool,
-    supportsCompletionsRequest: bool,
-    supportTerminateDebuggee: bool,
-    supportsDelayedStackTraceLoading: bool,
-    supportsLoadedSourcesRequest: bool,
-    supportsBreakpointLocationsRequest: bool,
-    // exceptionBreakpointFilters: Vec<ExceptionBreakpointsFilter>,
-    supportsStepBack: bool,
+    #[serde(rename = "supportsCompletionsRequest")]
+    pub supports_completions_request: bool,
+    #[serde(rename = "supportsConditionalBreakpoints")]
+    pub supports_conditional_breakpoints: bool,
+    #[serde(rename = "supportsConfigurationDoneRequest")]
+    pub supports_configuration_done_request: bool,
+    #[serde(rename = "supportsDebuggerProperties")]
+    pub supports_debugger_properties: bool,
+    #[serde(rename = "supportsDelayedStackTraceLoading")]
+    pub supports_delayed_stack_trace_loading: bool,
+    #[serde(rename = "supportsEvaluateForHovers")]
+    pub supports_evaluate_for_hovers: bool,
+    #[serde(rename = "supportsExceptionInfoRequest")]
+    pub supports_exception_info_request: bool,
+    #[serde(rename = "supportsExceptionOptions")]
+    pub supports_exception_options: bool,
+    #[serde(rename = "supportsFunctionBreakpoints")]
+    pub supports_function_breakpoints: bool,
+    #[serde(rename = "supportsHitConditionalBreakpoints")]
+    pub supports_hit_conditional_breakpoints: bool,
+    #[serde(rename = "supportsLogPoints")]
+    pub supports_log_points: bool,
+    #[serde(rename = "supportsModulesRequest")]
+    pub supports_modules_request: bool,
+    #[serde(rename = "supportsSetExpression")]
+    pub supports_set_expression: bool,
+    #[serde(rename = "supportsSetVariable")]
+    pub supports_set_variable: bool,
+    #[serde(rename = "supportsValueFormattingOptions")]
+    pub supports_value_formatting_options: bool,
+    #[serde(rename = "supportsTerminateDebuggee")]
+    pub supports_terminate_debuggee: bool,
+    #[serde(rename = "supportsGotoTargetsRequest")]
+    pub supports_goto_targets_request: bool,
+    #[serde(rename = "supportsClipboardContext")]
+    pub supports_clipboard_context: bool,
+    #[serde(rename = "exceptionBreakpointFilters")]
+    pub exception_breakpoint_filters: Vec<ExceptionBreakpointFilter>,
+    #[serde(rename = "supportsStepInTargetsRequest")]
+    pub supports_step_in_targets_request: bool,
 }
 
 impl Default for DebugCapability {
     fn default() -> Self {
         Self {
-            supportsConditionalBreakpoints: true,
-            supportsHitConditionalBreakpoints: true,
-            supportsLogPoints: true,
-            supportsCompletionsRequest: true,
-            supportTerminateDebuggee: true,
-            supportsDelayedStackTraceLoading: true,
-            supportsLoadedSourcesRequest: true,
-            supportsBreakpointLocationsRequest: true,
-            supportsStepBack: true,
+            supports_completions_request: true,
+            supports_conditional_breakpoints: true,
+            supports_configuration_done_request: true,
+            supports_debugger_properties: true,
+            supports_delayed_stack_trace_loading: true,
+            supports_evaluate_for_hovers: true,
+            supports_exception_info_request: true,
+            supports_exception_options: true,
+            supports_function_breakpoints: true,
+            supports_hit_conditional_breakpoints: true,
+            supports_log_points: true,
+            supports_modules_request: true,
+            supports_set_expression: true,
+            supports_set_variable: true,
+            supports_value_formatting_options: true,
+            supports_terminate_debuggee: true,
+            supports_goto_targets_request: true,
+            supports_clipboard_context: true,
+            exception_breakpoint_filters: vec![],
+            supports_step_in_targets_request: true,
         }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct InspectVariable {
+    pub name: String,
+    pub value: String,
+    #[serde(rename = "type")]
+    pub typing: String,
+    #[serde(rename = "evaluateName")]
+    pub evaluate_name: String,
+    #[serde(rename = "variablesReference")]
+    pub variables_reference: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct DebugVariables {
+    pub variables: Vec<InspectVariable>,
+}
+impl Default for InspectVariable {
+    fn default() -> Self {
+        Self {
+            name: "variable name".to_string(),
+            value: "value".to_string(),
+            typing: "typing".to_string(),
+            evaluate_name: "?".to_string(),
+            variables_reference: 0,
+        }
+    }
+}
+
+impl Default for DebugVariables {
+    fn default() -> Self {
+        Self { variables: vec![InspectVariable::default(), InspectVariable::new("112233")] }
     }
 }
 
@@ -240,7 +295,7 @@ impl DebugRequest {
         match self.command.as_str() {
             "debugInfo" => DapResponse::success(self, DebugInfoResponseBody::default()),
             "initialize" => DapResponse::success(self, DebugCapability::default()),
-            "inspectVariables" => DapResponse::success(self, vec![InspectVariable::default(), InspectVariable::new("112233")]),
+            "inspectVariables" => DapResponse::success(self, DebugVariables::default()),
             "source" => Ok(Value::Null),
             "richInspectVariables" => {
                 DapResponse::success(self, RichInspectVariables { variableName: "variableName".to_string() })
