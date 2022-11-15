@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use crate::JupyterResult;
+use crate::{value_type::InspectVariable, JupyterKernelProtocol, JupyterResult};
 use serde::{
     de::{MapAccess, Visitor},
     ser::SerializeMap,
@@ -20,15 +20,8 @@ pub struct DebugRequest {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ModulesResponse {
-    pub modules: Vec<Module>,
+    pub modules: Vec<InspectModule>,
     pub totalModules: u32,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct Module {
-    pub id: u32,
-    pub name: String,
-    pub path: String,
 }
 
 #[derive(Clone, Debug)]
@@ -159,15 +152,6 @@ struct Variable {
     memoryReference: String,
 }
 
-impl InspectVariable {
-    pub fn new<T>(name: T) -> Self
-    where
-        T: Into<String>,
-    {
-        Self { name: name.into(), ..Self::default() }
-    }
-}
-
 impl<T> DapResponse<T> {
     pub fn success(request: &DebugRequest, body: T) -> JupyterResult<Value>
     where
@@ -257,45 +241,16 @@ impl Default for DebugCapability {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct InspectVariable {
-    pub name: String,
-    pub value: String,
-    #[serde(rename = "type")]
-    pub typing: String,
-    #[serde(rename = "evaluateName")]
-    pub evaluate_name: String,
-    #[serde(rename = "variablesReference")]
-    pub variables_reference: i64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
 struct DebugVariables {
     pub variables: Vec<InspectVariable>,
 }
-impl Default for InspectVariable {
-    fn default() -> Self {
-        Self {
-            name: "variable name".to_string(),
-            value: "value".to_string(),
-            typing: "typing".to_string(),
-            evaluate_name: "?".to_string(),
-            variables_reference: 0,
-        }
-    }
-}
-
-impl Default for DebugVariables {
-    fn default() -> Self {
-        Self { variables: vec![InspectVariable::default(), InspectVariable::new("112233")] }
-    }
-}
 
 impl DebugRequest {
-    pub fn as_reply(&self) -> JupyterResult<Value> {
+    pub fn as_reply<K: JupyterKernelProtocol>(&self, kernel: &K) -> JupyterResult<Value> {
         match self.command.as_str() {
             "debugInfo" => DapResponse::success(self, DebugInfoResponseBody::default()),
             "initialize" => DapResponse::success(self, DebugCapability::default()),
-            "inspectVariables" => DapResponse::success(self, DebugVariables::default()),
+            "inspectVariables" => DapResponse::success(self, DebugVariables { variables: kernel.inspect_variables(None) }),
             "source" => Ok(Value::Null),
             "richInspectVariables" => {
                 DapResponse::success(self, RichInspectVariables { variableName: "variableName".to_string() })
@@ -315,13 +270,9 @@ impl DebugRequest {
             ),
             "dumpCell" => DapResponse::success(self, DumpCell { sourcePath: "sourcePath".to_string() }),
             "modules" => {
-                let modules = vec![
-                    Module { id: 1, name: "name".to_string(), path: "path".to_string() },
-                    Module { id: 2, name: "111".to_string(), path: "222".to_string() },
-                ];
-                DapResponse::success(self, ModulesResponse { modules, totalModules: 2 })
+                let modules = kernel.inspect_modules();
+                DapResponse::success(self, ModulesResponse { modules, totalModules: modules.len() as u32 })
             }
-
             _ => {
                 tracing::error!("Unknown DAP command: {}", self.command);
                 Ok(Value::Null)

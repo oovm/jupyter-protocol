@@ -1,4 +1,7 @@
-use crate::{ExecutionReply, ExecutionRequest, ExecutionResult};
+use crate::{
+    value_type::{InspectModule, InspectVariable},
+    ExecutionReply, ExecutionRequest, ExecutionResult,
+};
 use async_trait::async_trait;
 use serde_json::Value;
 use tokio::sync::mpsc::UnboundedSender;
@@ -42,6 +45,19 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     fn running_time(&self, time: f64) -> String {
         format!("<sub>Elapsed time: {:.2} seconds.</sub>", time)
     }
+
+    /// Inspect the variables on right side.
+    fn inspect_variables(&self, parent: Option<&InspectVariable>) -> Vec<InspectVariable> {
+        vec![InspectVariable::default(), InspectVariable::new("112233")]
+    }
+
+    fn inspect_modules(&self) -> Vec<InspectModule> {
+        vec![
+            InspectModule { id: 1, name: "name".to_string(), path: "path".to_string() },
+            InspectModule { id: 2, name: "111".to_string(), path: "222".to_string() },
+        ]
+    }
+
     /// Bind the execution socket, recommended to use [JupyterKernelSockets](crate::JupyterKernelSockets).
     async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
         // sink socket, do nothing

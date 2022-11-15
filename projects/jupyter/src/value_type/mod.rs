@@ -6,6 +6,10 @@ pub use url::Url;
 mod for_image;
 #[cfg(feature = "mathml-core")]
 mod for_mathml;
+
+mod inspects;
+
+pub use self::inspects::{InspectModule, InspectVariable};
 use crate::{Executed, JupyterError, JupyterTheme};
 #[cfg(feature = "mathml-core")]
 pub use mathml_core::MathML;
