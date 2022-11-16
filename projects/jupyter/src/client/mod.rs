@@ -290,9 +290,8 @@ impl SealedServer {
             JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::DebugRequest => {
                 let debugged = request.recast::<DebugRequest>()?;
-                tracing::warn!("Parsed debug request: {:?}", debugged);
-                let reply = request.as_reply().with_content(debugged.as_reply()?)?;
-                reply.send_by(control).await?;
+                let result = debugged.as_reply(executor).await?;
+                request.as_reply().with_content(result)?.send_by(control).await?;
             }
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:#?}", v);

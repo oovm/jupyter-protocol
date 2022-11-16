@@ -1,5 +1,5 @@
 use super::*;
-use crate::ExecutionReply;
+use crate::{Executed, ExecutionReply, JupyterTheme};
 use serde::{ser::SerializeStruct, Serializer};
 use serde_json::Map;
 use std::collections::BTreeMap;
@@ -65,6 +65,16 @@ impl ExecutionRequest {
 }
 
 impl ExecutionResult {
+    /// Create a new execution result
+    pub fn new<T>(execute: &T) -> ExecutionResult
+    where
+        T: Executed + ?Sized,
+    {
+        let mut data = BTreeMap::new();
+        data.insert(execute.mime_type(), execute.as_json(JupyterTheme::Light));
+        Self { execution_count: 0, data, metadata: Default::default(), transient: Default::default() }
+    }
+
     /// Create a new execution result
     pub fn with_count(mut self, count: u32) -> ExecutionResult {
         self.execution_count = count;

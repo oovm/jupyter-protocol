@@ -1,6 +1,6 @@
 use crate::{
-    value_type::{InspectModule, InspectVariable},
-    ExecutionReply, ExecutionRequest, ExecutionResult,
+    value_type::{HtmlText, InspectModule, InspectVariable},
+    ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError,
 };
 use async_trait::async_trait;
 use serde_json::Value;
@@ -51,7 +51,20 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
         vec![InspectVariable::default(), InspectVariable::new("112233")]
     }
 
-    fn inspect_modules(&self) -> Vec<InspectModule> {
+    /// The render
+    ///
+    ///
+    /// FIXME: Change to `impl Executed` when stable.
+    fn inspect_details(&self, parent: &InspectVariable) -> Box<dyn Executed> {
+        Box::new(JupyterError::custom("`JupyterKernelProtocol::inspect_details` is not yet implemented."))
+    }
+
+    /// Query the currently loaded modules
+    ///
+    /// # Arguments
+    ///
+    /// * `total`: The number of modules to be loaded, 0 means unlimited.
+    fn inspect_modules(&self, total: usize) -> Vec<InspectModule> {
         vec![
             InspectModule { id: 1, name: "name".to_string(), path: "path".to_string() },
             InspectModule { id: 2, name: "111".to_string(), path: "222".to_string() },

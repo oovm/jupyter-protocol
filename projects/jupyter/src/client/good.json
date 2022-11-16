@@ -1,0 +1,35 @@
+{
+  "header": {
+    "msg_id": "bd51c2d1-fb35c7c89cc04d9d17fe375d_23056_108",
+    "msg_type": "debug_reply",
+    "username": "username",
+    "session": "bd51c2d1-fb35c7c89cc04d9d17fe375d",
+    "date": "2023-09-09T03:19:11.812887Z",
+    "version": "5.3"
+  },
+  "msg_id": "bd51c2d1-fb35c7c89cc04d9d17fe375d_23056_108",
+  "msg_type": "debug_reply",
+  "parent_header": {
+    "date": "2023-09-09T03:19:11.809000Z",
+    "msg_id": "258f5114-af5e-4f6d-b742-159b4874d037",
+    "msg_type": "debug_request",
+    "session": "5cdb3e63-8b24-4234-a79b-ac9b0a024f40",
+    "username": "",
+    "version": "5.2"
+  },
+  "metadata": {},
+  "content": {
+    "type": "response",
+    "sequence_seq": 44,
+    "success": true,
+    "command": "richInspectVariables",
+    "body": {
+      "data": {
+        "text/plain": "<function io.open(file, mode='r', buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None)>"
+      },
+      "metadata": {}
+    }
+  },
+  "buffers": [],
+  "channel": "control"
+}

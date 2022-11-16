@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InspectVariable {

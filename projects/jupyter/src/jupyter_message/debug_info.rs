@@ -1,13 +1,17 @@
 #![allow(non_snake_case)]
 
-use crate::{value_type::InspectVariable, JupyterKernelProtocol, JupyterResult};
+use crate::{
+    client::ExecuteProvider,
+    value_type::{InspectModule, InspectVariable},
+    ExecutionResult, JupyterKernelProtocol, JupyterResult, JupyterTheme,
+};
 use serde::{
     de::{MapAccess, Visitor},
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::{to_value, Value};
-use std::fmt::Formatter;
+use std::{collections::HashMap, fmt::Formatter, ops::Deref};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -21,7 +25,8 @@ pub struct DebugRequest {
 #[derive(Clone, Debug, Serialize)]
 pub struct ModulesResponse {
     pub modules: Vec<InspectModule>,
-    pub totalModules: u32,
+    #[serde(rename = "totalModules")]
+    pub total_modules: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -101,7 +106,8 @@ pub struct DumpCell {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct RichInspectVariables {
-    variableName: String,
+    data: HashMap<String, String>,
+    metadata: HashMap<String, String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -246,14 +252,19 @@ struct DebugVariables {
 }
 
 impl DebugRequest {
-    pub fn as_reply<K: JupyterKernelProtocol>(&self, kernel: &K) -> JupyterResult<Value> {
+    pub async fn as_reply<K: JupyterKernelProtocol>(&self, kernel: ExecuteProvider<K>) -> JupyterResult<Value> {
         match self.command.as_str() {
             "debugInfo" => DapResponse::success(self, DebugInfoResponseBody::default()),
             "initialize" => DapResponse::success(self, DebugCapability::default()),
-            "inspectVariables" => DapResponse::success(self, DebugVariables { variables: kernel.inspect_variables(None) }),
+            "inspectVariables" => {
+                let runner = kernel.context.lock().await;
+                DapResponse::success(self, DebugVariables { variables: runner.inspect_variables(None) })
+            }
             "source" => Ok(Value::Null),
             "richInspectVariables" => {
-                DapResponse::success(self, RichInspectVariables { variableName: "variableName".to_string() })
+                let runner = kernel.context.lock().await;
+                let result = runner.inspect_details(&InspectVariable::default());
+                DapResponse::success(self, ExecutionResult::new(result.deref()))
             }
             "variables" => DapResponse::success(
                 self,
@@ -270,11 +281,17 @@ impl DebugRequest {
             ),
             "dumpCell" => DapResponse::success(self, DumpCell { sourcePath: "sourcePath".to_string() }),
             "modules" => {
-                let modules = kernel.inspect_modules();
-                DapResponse::success(self, ModulesResponse { modules, totalModules: modules.len() as u32 })
+                let runner = kernel.context.lock().await;
+                let modules = runner.inspect_modules(0);
+                let total_modules = modules.len();
+                DapResponse::success(self, ModulesResponse { modules, total_modules })
+            }
+            "attach" => {
+                tracing::error!("Unimplemented DAP command: attach");
+                Ok(Value::Null)
             }
             _ => {
-                tracing::error!("Unknown DAP command: {}", self.command);
+                tracing::error!("Unknown DAP command: {}\n{:#?}", self.command, self.arguments);
                 Ok(Value::Null)
             }
         }
