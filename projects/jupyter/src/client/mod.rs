@@ -30,11 +30,12 @@ pub(crate) struct SealedServer {
 
 pub struct ExecuteProvider<T> {
     pub context: Arc<Mutex<T>>,
+    pub debugging: Arc<Mutex<bool>>,
 }
 
 impl<T> Clone for ExecuteProvider<T> {
     fn clone(&self) -> Self {
-        Self { context: self.context.clone() }
+        Self { context: self.context.clone(), debugging: Arc::new(Default::default()) }
     }
 }
 
@@ -43,7 +44,7 @@ impl<T> ExecuteProvider<T> {
     where
         T: JupyterKernelProtocol + 'static,
     {
-        Self { context: Arc::new(Mutex::new(context)) }
+        Self { context: Arc::new(Mutex::new(context)), debugging: Arc::new(Default::default()) }
     }
 }
 
@@ -287,12 +288,34 @@ impl SealedServer {
                 let cont = KernelInfoReply::build(info);
                 request.as_reply().with_content(cont)?.send_by(control).await?
             }
-            JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
+
             JupyterMessageType::DebugRequest => {
                 let debugged = request.recast::<DebugRequest>()?;
                 let result = debugged.as_reply(executor).await?;
                 request.as_reply().with_content(result)?.send_by(control).await?;
             }
+            JupyterMessageType::InterruptRequest => {
+                let runner = executor.context.lock().await;
+                match runner.interrupt_kernel() {
+                    Some(_) => {
+                        request
+                            .as_reply()
+                            .create_message(JupyterMessageType::StatusReply)
+                            .with_content("ok")?
+                            .send_by(control)
+                            .await?
+                    }
+                    None => {
+                        request
+                            .as_reply()
+                            .create_message(JupyterMessageType::StatusReply)
+                            .with_content("ok")?
+                            .send_by(control)
+                            .await?
+                    }
+                }
+            }
+            JupyterMessageType::ShutdownRequest => self.signal_shutdown().await,
             JupyterMessageType::Custom(v) => {
                 tracing::error!("Got unknown control message: {:#?}", v);
             }

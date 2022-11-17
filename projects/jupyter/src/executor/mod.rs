@@ -47,8 +47,15 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     }
 
     /// Inspect the variables on right side.
+    ///
+    /// # Arguments
+    ///
+    /// - `parent`: The variable name or address that needs to be expanded.
+    ///   - If it is empty, it is a root query.
+    ///
+    /// # Examples
     fn inspect_variables(&self, parent: Option<&InspectVariable>) -> Vec<InspectVariable> {
-        vec![InspectVariable::default(), InspectVariable::new("112233")]
+        vec![InspectVariable::new("inspect_variables").with_value("Unimplemented", "null")]
     }
 
     /// The render
@@ -65,10 +72,19 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     ///
     /// * `total`: The number of modules to be loaded, 0 means unlimited.
     fn inspect_modules(&self, total: usize) -> Vec<InspectModule> {
-        vec![
-            InspectModule { id: 1, name: "name".to_string(), path: "path".to_string() },
-            InspectModule { id: 2, name: "111".to_string(), path: "222".to_string() },
-        ]
+        vec![InspectModule {
+            id: 0,
+            name: "inspect_modules".to_string(),
+            path: "JupyterKernelProtocol::inspect_modules".to_string(),
+        }]
+    }
+
+    fn inspect_sources(&self) -> String {
+        "`JupyterKernelProtocol::inspect_sources` is not yet implemented.".to_string()
+    }
+
+    fn interrupt_kernel(&self) -> Option<String> {
+        None
     }
 
     /// Bind the execution socket, recommended to use [JupyterKernelSockets](crate::JupyterKernelSockets).

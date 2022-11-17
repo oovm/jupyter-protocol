@@ -11,7 +11,11 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::{to_value, Value};
-use std::{collections::HashMap, fmt::Formatter, ops::Deref};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Formatter,
+    ops::Deref,
+};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -53,7 +57,7 @@ impl<T: Serialize> Serialize for DapResponse<T> {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct DebugInfoResponseBody {
+pub struct DebugInfoResponse {
     /// whether the debugger is started
     isStarted: bool,
     /// the hash method for code cell. Default is 'Murmur2'
@@ -74,6 +78,12 @@ pub struct DebugInfoResponseBody {
     exceptionPaths: Vec<String>,
 }
 
+impl DebugInfoResponse {
+    pub fn new(start: bool) -> DebugInfoResponse {
+        Self { isStarted: start, ..Default::default() }
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct SourceBreakpoints {
     source: String,
@@ -83,7 +93,7 @@ pub struct SourceBreakpoints {
 #[derive(Clone, Debug, Serialize)]
 pub struct Breakpoint {}
 
-impl Default for DebugInfoResponseBody {
+impl Default for DebugInfoResponse {
     fn default() -> Self {
         Self {
             isStarted: false,
@@ -250,35 +260,52 @@ impl Default for DebugCapability {
 struct DebugVariables {
     pub variables: Vec<InspectVariable>,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DebugSource {
+    content: String,
+}
 
 impl DebugRequest {
     pub async fn as_reply<K: JupyterKernelProtocol>(&self, kernel: ExecuteProvider<K>) -> JupyterResult<Value> {
         match self.command.as_str() {
-            "debugInfo" => DapResponse::success(self, DebugInfoResponseBody::default()),
+            "debugInfo" => {
+                let mut start = kernel.debugging.lock().await;
+                if *start {
+                    DapResponse::success(self, DebugInfoResponse::new(true))
+                }
+                else {
+                    *start = true;
+                    DapResponse::success(self, DebugInfoResponse::new(false))
+                }
+            }
             "initialize" => DapResponse::success(self, DebugCapability::default()),
             "inspectVariables" => {
                 let runner = kernel.context.lock().await;
                 DapResponse::success(self, DebugVariables { variables: runner.inspect_variables(None) })
             }
-            "source" => Ok(Value::Null),
+            "source" => {
+                let runner = kernel.context.lock().await;
+                let content = runner.inspect_sources();
+                DapResponse::success(self, DebugSource { content })
+            }
             "richInspectVariables" => {
                 let runner = kernel.context.lock().await;
                 let result = runner.inspect_details(&InspectVariable::default());
                 DapResponse::success(self, ExecutionResult::new(result.deref()))
             }
-            "variables" => DapResponse::success(
-                self,
-                vec![Variable {
-                    name: "name".to_string(),
-                    value: "value".to_string(),
-                    r#type: "type".to_string(),
-                    evaluateName: "evaluateName".to_string(),
-                    variablesReference: 11,
-                    namedVariables: 22,
-                    indexedVariables: 33,
-                    memoryReference: "memoryReference".to_string(),
-                }],
-            ),
+            // "variables" => DapResponse::success(
+            //     self,
+            //     vec![Variable {
+            //         name: "name".to_string(),
+            //         value: "value".to_string(),
+            //         r#type: "type".to_string(),
+            //         evaluateName: "evaluateName".to_string(),
+            //         variablesReference: 11,
+            //         namedVariables: 22,
+            //         indexedVariables: 33,
+            //         memoryReference: "memoryReference".to_string(),
+            //     }],
+            // ),
             "dumpCell" => DapResponse::success(self, DumpCell { sourcePath: "sourcePath".to_string() }),
             "modules" => {
                 let runner = kernel.context.lock().await;
@@ -288,7 +315,7 @@ impl DebugRequest {
             }
             "attach" => {
                 tracing::error!("Unimplemented DAP command: attach");
-                Ok(Value::Null)
+                DapResponse::success(self, "")
             }
             _ => {
                 tracing::error!("Unknown DAP command: {}\n{:#?}", self.command, self.arguments);
