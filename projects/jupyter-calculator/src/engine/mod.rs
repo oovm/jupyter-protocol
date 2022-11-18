@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use num::traits::FloatErrorKind;
 
 pub trait ElementaryAlgebra {

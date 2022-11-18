@@ -1,9 +1,4 @@
-use crate::{Executed, ExecutionResult, JupyterError, JupyterResult, JupyterTheme};
-use std::{
-    fmt::{Debug, Formatter},
-    sync::Arc,
-};
-use tokio::sync::{mpsc::UnboundedSender, Mutex};
+use super::*;
 
 /// The sockets for Jupyter kernel.
 pub struct JupyterKernelSockets {
@@ -43,7 +38,7 @@ impl JupyterKernelSockets {
         }
     }
     async fn try_send_executed(&self, executed: impl Executed) -> JupyterResult<()> {
-        let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_json(JupyterTheme::Light));
+        let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_json(&JupyterContext::default()));
         self.send_executed_result(data).await
     }
     /// Send an execution result.

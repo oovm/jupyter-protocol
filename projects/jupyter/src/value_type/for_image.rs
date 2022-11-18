@@ -1,4 +1,4 @@
-use crate::{Executed, JupyterTheme};
+use crate::{value_type::JupyterContext, Executed};
 use image::{codecs::png::PngEncoder, ColorType, DynamicImage, ImageEncoder, RgbaImage};
 use serde_json::Value;
 
@@ -10,7 +10,7 @@ impl Executed for RgbaImage {
     }
 
     #[allow(deprecated)]
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         let mut buf = Vec::new();
         let writer = PngEncoder::new(&mut buf);
         writer.write_image(self.as_raw(), self.width(), self.height(), ColorType::Rgba8).unwrap();
@@ -28,7 +28,7 @@ impl Executed for DynamicImage {
         "text/html".to_string()
     }
 
-    fn as_json(&self, theme: JupyterTheme) -> Value {
-        self.to_rgba8().as_json(theme)
+    fn as_json(&self, context: &JupyterContext) -> Value {
+        self.to_rgba8().as_json(context)
     }
 }

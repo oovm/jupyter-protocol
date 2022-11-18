@@ -1,35 +1,31 @@
+pub mod execution_reply;
+pub mod sockets;
+
 use crate::{
-    value_type::{HtmlText, InspectModule, InspectVariable},
-    ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError,
+    value_type::{InspectModule, InspectVariable, JupyterContext},
+    ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError, JupyterResult,
 };
 use async_trait::async_trait;
 use serde_json::Value;
-use tokio::sync::mpsc::UnboundedSender;
-
-pub mod execution_reply;
-pub mod sockets;
+use std::{
+    fmt::{Debug, Formatter},
+    sync::Arc,
+};
+use tokio::sync::{mpsc::UnboundedSender, Mutex};
 
 /// A executed result that can be render in jupyter notebook.
 pub trait Executed: Send {
     /// The mime type of the result.
     fn mime_type(&self) -> String;
     /// Convert the result to json.
-    fn as_json(&self, theme: JupyterTheme) -> Value;
-}
-
-/// The theme of the Jupyter notebook
-#[derive(Copy, Debug, Clone)]
-pub enum JupyterTheme {
-    /// Light theme
-    Light,
-    /// Dark theme
-    Dark,
+    fn as_json(&self, context: &JupyterContext) -> Value;
 }
 
 /// The protocol of the kernel
 #[async_trait]
 #[allow(unused_variables)]
 pub trait JupyterKernelProtocol: Send + Sync + 'static {
+    /// Get the language info of the kernel.
     fn language_info(&self) -> LanguageInfo;
 
     /// since Generator is not stable, we use sender instead
@@ -79,10 +75,19 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
         }]
     }
 
+    /// Query the currently loaded modules
+    ///
+    /// # Arguments
+    ///
+    /// * `total`: The number of modules to be loaded, 0 means unlimited.
     fn inspect_sources(&self) -> String {
         "`JupyterKernelProtocol::inspect_sources` is not yet implemented.".to_string()
     }
-
+    /// Query the currently loaded modules
+    ///
+    /// # Arguments
+    ///
+    /// * `total`: The number of modules to be loaded, 0 means unlimited.
     fn interrupt_kernel(&self) -> Option<String> {
         None
     }

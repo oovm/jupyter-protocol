@@ -1,8 +1,4 @@
 use super::*;
-use crate::{Executed, ExecutionReply, JupyterTheme};
-use serde::{ser::SerializeStruct, Serializer};
-use serde_json::Map;
-use std::collections::BTreeMap;
 
 /// The result of executing code
 #[derive(Clone, Debug)]
@@ -71,7 +67,7 @@ impl ExecutionResult {
         T: Executed + ?Sized,
     {
         let mut data = BTreeMap::new();
-        data.insert(execute.mime_type(), execute.as_json(JupyterTheme::Light));
+        data.insert(execute.mime_type(), execute.as_json(&JupyterContext::default()));
         Self { execution_count: 0, data, metadata: Default::default(), transient: Default::default() }
     }
 

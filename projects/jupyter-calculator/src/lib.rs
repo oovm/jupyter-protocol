@@ -1,16 +1,15 @@
+mod engine;
+mod values;
+
+pub use crate::engine::{ElementaryAlgebra, Evaluator, Printer, SqrtAlgebra};
 use crate::values::{test_json, test_mathml, test_png, test_url};
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
-    async_trait, value_type::InspectVariable, Executed, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction,
-    JupyterKernelProtocol, JupyterKernelSockets, JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender,
-    UninstallAction, Value,
+    async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
+    JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction,
 };
 use jupyter_derive::{include_png32, include_png64};
 use std::path::PathBuf;
-
-mod values;
-pub use crate::engine::{ElementaryAlgebra, Evaluator, Printer, SqrtAlgebra};
-mod engine;
 
 pub struct CalculatorContext {
     sockets: JupyterKernelSockets,

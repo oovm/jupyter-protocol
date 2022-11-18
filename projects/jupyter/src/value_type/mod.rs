@@ -7,10 +7,14 @@ mod for_image;
 #[cfg(feature = "mathml-core")]
 mod for_mathml;
 
+mod execute;
 mod inspects;
 
-pub use self::inspects::{InspectModule, InspectVariable};
-use crate::{Executed, JupyterError, JupyterTheme};
+pub use self::{
+    execute::{JupyterContext, JupyterTheme},
+    inspects::{InspectModule, InspectVariable},
+};
+use crate::{Executed, JupyterError};
 #[cfg(feature = "mathml-core")]
 pub use mathml_core::MathML;
 use serde_json::Value;
@@ -46,7 +50,7 @@ impl Executed for HtmlText {
         "text/html".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         self.text.clone().into()
     }
 }
@@ -56,7 +60,7 @@ impl Executed for JupyterError {
         "application/vnd.jupyter.stderr".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(self.to_string())
     }
 }
@@ -66,7 +70,7 @@ impl Executed for bool {
         "text/plain".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         // bool not support in Jupyter
         Value::String(self.to_string())
     }
@@ -77,7 +81,7 @@ impl Executed for String {
         "text/plain".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         self.clone().into()
     }
 }
@@ -86,7 +90,7 @@ impl Executed for char {
     fn mime_type(&self) -> String {
         "text/plain".to_string()
     }
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(self.to_string())
     }
 }
@@ -95,7 +99,7 @@ impl<'a> Executed for &'a str {
     fn mime_type(&self) -> String {
         "text/plain".to_string()
     }
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         self.to_string().into()
     }
 }
@@ -105,7 +109,7 @@ impl Executed for Value {
         "application/json".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         self.clone()
     }
 }
@@ -116,7 +120,7 @@ impl Executed for Url {
         "text/html".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(format!(r#"<a href="{}">{}</a>"#, self, self))
     }
 }
@@ -126,7 +130,7 @@ impl Executed for i32 {
         "text/plain".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         // number not support in Jupyter
         Value::String(self.to_string())
     }
@@ -137,7 +141,7 @@ impl Executed for f64 {
         "text/plain".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(self.to_string())
     }
 }
@@ -147,7 +151,7 @@ impl Executed for LatexText {
         "text/latex".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(self.text.clone())
     }
 }
@@ -160,7 +164,7 @@ impl Executed for MathML {
         "text/html".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(self.to_string())
     }
 }
@@ -171,7 +175,7 @@ impl Executed for Document {
         "image/svg+xml".to_string()
     }
 
-    fn as_json(&self, _: JupyterTheme) -> Value {
+    fn as_json(&self, _: &JupyterContext) -> Value {
         Value::String(self.to_string())
     }
 }

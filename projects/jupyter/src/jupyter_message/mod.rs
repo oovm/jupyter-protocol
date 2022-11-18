@@ -1,25 +1,3 @@
-pub use self::{common_info::CommonInfoRequest, debug_info::DebugRequest, execute::ExecutionResult};
-use crate::{
-    connection::{Connection, HmacSha256},
-    errors::JupyterError,
-    JupyterResult,
-};
-use bytes::Bytes;
-use chrono::{DateTime, Utc};
-use generic_array::GenericArray;
-use hmac::Mac;
-use serde::{de::DeserializeOwned, ser::SerializeMap, Deserialize, Serialize, Serializer};
-use serde_json::{from_slice, from_value, to_value, to_vec, Value};
-use std::{
-    fmt,
-    fmt::{Debug, Display, Formatter},
-    str::FromStr,
-    sync::Arc,
-    {self},
-};
-use tokio::sync::Mutex;
-use uuid::Uuid;
-use zeromq::{SocketRecv, SocketSend};
 mod common_info;
 mod debug_info;
 mod der;
@@ -29,7 +7,41 @@ mod kernel_info;
 mod message_type;
 mod ser;
 mod shutdown;
-pub use self::{execute::ExecutionRequest, kernel_info::KernelInfoReply, message_type::JupyterMessageType};
+
+pub use self::{
+    common_info::CommonInfoRequest,
+    debug_info::DebugRequest,
+    execute::{ExecutionRequest, ExecutionResult},
+    kernel_info::KernelInfoReply,
+    message_type::JupyterMessageType,
+};
+use crate::{
+    connection::{Connection, HmacSha256},
+    errors::JupyterError,
+    value_type::JupyterContext,
+    Executed, ExecutionReply, JupyterResult,
+};
+use bytes::Bytes;
+use chrono::{DateTime, Utc};
+use generic_array::GenericArray;
+use hmac::Mac;
+use serde::{
+    de::DeserializeOwned,
+    ser::{SerializeMap, SerializeStruct},
+    Deserialize, Serialize, Serializer,
+};
+use serde_json::{from_slice, from_value, to_value, to_vec, Map, Value};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    fmt::{Debug, Display, Formatter},
+    str::FromStr,
+    sync::Arc,
+    {self},
+};
+use tokio::sync::Mutex;
+use uuid::Uuid;
+use zeromq::{SocketRecv, SocketSend};
 
 struct RawMessage {
     zmq_identities: Vec<Bytes>,
@@ -142,6 +154,7 @@ impl Default for JupyterMessageHeader {
 
 const DELIMITER: &[u8] = b"<IDS|MSG>";
 
+#[allow(unused)]
 impl JupyterMessage {
     pub(crate) async fn read<S: SocketRecv>(connection: &mut Connection<S>) -> JupyterResult<JupyterMessage> {
         Self::from_raw_message(RawMessage::read(connection).await?)

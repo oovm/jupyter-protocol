@@ -23,7 +23,7 @@ pub use crate::{
     executor::{
         execution_reply::{ExecutionPayload, ExecutionReply},
         sockets::JupyterKernelSockets,
-        Executed, JupyterKernelProtocol, JupyterTheme, LanguageInfo,
+        Executed, JupyterKernelProtocol, LanguageInfo,
     },
     jupyter_message::{ExecutionRequest, ExecutionResult},
 };

@@ -10,10 +10,12 @@ pub struct CommonInfoReply {
     success: bool,
 }
 
+#[allow(unused)]
 impl CommonInfoRequest {
     pub fn as_reply(&self) -> CommonInfoReply {
         CommonInfoReply { success: true }
     }
+
     pub fn as_error(&self) -> CommonInfoReply {
         CommonInfoReply { success: false }
     }

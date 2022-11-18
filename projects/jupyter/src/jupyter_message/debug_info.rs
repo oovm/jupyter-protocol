@@ -3,7 +3,7 @@
 use crate::{
     client::ExecuteProvider,
     value_type::{InspectModule, InspectVariable},
-    ExecutionResult, JupyterKernelProtocol, JupyterResult, JupyterTheme,
+    ExecutionResult, JupyterKernelProtocol, JupyterResult,
 };
 use serde::{
     de::{MapAccess, Visitor},
@@ -11,11 +11,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::{to_value, Value};
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Formatter,
-    ops::Deref,
-};
+use std::{collections::HashMap, fmt::Formatter, ops::Deref};
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]

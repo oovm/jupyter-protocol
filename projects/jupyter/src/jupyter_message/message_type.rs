@@ -1,5 +1,6 @@
 use super::*;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum JupyterMessageType {
     /// - [status](https://jupyter-client.readthedocs.io/en/stable/messaging.html#status)

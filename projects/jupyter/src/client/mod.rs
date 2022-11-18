@@ -2,7 +2,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupyterMessage, JupyterMessageType},
-    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, ExecutionState, JupyterKernelProtocol, KernelInfoReply,
+    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, JupyterKernelProtocol, KernelInfoReply,
 };
 
 use crate::commands::start::KernelControl;
@@ -16,6 +16,7 @@ use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend,
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
 #[derive(Clone)]
+#[allow(unused)]
 pub(crate) struct SealedServer {
     heartbeat: Arc<Mutex<Connection<RepSocket>>>,
     iopub: Arc<Mutex<Connection<PubSocket>>>,
