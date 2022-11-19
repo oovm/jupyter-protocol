@@ -1,6 +1,6 @@
 [package]
 name = "jupyter"
-version = "0.1.10"
+version = "0.1.11"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
@@ -14,29 +14,29 @@ edition = "2021"
 exclude = ["third_party/.ipynb_checkpoints/"]
 
 [dependencies]
-clap = "4.2.7"
-clap_derive = "4.2.0"
-serde = { version = "1.0.163", features = ["derive"] }
-serde_json = "1.0.96"
-url = { version = "2.3.1", optional = true }
-bytes = "1.4.0"
-tokio = "1.28.1"
-uuid = { version = "1.3.3", features = ["v4", "serde"] }
+clap = "4.4.2"
+clap_derive = "4.4.2"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.105"
+url = { version = "2.4.1", optional = true }
+bytes = "1.5.0"
+tokio = "1.32.0"
+uuid = { version = "1.4.1", features = ["v4", "serde"] }
 hmac = "0.12.1"
-sha2 = "0.10.6"
+sha2 = "0.10.7"
 hex = "0.4.3"
 dirs = "5.0.1"
-chrono = { version = "0.4.24", features = ["serde"] }
+chrono = { version = "0.4.30", features = ["serde"] }
 unicode-segmentation = "1.10.1"
 generic-array = "0.14.7"
 crossbeam-channel = "0.5.8"
 #syntax-error = "0.0.4"
 tracing = "0.1.37"
-async-trait = "0.1.68"
-mathml-core = { version = "0.1.5", optional = true }
+async-trait = "0.1.73"
+mathml-core = { version = "0.1.6", optional = true }
 svg = { version = "0.13.1", optional = true }
-base64 = { version = "0.21.0", optional = true }
-image = { version = "0.24.6", default-features = false, features = ["png"], optional = true }
+base64 = { version = "0.21.3", optional = true }
+image = { version = "0.24.7", default-features = false, features = ["png"], optional = true }
 zeromq = { version = "0.3.3", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 
 [features]

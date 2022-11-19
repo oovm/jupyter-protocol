@@ -11,16 +11,16 @@ edition = "2021"
 exclude = []
 
 [dependencies]
-num = "0.4.0"
-toml = "0.7.3"
-clap = "4.2.7"
-clap_derive = "4.2.0"
-mathml-core = "0.1.5"
+num = "0.4.1"
+toml = "0.7.7"
+clap = "4.4.2"
+clap_derive = "4.4.2"
+mathml-core = "0.1.6"
 mathml-latex = "0.0.3"
 svg = "0.13.1"
 tracing-subscriber = "0.3.17"
-image = "0.24.6"
-base64 = "0.21.0"
+image = "0.24.7"
+base64 = "0.21.3"
 
 [dependencies.jupyter]
 version = "*"
