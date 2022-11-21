@@ -5,8 +5,9 @@ pub use crate::engine::{ElementaryAlgebra, Evaluator, Printer, SqrtAlgebra};
 use crate::values::{test_json, test_mathml, test_png, test_url};
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
-    async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
-    JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction,
+    async_trait, value_type::InspectVariable, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction,
+    JupyterKernelProtocol, JupyterKernelSockets, JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender,
+    UninstallAction,
 };
 use jupyter_derive::{include_png32, include_png64};
 use std::path::PathBuf;
@@ -42,6 +43,14 @@ impl JupyterKernelProtocol for CalculatorContext {
     }
     fn running_time(&self, _: f64) -> String {
         String::new()
+    }
+
+    fn inspect_variables(&self, _: Option<&InspectVariable>) -> Vec<InspectVariable> {
+        vec![
+            InspectVariable::new("test1").with_value("Any", "null"),
+            InspectVariable::new("test2").with_value("Any", "null"),
+            InspectVariable::new("test3").with_value("Any", "null"),
+        ]
     }
 
     // fn inspect_details(&self, parent: &InspectVariable) -> Box<dyn Executed> {

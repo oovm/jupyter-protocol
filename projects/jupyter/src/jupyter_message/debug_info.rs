@@ -10,7 +10,7 @@ use serde::{
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use serde_json::{to_value, Value};
+use serde_json::{to_value, Error, Value};
 use std::{collections::HashMap, fmt::Formatter, ops::Deref};
 use uuid::Uuid;
 
@@ -181,7 +181,7 @@ struct ExceptionBreakpointFilter {
     pub default: bool,
 }
 
-#[derive(Clone, Debug, Serialize)]
+// #[derive(Clone, Debug, Serialize)]
 struct DebugCapability {
     #[serde(rename = "supportsCompletionsRequest")]
     pub supports_completions_request: bool,
@@ -211,6 +211,10 @@ struct DebugCapability {
     pub supports_set_expression: bool,
     #[serde(rename = "supportsSetVariable")]
     pub supports_set_variable: bool,
+    /// Client supports the paging of variables.
+    #[serde(rename = "supportsVariablePaging")]
+    pub supports_variable_paging: bool,
+    /// The debug adapter supports a `format` attribute on the `stackTrace`, `variables`, and `evaluate` requests.
     #[serde(rename = "supportsValueFormattingOptions")]
     pub supports_value_formatting_options: bool,
     #[serde(rename = "supportsTerminateDebuggee")]
@@ -219,10 +223,10 @@ struct DebugCapability {
     pub supports_goto_targets_request: bool,
     #[serde(rename = "supportsClipboardContext")]
     pub supports_clipboard_context: bool,
-    #[serde(rename = "exceptionBreakpointFilters")]
-    pub exception_breakpoint_filters: Vec<ExceptionBreakpointFilter>,
     #[serde(rename = "supportsStepInTargetsRequest")]
     pub supports_step_in_targets_request: bool,
+    #[serde(rename = "exceptionBreakpointFilters")]
+    pub exception_breakpoint_filters: Vec<ExceptionBreakpointFilter>,
 }
 
 impl Default for DebugCapability {
@@ -246,8 +250,8 @@ impl Default for DebugCapability {
             supports_terminate_debuggee: true,
             supports_goto_targets_request: true,
             supports_clipboard_context: true,
-            exception_breakpoint_filters: vec![],
             supports_step_in_targets_request: true,
+            exception_breakpoint_filters: vec![],
         }
     }
 }
@@ -275,33 +279,37 @@ impl DebugRequest {
                 }
             }
             "initialize" => DapResponse::success(self, DebugCapability::default()),
+            // Root variable query event when first opened
             "inspectVariables" => {
                 let runner = kernel.context.lock().await;
                 DapResponse::success(self, DebugVariables { variables: runner.inspect_variables(None) })
             }
-            "source" => {
+            // Subquery event after manual click on variable
+            "variables" => {
                 let runner = kernel.context.lock().await;
-                let content = runner.inspect_sources();
-                DapResponse::success(self, DebugSource { content })
+                println!("inspectVariables: {}", self.arguments);
+                let variables = match InspectVariable::deserialize(&self.arguments) {
+                    Ok(o) => {
+                        println!("S: {:#?}", o);
+                        runner.inspect_variables(None)
+                    }
+                    Err(e) => {
+                        println!("E: {:#?}", e);
+                        runner.inspect_variables(None)
+                    }
+                };
+                DapResponse::success(self, DebugVariables { variables })
             }
             "richInspectVariables" => {
                 let runner = kernel.context.lock().await;
                 let result = runner.inspect_details(&InspectVariable::default());
                 DapResponse::success(self, ExecutionResult::new(result.deref()))
             }
-            // "variables" => DapResponse::success(
-            //     self,
-            //     vec![Variable {
-            //         name: "name".to_string(),
-            //         value: "value".to_string(),
-            //         r#type: "type".to_string(),
-            //         evaluateName: "evaluateName".to_string(),
-            //         variablesReference: 11,
-            //         namedVariables: 22,
-            //         indexedVariables: 33,
-            //         memoryReference: "memoryReference".to_string(),
-            //     }],
-            // ),
+            "source" => {
+                let runner = kernel.context.lock().await;
+                let content = runner.inspect_sources();
+                DapResponse::success(self, DebugSource { content })
+            }
             "dumpCell" => DapResponse::success(self, DumpCell { sourcePath: "sourcePath".to_string() }),
             "modules" => {
                 let runner = kernel.context.lock().await;
