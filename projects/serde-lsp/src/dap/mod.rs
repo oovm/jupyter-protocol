@@ -92,6 +92,12 @@ pub struct VariablesResponseBody {
     pub variables: Vec<Variable>,
 }
 
+impl<V: Into<Variable>> FromIterator<V> for VariablesResponseBody {
+    fn from_iter<T: IntoIterator<Item = V>>(iter: T) -> Self {
+        VariablesResponseBody { variables: iter.into_iter().map(|v| v.into()).collect() }
+    }
+}
+
 /// A Variable is a name/value pair.
 ///
 /// The type attribute is shown if space permits or when hovering over the variable’s name.
@@ -162,6 +168,43 @@ pub struct ModulesArguments {
     /// If `moduleCount` is not specified or 0, all modules are returned.
     #[serde(rename = "moduleCount")]
     count: Option<NonZeroUsize>,
+}
+#[derive(Clone, Debug, Serialize)]
+pub struct ModulesResponseBody {
+    pub modules: Vec<Module>,
+    #[serde(rename = "totalModules")]
+    pub total_modules: usize,
+}
+
+impl<M: Into<Module>> FromIterator<M> for ModulesResponseBody {
+    fn from_iter<T: IntoIterator<Item = M>>(iter: T) -> Self {
+        let mut out = ModulesResponseBody { modules: vec![], total_modules: 0 };
+        for m in iter.into_iter().map(|m| m.into()) {
+            out.modules.push(m);
+            out.total_modules += 1;
+        }
+        out
+    }
+}
+
+/// An identifier for a module.
+#[derive(Clone, Debug, Serialize)]
+pub struct Module {
+    /// The module's identifier.
+    pub id: u32,
+    /// The module's name.
+    pub name: String,
+    /// The module's path.
+    pub path: String,
+    /// True if the module is optimized.
+    #[serde(rename = "isOptimized")]
+    pub is_optimized: bool,
+    /// True if the module is considered 'user code' by a debugger that supports
+    /// 'Just My Code'.
+    #[serde(rename = "isUserCode")]
+    pub is_user_code: bool,
+    /// Version of Module.
+    pub version: String,
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]

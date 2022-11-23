@@ -11,7 +11,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use serde_json::{to_value, Value};
-use serde_lsp::dap::{DebugCapability, Variable, VariablesArguments, VariablesResponseBody};
+use serde_lsp::dap::{DebugCapability, Module, ModulesResponseBody, Variable, VariablesArguments, VariablesResponseBody};
 use std::{collections::HashMap, fmt::Formatter, ops::Deref};
 use uuid::Uuid;
 
@@ -21,13 +21,6 @@ pub struct DebugRequest {
     seq: u32,
     r#type: String,
     arguments: Value,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ModulesResponse {
-    pub modules: Vec<InspectModule>,
-    #[serde(rename = "totalModules")]
-    pub total_modules: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -148,7 +141,7 @@ impl DebugRequest {
             // Root variable query event when first opened
             "inspectVariables" => {
                 let runner = kernel.context.lock().await;
-                DapResponse::success(self, make_variables_response(runner.inspect_variables(None)))
+                DapResponse::success(self, VariablesResponseBody::from_iter(runner.inspect_variables(None)))
             }
             // Subquery event after manual click on variable
             "variables" => {
@@ -160,7 +153,7 @@ impl DebugRequest {
                     start: request.start,
                     limit: request.count,
                 }));
-                DapResponse::success(self, make_variables_response(variables))
+                DapResponse::success(self, VariablesResponseBody::from_iter(variables))
             }
             "richInspectVariables" => {
                 let runner = kernel.context.lock().await;
@@ -176,8 +169,7 @@ impl DebugRequest {
             "modules" => {
                 let runner = kernel.context.lock().await;
                 let modules = runner.inspect_modules(0);
-                let total_modules = modules.len();
-                DapResponse::success(self, ModulesResponse { modules, total_modules })
+                DapResponse::success(self, ModulesResponseBody::from_iter(modules))
             }
             "attach" => {
                 tracing::error!("Unimplemented DAP command: attach");
@@ -191,21 +183,32 @@ impl DebugRequest {
     }
 }
 
-fn make_variables_response(vars: Vec<InspectVariable>) -> VariablesResponseBody {
-    let mut variables = Vec::with_capacity(vars.len());
-    for var in vars {
-        variables.push(Variable {
-            name: var.name,
-            value: var.value,
-            typing: var.typing,
-            evaluate_name: "".to_string(),
-            variables_reference: var.id.map(|v| v.get()).unwrap_or(0),
-            named_variables: var.named_variables,
-            indexed_variables: var.indexed_variables,
-            memory_reference: format!("{:x}", var.memory_reference),
-        })
+impl From<InspectModule> for Module {
+    fn from(value: InspectModule) -> Self {
+        Module {
+            id: value.id,
+            name: value.name,
+            path: value.path,
+            is_optimized: false,
+            is_user_code: false,
+            version: "".to_string(),
+        }
     }
-    VariablesResponseBody { variables }
+}
+
+impl From<InspectVariable> for Variable {
+    fn from(value: InspectVariable) -> Self {
+        Variable {
+            name: value.name,
+            value: value.value,
+            typing: value.typing,
+            evaluate_name: "".to_string(),
+            variables_reference: value.id.map(|v| v.get()).unwrap_or(0),
+            named_variables: value.named_variables,
+            indexed_variables: value.indexed_variables,
+            memory_reference: format!("{:x}", value.memory_reference),
+        }
+    }
 }
 
 impl Default for DebugRequest {

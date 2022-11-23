@@ -7,7 +7,7 @@ homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-c
 repository = "https://github.com/oovm/jupyter-protocol"
 documentation = "https://docs.rs/jupyter-derive"
 readme = "readme.md"
-authors = ["The Evcxr Authors"]
+authors = ["Aster <192607617@qq.com>"]
 edition = "2021"
 exclude = []
 

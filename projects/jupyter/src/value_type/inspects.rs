@@ -1,4 +1,3 @@
-use serde::Serialize;
 use serde_lsp::dap::VariableFilter;
 use std::{fmt::Debug, num::NonZeroUsize};
 
@@ -63,17 +62,6 @@ pub struct InspectVariable {
     pub memory_reference: usize,
 }
 
-/// An identifier for a module.
-#[derive(Clone, Debug, Serialize)]
-pub struct InspectModule {
-    /// The module's identifier.
-    pub id: u32,
-    ///   The module's name.
-    pub name: String,
-    ///   The module's path.
-    pub path: String,
-}
-
 impl Default for InspectVariable {
     fn default() -> Self {
         Self {
@@ -86,6 +74,17 @@ impl Default for InspectVariable {
             memory_reference: 0,
         }
     }
+}
+
+/// Add module
+#[derive(Clone, Debug)]
+pub struct InspectModule {
+    /// The module's identifier.
+    pub id: u32,
+    /// The module's name.
+    pub name: String,
+    /// The module's path.
+    pub path: String,
 }
 
 impl InspectVariable {

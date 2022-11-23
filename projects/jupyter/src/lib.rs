@@ -11,7 +11,6 @@ mod commands;
 mod connection;
 mod errors;
 mod executor;
-pub mod helper;
 mod jupyter_message;
 pub mod value_type;
 
