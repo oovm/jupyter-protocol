@@ -1,0 +1,179 @@
+use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
+mod variables_arguments;
+
+pub use self::variables_arguments::VariablesArguments;
+
+#[derive(Clone, Debug, Serialize)]
+pub struct DebugCapability {
+    #[serde(rename = "supportsCompletionsRequest")]
+    pub supports_completions_request: bool,
+    #[serde(rename = "supportsConditionalBreakpoints")]
+    pub supports_conditional_breakpoints: bool,
+    #[serde(rename = "supportsConfigurationDoneRequest")]
+    pub supports_configuration_done_request: bool,
+    #[serde(rename = "supportsDebuggerProperties")]
+    pub supports_debugger_properties: bool,
+    #[serde(rename = "supportsDelayedStackTraceLoading")]
+    pub supports_delayed_stack_trace_loading: bool,
+    #[serde(rename = "supportsEvaluateForHovers")]
+    pub supports_evaluate_for_hovers: bool,
+    #[serde(rename = "supportsExceptionInfoRequest")]
+    pub supports_exception_info_request: bool,
+    #[serde(rename = "supportsExceptionOptions")]
+    pub supports_exception_options: bool,
+    #[serde(rename = "supportsFunctionBreakpoints")]
+    pub supports_function_breakpoints: bool,
+    #[serde(rename = "supportsHitConditionalBreakpoints")]
+    pub supports_hit_conditional_breakpoints: bool,
+    #[serde(rename = "supportsLogPoints")]
+    pub supports_log_points: bool,
+    #[serde(rename = "supportsModulesRequest")]
+    pub supports_modules_request: bool,
+    #[serde(rename = "supportsSetExpression")]
+    pub supports_set_expression: bool,
+    #[serde(rename = "supportsSetVariable")]
+    pub supports_set_variable: bool,
+    /// Client supports the paging of variables.
+    #[serde(rename = "supportsVariablePaging")]
+    pub supports_variable_paging: bool,
+    /// The debug adapter supports a `format` attribute on the `stackTrace`, `variables`, and `evaluate` requests.
+    #[serde(rename = "supportsValueFormattingOptions")]
+    pub supports_value_formatting_options: bool,
+    #[serde(rename = "supportsTerminateDebuggee")]
+    pub supports_terminate_debuggee: bool,
+    #[serde(rename = "supportsGotoTargetsRequest")]
+    pub supports_goto_targets_request: bool,
+    #[serde(rename = "supportsClipboardContext")]
+    pub supports_clipboard_context: bool,
+    #[serde(rename = "supportsStepInTargetsRequest")]
+    pub supports_step_in_targets_request: bool,
+    #[serde(rename = "exceptionBreakpointFilters")]
+    pub exception_breakpoint_filters: Vec<ExceptionBreakpointFilter>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ExceptionBreakpointFilter {
+    pub filter: String,
+    pub label: String,
+    pub default: bool,
+}
+
+impl Default for DebugCapability {
+    fn default() -> Self {
+        Self {
+            supports_completions_request: true,
+            supports_conditional_breakpoints: true,
+            supports_configuration_done_request: true,
+            supports_debugger_properties: true,
+            supports_delayed_stack_trace_loading: true,
+            supports_evaluate_for_hovers: true,
+            supports_exception_info_request: true,
+            supports_exception_options: true,
+            supports_function_breakpoints: true,
+            supports_hit_conditional_breakpoints: true,
+            supports_log_points: true,
+            supports_modules_request: true,
+            supports_set_expression: true,
+            supports_set_variable: true,
+            supports_variable_paging: true,
+            supports_value_formatting_options: true,
+            supports_terminate_debuggee: true,
+            supports_goto_targets_request: true,
+            supports_clipboard_context: true,
+            supports_step_in_targets_request: true,
+            exception_breakpoint_filters: vec![],
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct VariablesResponseBody {
+    pub variables: Vec<Variable>,
+}
+
+/// A Variable is a name/value pair.
+///
+/// The type attribute is shown if space permits or when hovering over the variable’s name.
+///
+/// The kind attribute is used to render additional properties of the variable, e.g. different icons can be used to indicate that a variable is public or private.
+///
+/// If the value is structured (has children), a handle is provided to retrieve the children with the variables request.
+///
+/// If the number of named or indexed children is large, the numbers should be returned via the namedVariables and indexedVariables attributes.
+///
+/// The client can use this information to present the children in a paged UI and fetch them in chunks.
+#[derive(Clone, Debug, Serialize)]
+pub struct Variable {
+    /// The variable's name.
+    pub name: String,
+    /// The variable's value.
+    /// This can be a multi-line text, e.g. for a function the body of a function.
+    /// For structured variables (which do not have a simple value), it is
+    /// recommended to provide a one-line representation of the structured object.
+    /// This helps to identify the structured object in the collapsed state when
+    /// its children are not yet visible.
+    /// An empty string can be used if no value should be shown in the UI.
+    pub value: String,
+    /// The type of the variable's value. Typically shown in the UI when hovering
+    /// over the value.
+    /// This attribute should only be returned by a debug adapter if the
+    /// corresponding capability `supportsVariableType` is true.
+    #[serde(rename = "type")]
+    pub typing: String,
+    /// The evaluate name of this variable which can be passed to the `evaluate`
+    /// request to fetch the variable's value.
+    #[serde(rename = "evaluateName")]
+    pub evaluate_name: String,
+    /// If `variablesReference` is > 0, the variable is structured and its children
+    /// can be retrieved by passing `variablesReference` to the `variables` request
+    /// as long as execution remains suspended. See 'Lifetime of Object References'
+    /// in the Overview section for details.
+    #[serde(rename = "variablesReference")]
+    pub variables_reference: usize,
+    /// The number of named child variables.
+    /// The client can use this information to present the children in a paged UI
+    /// and fetch them in chunks.
+    #[serde(rename = "namedVariables")]
+    pub named_variables: usize,
+    /// The number of indexed child variables.
+    /// The client can use this information to present the children in a paged UI
+    /// and fetch them in chunks.
+    #[serde(rename = "indexedVariables")]
+    pub indexed_variables: usize,
+    /// A memory reference to a location appropriate for this result.
+    /// For pointer type eval results, this is generally a reference to the
+    /// memory address contained in the pointer.
+    /// This attribute may be returned by a debug adapter if corresponding
+    /// capability `supportsMemoryReferences` is true.
+    #[serde(rename = "memoryReference")]
+    pub memory_reference: String,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct ModulesArguments {
+    /// The index of the first module to return.
+    ///
+    /// if omitted modules start at 0.
+    #[serde(rename = "startModule")]
+    start: usize,
+    /// The number of modules to return.
+    ///
+    /// If `moduleCount` is not specified or 0, all modules are returned.
+    #[serde(rename = "moduleCount")]
+    count: Option<NonZeroUsize>,
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VariableFilter {
+    Indexed,
+    Named,
+}
+
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ValueFormat {
+    /// Display the value in hex.
+    hex: Option<bool>,
+}

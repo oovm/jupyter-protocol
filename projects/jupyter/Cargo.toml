@@ -39,6 +39,10 @@ base64 = { version = "0.21.3", optional = true }
 image = { version = "0.24.7", default-features = false, features = ["png"], optional = true }
 zeromq = { version = "0.3.3", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 
+[dependencies.serde-lsp]
+version = "0.0.0"
+path = "../serde-lsp"
+
 [features]
 default = []
 image = ["dep:image", "base64"]

@@ -1,6 +1,6 @@
 [package]
 name = "serde-lsp"
-version = "0.0.2"
+version = "0.0.0"
 license = "MIT OR Apache-2.0"
 description = "Language Server Protocol via serde"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
@@ -11,12 +11,6 @@ authors = ["The Evcxr Authors"]
 edition = "2021"
 exclude = []
 
-# proc-macro crate
-[lib]
-proc-macro = true
-
 [dependencies]
-proc-macro2 = { version = "1.0.66" }
-syn = "2.0.31"
-quote = "1.0.33"
-image = "0.24.7"
+serde = { version = "1.0.188", features = ["derive"] }
+#serde_json = "1.0.105"

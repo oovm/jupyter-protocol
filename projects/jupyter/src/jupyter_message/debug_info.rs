@@ -10,7 +10,8 @@ use serde::{
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use serde_json::{to_value, Error, Map, Value};
+use serde_json::{to_value, Value};
+use serde_lsp::dap::{DebugCapability, Variable, VariablesArguments, VariablesResponseBody};
 use std::{collections::HashMap, fmt::Formatter, ops::Deref};
 use uuid::Uuid;
 
@@ -115,55 +116,6 @@ pub struct RichInspectVariables {
     data: HashMap<String, String>,
     metadata: HashMap<String, String>,
 }
-
-#[derive(Clone, Debug, Serialize)]
-struct Variable {
-    /// The variable's name.
-    name: String,
-    /// The variable's value.
-    /// This can be a multi-line text, e.g. for a function the body of a function.
-    /// For structured variables (which do not have a simple value), it is
-    /// recommended to provide a one-line representation of the structured object.
-    /// This helps to identify the structured object in the collapsed state when
-    /// its children are not yet visible.
-    /// An empty string can be used if no value should be shown in the UI.
-    value: String,
-    /// The type of the variable's value. Typically shown in the UI when hovering
-    /// over the value.
-    /// This attribute should only be returned by a debug adapter if the
-    /// corresponding capability `supportsVariableType` is true.
-    r#type: String,
-    //   /**
-    //    * Properties of a variable that can be used to determine how to render the
-    //    * variable in the UI.
-    //    */
-    //   presentationHint?: VariablePresentationHint;
-    /// The evaluatable name of this variable which can be passed to the `evaluate`
-    /// request to fetch the variable's value.
-    evaluateName: String,
-
-    /// If `variablesReference` is > 0, the variable is structured and its children
-    /// can be retrieved by passing `variablesReference` to the `variables` request
-    /// as long as execution remains suspended. See 'Lifetime of Object References'
-    /// in the Overview section for details.
-    variablesReference: u32,
-
-    /// The number of named child variables.
-    /// The client can use this information to present the children in a paged UI
-    /// and fetch them in chunks.
-    namedVariables: u32,
-
-    /// The number of indexed child variables.
-    /// The client can use this information to present the children in a paged UI
-    /// and fetch them in chunks.
-    indexedVariables: u32,
-    /// The memory reference for the variable if the variable represents executable
-    /// code, such as a function pointer.
-    /// This attribute is only required if the corresponding capability
-    /// `supportsMemoryReferences` is true.
-    memoryReference: String,
-}
-
 impl<T> DapResponse<T> {
     pub fn success(request: &DebugRequest, body: T) -> JupyterResult<Value>
     where
@@ -174,93 +126,6 @@ impl<T> DapResponse<T> {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
-struct ExceptionBreakpointFilter {
-    pub filter: String,
-    pub label: String,
-    pub default: bool,
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct DebugCapability {
-    #[serde(rename = "supportsCompletionsRequest")]
-    pub supports_completions_request: bool,
-    #[serde(rename = "supportsConditionalBreakpoints")]
-    pub supports_conditional_breakpoints: bool,
-    #[serde(rename = "supportsConfigurationDoneRequest")]
-    pub supports_configuration_done_request: bool,
-    #[serde(rename = "supportsDebuggerProperties")]
-    pub supports_debugger_properties: bool,
-    #[serde(rename = "supportsDelayedStackTraceLoading")]
-    pub supports_delayed_stack_trace_loading: bool,
-    #[serde(rename = "supportsEvaluateForHovers")]
-    pub supports_evaluate_for_hovers: bool,
-    #[serde(rename = "supportsExceptionInfoRequest")]
-    pub supports_exception_info_request: bool,
-    #[serde(rename = "supportsExceptionOptions")]
-    pub supports_exception_options: bool,
-    #[serde(rename = "supportsFunctionBreakpoints")]
-    pub supports_function_breakpoints: bool,
-    #[serde(rename = "supportsHitConditionalBreakpoints")]
-    pub supports_hit_conditional_breakpoints: bool,
-    #[serde(rename = "supportsLogPoints")]
-    pub supports_log_points: bool,
-    #[serde(rename = "supportsModulesRequest")]
-    pub supports_modules_request: bool,
-    #[serde(rename = "supportsSetExpression")]
-    pub supports_set_expression: bool,
-    #[serde(rename = "supportsSetVariable")]
-    pub supports_set_variable: bool,
-    /// Client supports the paging of variables.
-    #[serde(rename = "supportsVariablePaging")]
-    pub supports_variable_paging: bool,
-    /// The debug adapter supports a `format` attribute on the `stackTrace`, `variables`, and `evaluate` requests.
-    #[serde(rename = "supportsValueFormattingOptions")]
-    pub supports_value_formatting_options: bool,
-    #[serde(rename = "supportsTerminateDebuggee")]
-    pub supports_terminate_debuggee: bool,
-    #[serde(rename = "supportsGotoTargetsRequest")]
-    pub supports_goto_targets_request: bool,
-    #[serde(rename = "supportsClipboardContext")]
-    pub supports_clipboard_context: bool,
-    #[serde(rename = "supportsStepInTargetsRequest")]
-    pub supports_step_in_targets_request: bool,
-    #[serde(rename = "exceptionBreakpointFilters")]
-    pub exception_breakpoint_filters: Vec<ExceptionBreakpointFilter>,
-}
-
-impl Default for DebugCapability {
-    fn default() -> Self {
-        Self {
-            supports_completions_request: true,
-            supports_conditional_breakpoints: true,
-            supports_configuration_done_request: true,
-            supports_debugger_properties: true,
-            supports_delayed_stack_trace_loading: true,
-            supports_evaluate_for_hovers: true,
-            supports_exception_info_request: true,
-            supports_exception_options: true,
-            supports_function_breakpoints: true,
-            supports_hit_conditional_breakpoints: true,
-            supports_log_points: true,
-            supports_modules_request: true,
-            supports_set_expression: true,
-            supports_set_variable: true,
-            supports_variable_paging: true,
-            supports_value_formatting_options: true,
-            supports_terminate_debuggee: true,
-            supports_goto_targets_request: true,
-            supports_clipboard_context: true,
-            supports_step_in_targets_request: true,
-            exception_breakpoint_filters: vec![],
-        }
-    }
-}
-
-#[derive(Clone, Debug, Serialize)]
-struct DebugVariables {
-    pub variables: Vec<InspectVariable>,
-}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DebugSource {
     content: String,
@@ -283,14 +148,19 @@ impl DebugRequest {
             // Root variable query event when first opened
             "inspectVariables" => {
                 let runner = kernel.context.lock().await;
-                DapResponse::success(self, DebugVariables { variables: runner.inspect_variables(None) })
+                DapResponse::success(self, make_variables_response(runner.inspect_variables(None)))
             }
             // Subquery event after manual click on variable
             "variables" => {
-                let request = InspectVariableRequest::deserialize(&self.arguments)?;
+                let request = VariablesArguments::deserialize(&self.arguments)?;
                 let runner = kernel.context.lock().await;
-                let variables = runner.inspect_variables(Some(request));
-                DapResponse::success(self, DebugVariables { variables })
+                let variables = runner.inspect_variables(Some(InspectVariableRequest {
+                    id: request.variables_reference,
+                    filter: request.filter,
+                    start: request.start,
+                    limit: request.count,
+                }));
+                DapResponse::success(self, make_variables_response(variables))
             }
             "richInspectVariables" => {
                 let runner = kernel.context.lock().await;
@@ -319,6 +189,23 @@ impl DebugRequest {
             }
         }
     }
+}
+
+fn make_variables_response(vars: Vec<InspectVariable>) -> VariablesResponseBody {
+    let mut variables = Vec::with_capacity(vars.len());
+    for var in vars {
+        variables.push(Variable {
+            name: var.name,
+            value: var.value,
+            typing: var.typing,
+            evaluate_name: "".to_string(),
+            variables_reference: var.id.map(|v| v.get()).unwrap_or(0),
+            named_variables: var.named_variables,
+            indexed_variables: var.indexed_variables,
+            memory_reference: format!("{:x}", var.memory_reference),
+        })
+    }
+    VariablesResponseBody { variables }
 }
 
 impl Default for DebugRequest {

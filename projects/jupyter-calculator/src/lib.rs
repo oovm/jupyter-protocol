@@ -5,9 +5,10 @@ pub use crate::engine::{ElementaryAlgebra, Evaluator, Printer, SqrtAlgebra};
 use crate::values::{test_json, test_mathml, test_png, test_url};
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
-    async_trait, value_type::InspectVariable, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction,
-    JupyterKernelProtocol, JupyterKernelSockets, JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender,
-    UninstallAction,
+    async_trait,
+    value_type::{InspectVariable, InspectVariableRequest},
+    ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
+    JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction,
 };
 use jupyter_derive::{include_png32, include_png64};
 use std::path::PathBuf;
@@ -45,11 +46,11 @@ impl JupyterKernelProtocol for CalculatorContext {
         String::new()
     }
 
-    fn inspect_variables(&self, _: Option<&InspectVariable>) -> Vec<InspectVariable> {
+    fn inspect_variables(&self, _: Option<InspectVariableRequest>) -> Vec<InspectVariable> {
         vec![
-            InspectVariable::new("test1").with_value("Any", "null").with_address(1),
-            InspectVariable::new("test2").with_value("Any", "null").with_address(2),
-            InspectVariable::new("test3").with_value("Any", "null").with_address(3),
+            InspectVariable::new("test1").with_value("Any").with_key(1),
+            InspectVariable::new("test2").with_value("Any").with_key(2),
+            InspectVariable::new("test3").with_value("Any"),
         ]
     }
 

@@ -9,7 +9,6 @@ use async_trait::async_trait;
 use serde_json::Value;
 use std::{
     fmt::{Debug, Formatter},
-    num::NonZeroUsize,
     sync::Arc,
 };
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
@@ -52,7 +51,7 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     ///
     /// # Examples
     fn inspect_variables(&self, parent: Option<InspectVariableRequest>) -> Vec<InspectVariable> {
-        vec![InspectVariable::new("inspect_variables").with_value("Unimplemented", "null").with_key(1)]
+        vec![InspectVariable::new("inspect_variables").with_type("Unimplemented").with_key(1)]
     }
 
     /// The render
