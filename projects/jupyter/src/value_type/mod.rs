@@ -12,7 +12,7 @@ mod inspects;
 
 pub use self::{
     execute::{JupyterContext, JupyterTheme},
-    inspects::{InspectModule, InspectVariable},
+    inspects::{InspectModule, InspectVariable, InspectVariableRequest},
 };
 use crate::{Executed, JupyterError};
 #[cfg(feature = "mathml-core")]

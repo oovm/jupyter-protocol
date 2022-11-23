@@ -2,13 +2,14 @@ pub mod execution_reply;
 pub mod sockets;
 
 use crate::{
-    value_type::{InspectModule, InspectVariable, JupyterContext},
+    value_type::{InspectModule, InspectVariable, InspectVariableRequest, JupyterContext},
     ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError, JupyterResult,
 };
 use async_trait::async_trait;
 use serde_json::Value;
 use std::{
     fmt::{Debug, Formatter},
+    num::NonZeroUsize,
     sync::Arc,
 };
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
@@ -46,12 +47,12 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     ///
     /// # Arguments
     ///
-    /// - `parent`: The variable name or address that needs to be expanded.
+    /// - `parent`: The variable id provided previously, see [`InspectVariable::variables_reference`].
     ///   - If it is empty, it is a root query.
     ///
     /// # Examples
-    fn inspect_variables(&self, parent: Option<&InspectVariable>) -> Vec<InspectVariable> {
-        vec![InspectVariable::new("inspect_variables").with_value("Unimplemented", "null")]
+    fn inspect_variables(&self, parent: Option<InspectVariableRequest>) -> Vec<InspectVariable> {
+        vec![InspectVariable::new("inspect_variables").with_value("Unimplemented", "null").with_key(1)]
     }
 
     /// The render

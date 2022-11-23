@@ -47,9 +47,9 @@ impl JupyterKernelProtocol for CalculatorContext {
 
     fn inspect_variables(&self, _: Option<&InspectVariable>) -> Vec<InspectVariable> {
         vec![
-            InspectVariable::new("test1").with_value("Any", "null"),
-            InspectVariable::new("test2").with_value("Any", "null"),
-            InspectVariable::new("test3").with_value("Any", "null"),
+            InspectVariable::new("test1").with_value("Any", "null").with_address(1),
+            InspectVariable::new("test2").with_value("Any", "null").with_address(2),
+            InspectVariable::new("test3").with_value("Any", "null").with_address(3),
         ]
     }
 

@@ -2,7 +2,7 @@
 
 use crate::{
     client::ExecuteProvider,
-    value_type::{InspectModule, InspectVariable},
+    value_type::{InspectModule, InspectVariable, InspectVariableRequest},
     ExecutionResult, JupyterKernelProtocol, JupyterResult,
 };
 use serde::{
@@ -10,7 +10,7 @@ use serde::{
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
-use serde_json::{to_value, Error, Value};
+use serde_json::{to_value, Error, Map, Value};
 use std::{collections::HashMap, fmt::Formatter, ops::Deref};
 use uuid::Uuid;
 
@@ -181,7 +181,7 @@ struct ExceptionBreakpointFilter {
     pub default: bool,
 }
 
-// #[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct DebugCapability {
     #[serde(rename = "supportsCompletionsRequest")]
     pub supports_completions_request: bool,
@@ -246,6 +246,7 @@ impl Default for DebugCapability {
             supports_modules_request: true,
             supports_set_expression: true,
             supports_set_variable: true,
+            supports_variable_paging: true,
             supports_value_formatting_options: true,
             supports_terminate_debuggee: true,
             supports_goto_targets_request: true,
@@ -256,7 +257,7 @@ impl Default for DebugCapability {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 struct DebugVariables {
     pub variables: Vec<InspectVariable>,
 }
@@ -286,18 +287,9 @@ impl DebugRequest {
             }
             // Subquery event after manual click on variable
             "variables" => {
+                let request = InspectVariableRequest::deserialize(&self.arguments)?;
                 let runner = kernel.context.lock().await;
-                println!("inspectVariables: {}", self.arguments);
-                let variables = match InspectVariable::deserialize(&self.arguments) {
-                    Ok(o) => {
-                        println!("S: {:#?}", o);
-                        runner.inspect_variables(None)
-                    }
-                    Err(e) => {
-                        println!("E: {:#?}", e);
-                        runner.inspect_variables(None)
-                    }
-                };
+                let variables = runner.inspect_variables(Some(request));
                 DapResponse::success(self, DebugVariables { variables })
             }
             "richInspectVariables" => {
