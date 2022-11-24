@@ -2,12 +2,12 @@ mod engine;
 mod values;
 
 pub use crate::engine::{ElementaryAlgebra, Evaluator, Printer, SqrtAlgebra};
-use crate::values::{test_json, test_mathml, test_png, test_url};
+use crate::values::{test_array1, test_array2, test_json, test_mathml, test_png, test_url};
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
     async_trait,
     value_type::{InspectVariable, InspectVariableRequest},
-    ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
+    Executed, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
     JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction,
 };
 use jupyter_derive::{include_png32, include_png64};
@@ -40,6 +40,8 @@ impl JupyterKernelProtocol for CalculatorContext {
         self.sockets.send_executed(test_mathml()).await;
         // self.sockets.send_executed(test_svg()).await;
         self.sockets.send_executed(test_png()).await;
+        self.sockets.send_executed(test_array1()).await;
+        self.sockets.send_executed(test_array2()).await;
         ExecutionReply::new(true, code.execution_count)
     }
     fn running_time(&self, _: f64) -> String {
@@ -54,9 +56,9 @@ impl JupyterKernelProtocol for CalculatorContext {
         ]
     }
 
-    // fn inspect_details(&self, parent: &InspectVariable) -> Box<dyn Executed> {
-    //     Box::new(test_png())
-    // }
+    fn inspect_details(&self, _: &InspectVariable) -> Box<dyn Executed> {
+        Box::new(test_png())
+    }
     async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
         self.sockets.bind_execution_socket(sender).await
     }

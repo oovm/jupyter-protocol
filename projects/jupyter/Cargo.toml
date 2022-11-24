@@ -30,14 +30,16 @@ chrono = { version = "0.4.30", features = ["serde"] }
 unicode-segmentation = "1.10.1"
 generic-array = "0.14.7"
 crossbeam-channel = "0.5.8"
+zeromq = { version = "0.3.3", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 #syntax-error = "0.0.4"
 tracing = "0.1.37"
 async-trait = "0.1.73"
+# renderers support
+ndarray = { version = "0.15.6", optional = true }
 mathml-core = { version = "0.1.6", optional = true }
 svg = { version = "0.13.1", optional = true }
 base64 = { version = "0.21.3", optional = true }
-image = { version = "0.24.7", default-features = false, features = ["png"], optional = true }
-zeromq = { version = "0.3.3", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+image = { version = "0.24.7", optional = true, default-features = false, features = ["png"] }
 
 [dependencies.serde-lsp]
 version = "0.0.0"

@@ -2,7 +2,7 @@
 
 //! <https://github.com/gnestor/notebook/blob/master/notebook/static/notebook/js/outputarea.js#L260>
 use image::RgbaImage;
-use jupyter::value_type::{MathML, Url};
+use jupyter::value_type::{Array1, Array2, MathML, Url};
 use mathml_core::MathRoot;
 use mathml_latex::{parse_latex, LaTeXEngine};
 use std::str::FromStr;
@@ -34,4 +34,22 @@ pub fn test_json() -> jupyter::Value {
 pub fn test_png() -> RgbaImage {
     let data = include_bytes!("../../third_party/rust/rust-logo-32x32.png");
     image::load_from_memory(data).unwrap().to_rgba8()
+}
+
+pub fn test_array1() -> Array1<f64> {
+    let mut array = Array1::<f64>::zeros(10);
+    for i in 0..10 {
+        array[i] = i as f64;
+    }
+    array
+}
+
+pub fn test_array2() -> Array2<f64> {
+    let mut array = Array2::<f64>::zeros((10, 10));
+    for i in 0..10 {
+        for j in 0..10 {
+            array[[i, j]] = i as f64 + j as f64;
+        }
+    }
+    array
 }

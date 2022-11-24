@@ -6,6 +6,8 @@ pub use url::Url;
 mod for_image;
 #[cfg(feature = "mathml-core")]
 mod for_mathml;
+#[cfg(feature = "ndarray")]
+mod for_ndarray;
 
 mod execute;
 mod inspects;
@@ -17,6 +19,8 @@ pub use self::{
 use crate::{Executed, JupyterError};
 #[cfg(feature = "mathml-core")]
 pub use mathml_core::MathML;
+#[cfg(feature = "ndarray")]
+pub use ndarray::{Array1, Array2};
 use serde_json::Value;
 #[cfg(feature = "svg")]
 use svg::Document;
