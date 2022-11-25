@@ -5,6 +5,8 @@ use super::*;
 pub enum JupyterMessageType {
     /// - [status](https://jupyter-client.readthedocs.io/en/stable/messaging.html#status)
     StatusReply,
+    /// ???
+    Stream,
     /// - [comm_info_request](https://jupyter-client.readthedocs.io/en/stable/messaging.html#comm-info)
     CommonInfoRequest,
     /// - [comm_info_reply](https://jupyter-client.readthedocs.io/en/stable/messaging.html#comm-info)
@@ -54,22 +56,23 @@ impl FromStr for JupyterMessageType {
 impl AsRef<str> for JupyterMessageType {
     fn as_ref(&self) -> &str {
         match self {
-            JupyterMessageType::StatusReply => "status",
-            JupyterMessageType::KernelInfoRequest => "kernel_info_request",
-            JupyterMessageType::KernelInfoReply => "kernel_info_reply",
-            JupyterMessageType::CommonInfoRequest => "comm_info_request",
-            JupyterMessageType::CommonInfoReply => "comm_info_reply",
-            JupyterMessageType::ExecuteRequest => "execute_request",
-            JupyterMessageType::ExecuteResult => "execute_result",
-            JupyterMessageType::ExecuteReply => "execute_reply",
-            JupyterMessageType::DebugRequest => "debug_request",
-            JupyterMessageType::DebugReply => "debug_reply",
-            JupyterMessageType::DebugEvent => "debug_event",
-            JupyterMessageType::InterruptRequest => "interrupt_request",
-            JupyterMessageType::InterruptReply => "interrupt_reply",
-            JupyterMessageType::ShutdownRequest => "shutdown_request",
-            JupyterMessageType::ShutdownReply => "shutdown_reply",
-            JupyterMessageType::Custom(v) => v,
+            Self::StatusReply => "status",
+            Self::Stream => "stream",
+            Self::KernelInfoRequest => "kernel_info_request",
+            Self::KernelInfoReply => "kernel_info_reply",
+            Self::CommonInfoRequest => "comm_info_request",
+            Self::CommonInfoReply => "comm_info_reply",
+            Self::ExecuteRequest => "execute_request",
+            Self::ExecuteResult => "execute_result",
+            Self::ExecuteReply => "execute_reply",
+            Self::DebugRequest => "debug_request",
+            Self::DebugReply => "debug_reply",
+            Self::DebugEvent => "debug_event",
+            Self::InterruptRequest => "interrupt_request",
+            Self::InterruptReply => "interrupt_reply",
+            Self::ShutdownRequest => "shutdown_request",
+            Self::ShutdownReply => "shutdown_reply",
+            Self::Custom(v) => v,
         }
     }
 }

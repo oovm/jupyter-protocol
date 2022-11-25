@@ -111,10 +111,22 @@ impl RawMessage {
 #[derive(Clone, Debug)]
 pub struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
-    header: JupyterMessageHeader,
+    pub(crate) header: JupyterMessageHeader,
     parent_header: JupyterMessageHeader,
     metadata: Value,
     content: Value,
+}
+
+impl Default for JupyterMessage {
+    fn default() -> Self {
+        Self {
+            zmq_identities: Vec::new(),
+            header: JupyterMessageHeader::default(),
+            parent_header: JupyterMessageHeader::default(),
+            metadata: Value::default(),
+            content: Value::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

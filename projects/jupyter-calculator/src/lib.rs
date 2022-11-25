@@ -7,8 +7,8 @@ use clap_derive::{Parser, Subcommand};
 use jupyter::{
     async_trait,
     value_type::{InspectVariable, InspectVariableRequest},
-    Executed, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
-    JupyterResult, LanguageInfo, OpenAction, StartAction, UnboundedSender, UninstallAction,
+    Executed, ExecutionReply, ExecutionRequest, InstallAction, JupyterConnection, JupyterKernelProtocol, JupyterKernelSockets,
+    JupyterResult, JupyterStream, LanguageInfo, OpenAction, StartAction, UninstallAction,
 };
 use jupyter_derive::{include_png32, include_png64};
 use std::path::PathBuf;
@@ -29,19 +29,23 @@ impl JupyterKernelProtocol for CalculatorContext {
         info
     }
 
+    fn connected(&mut self, context: JupyterConnection) {
+        self.sockets = context.sockets;
+    }
+
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply {
-        self.sockets.send_executed(true).await;
-        self.sockets.send_executed(0).await;
-        self.sockets.send_executed(-std::f64::consts::PI).await;
-        self.sockets.send_executed('c').await;
-        self.sockets.send_executed("string").await;
-        self.sockets.send_executed(test_json()).await;
-        self.sockets.send_executed(test_url()).await;
-        self.sockets.send_executed(test_mathml()).await;
-        // self.sockets.send_executed(test_svg()).await;
-        self.sockets.send_executed(test_png()).await;
-        self.sockets.send_executed(test_array1()).await;
-        self.sockets.send_executed(test_array2()).await;
+        self.sockets.send_executed(true, code.execution_count, &code.header).await;
+        self.sockets.send_executed(0, code.execution_count + 1, &code.header).await;
+        self.sockets.send_executed(-std::f64::consts::PI, code.execution_count + 2, &code.header).await;
+        self.sockets.send_executed('c', code.execution_count + 3, &code.header).await;
+        self.sockets.send_executed("string", code.execution_count + 4, &code.header).await;
+        self.sockets.send_stream(JupyterStream::std_out("ok"), &code.header).await;
+        self.sockets.send_executed(test_json(), code.execution_count + 5, &code.header).await;
+        self.sockets.send_executed(test_url(), code.execution_count + 6, &code.header).await;
+        self.sockets.send_executed(test_mathml(), code.execution_count + 7, &code.header).await;
+        self.sockets.send_executed(test_png(), code.execution_count + 8, &code.header).await;
+        self.sockets.send_executed(test_array1(), code.execution_count + 9, &code.header).await;
+        self.sockets.send_executed(test_array2(), code.execution_count + 10, &code.header).await;
         ExecutionReply::new(true, code.execution_count)
     }
     fn running_time(&self, _: f64) -> String {
@@ -58,9 +62,6 @@ impl JupyterKernelProtocol for CalculatorContext {
 
     fn inspect_details(&self, _: &InspectVariable) -> Box<dyn Executed> {
         Box::new(test_png())
-    }
-    async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
-        self.sockets.bind_execution_socket(sender).await
     }
 }
 

@@ -2,6 +2,7 @@ pub mod execution_reply;
 pub mod sockets;
 
 use crate::{
+    executor::sockets::JupyterConnection,
     value_type::{InspectModule, InspectVariable, InspectVariableRequest, JupyterContext},
     ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError, JupyterResult,
 };
@@ -23,10 +24,14 @@ pub trait Executed: Send {
 
 /// The protocol of the kernel
 #[async_trait]
+// TODO: Remove `async_trait` when <https://github.com/rust-lang/rust/issues/91611> stable
 #[allow(unused_variables)]
 pub trait JupyterKernelProtocol: Send + Sync + 'static {
     /// Get the language info of the kernel.
     fn language_info(&self) -> LanguageInfo;
+
+    /// Send
+    fn connected(&mut self, context: JupyterConnection);
 
     /// since Generator is not stable, we use sender instead
     ///
@@ -55,10 +60,8 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     }
 
     /// The render
-    ///
-    ///
-    /// FIXME: Change to `impl Executed` when stable.
     fn inspect_details(&self, parent: &InspectVariable) -> Box<dyn Executed> {
+        // TODO: Replace with `impl Executed` when <https://github.com/rust-lang/rust/issues/91611> stable
         Box::new(JupyterError::custom("`JupyterKernelProtocol::inspect_details` is not yet implemented."))
     }
 
@@ -90,11 +93,6 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     /// * `total`: The number of modules to be loaded, 0 means unlimited.
     fn interrupt_kernel(&self) -> Option<String> {
         None
-    }
-
-    /// Bind the execution socket, recommended to use [JupyterKernelSockets](crate::JupyterKernelSockets).
-    async fn bind_execution_socket(&self, sender: UnboundedSender<ExecutionResult>) {
-        // sink socket, do nothing
     }
 }
 

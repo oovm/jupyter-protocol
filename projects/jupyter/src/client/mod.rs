@@ -2,16 +2,13 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupyterMessage, JupyterMessageType},
-    CommonInfoRequest, ExecutionRequest, ExecutionResult, JupyterKernelProtocol, KernelInfoReply,
+    CommonInfoRequest, ExecutionRequest, JupyterConnection, JupyterKernelProtocol, JupyterKernelSockets, KernelInfoReply,
 };
 
 use crate::commands::start::KernelControl;
 use serde_json::Value;
 use std::{sync::Arc, time::SystemTime};
-use tokio::{
-    sync::{mpsc::UnboundedReceiver, Mutex},
-    task::JoinHandle,
-};
+use tokio::{sync::Mutex, task::JoinHandle};
 use zeromq::{PubSocket, RepSocket, RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
 
 // Note, to avoid potential deadlocks, each thread should lock at most one mutex at a time.
@@ -24,7 +21,7 @@ pub(crate) struct SealedServer {
     control: Arc<Mutex<Connection<RouterSocket>>>,
     shell_socket: Arc<Mutex<Connection<RouterSocket>>>,
     latest_execution_request: Arc<Mutex<Option<JupyterMessage>>>,
-    execution_request_receiver: Arc<Mutex<UnboundedReceiver<ExecutionResult>>>,
+    // execution_request_receiver: Arc<Mutex<UnboundedReceiver<ExecutionResult>>>,
     shutdown_sender: Arc<Mutex<Option<crossbeam_channel::Sender<()>>>>,
     tokio_handle: tokio::runtime::Handle,
 }
@@ -88,7 +85,7 @@ impl SealedServer {
     async fn start<T>(
         config: &KernelControl,
         tokio_handle: tokio::runtime::Handle,
-        server: T,
+        mut server: T,
     ) -> JupyterResult<ShutdownReceiver>
     where
         T: JupyterKernelProtocol + 'static,
@@ -97,19 +94,26 @@ impl SealedServer {
         let shell_socket = bind_socket::<RouterSocket>(config, config.shell_port).await?;
         let control_socket = bind_socket::<RouterSocket>(config, config.control_port).await?;
         let stdin_socket = bind_socket::<RouterSocket>(config, config.stdin_port).await?;
-        let iopub_socket = bind_socket::<PubSocket>(config, config.iopub_port).await?;
-        let iopub = Arc::new(Mutex::new(iopub_socket));
+        let io_pub_socket = bind_socket::<PubSocket>(config, config.iopub_port).await?;
+        let io_pub = Arc::new(Mutex::new(io_pub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
-        let (execution_result_sender, execution_receiver) = tokio::sync::mpsc::unbounded_channel();
-        // let (execution_result_sender2, execution_receiver2) = tokio::sync::mpsc::unbounded_channel();
+        let latest_execution_request = Arc::new(Mutex::new(None));
 
-        server.bind_execution_socket(execution_result_sender).await;
-
+        let setup = JupyterConnection {
+            boot_path: Default::default(),
+            sockets: JupyterKernelSockets {
+                // parent_buffer: latest_execution_request.clone(),
+                // execute_channel: None,
+                io_channel: Some(io_pub.clone()),
+            },
+        };
+        server.connected(setup);
+        // server.bind_execution_socket(execution_result_sender).await;
         let here = SealedServer {
-            iopub,
+            iopub: io_pub,
             heartbeat: Arc::new(Mutex::new(heartbeat)),
-            latest_execution_request: Arc::new(Mutex::new(None)),
-            execution_request_receiver: Arc::new(Mutex::new(execution_receiver)),
+            latest_execution_request,
+            // execution_request_receiver: Arc::new(Mutex::new(execution_receiver)),
             stdin: Arc::new(Mutex::new(stdin_socket)),
             control: Arc::new(Mutex::new(control_socket)),
             shutdown_sender: Arc::new(Mutex::new(Some(shutdown_sender))),
@@ -180,27 +184,14 @@ impl SealedServer {
             }
             JupyterMessageType::ExecuteRequest => {
                 let time = SystemTime::now();
+                // *self.latest_execution_request.lock().await = Some(request);
                 *count += 1;
                 let mut task = request.recast::<ExecutionRequest>()?;
                 task.execution_count = *count;
+                task.header = request.clone();
                 // reply busy event
                 let mut runner = executor.context.lock().await;
                 let reply = runner.running(task.clone()).await;
-                let mut rev = self.execution_request_receiver.lock().await;
-                loop {
-                    match rev.try_recv() {
-                        Ok(result) => {
-                            let any = result.with_count(*count);
-                            request
-                                .as_reply()
-                                .with_message_type(JupyterMessageType::ExecuteResult)
-                                .with_content(any)?
-                                .send_by(&mut &mut self.iopub.lock().await)
-                                .await?;
-                        }
-                        Err(_) => break,
-                    }
-                }
                 // Check elapsed time
                 match time.elapsed() {
                     Ok(o) => {

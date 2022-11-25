@@ -28,7 +28,7 @@ impl Default for ExecutionResult {
     }
 }
 /// The request to execute code
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct ExecutionRequest {
     /// The code to execute
     pub code: String,
@@ -43,8 +43,10 @@ pub struct ExecutionRequest {
     /// A mapping of names to expressions to be evaluated in the user's dict.
     pub user_expressions: Value,
     /// A mapping of names to expressions to be evaluated in the user's dict.
-    #[serde(default)]
+    #[serde(skip_deserializing)]
     pub execution_count: u32,
+    #[serde(skip_deserializing)]
+    pub header: JupyterMessage,
 }
 
 impl ExecutionRequest {
