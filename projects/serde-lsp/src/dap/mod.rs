@@ -1,8 +1,11 @@
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Serialize, Serializer};
 use std::num::NonZeroUsize;
+
+mod request;
+mod response;
 mod variables_arguments;
 
-pub use self::variables_arguments::VariablesArguments;
+pub use self::{request::Request, response::Response, variables_arguments::VariablesArguments};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct DebugCapability {

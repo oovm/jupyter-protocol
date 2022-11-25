@@ -10,7 +10,6 @@ mod shutdown;
 
 pub use self::{
     common_info::CommonInfoRequest,
-    debug_info::DebugRequest,
     execute::{ExecutionRequest, ExecutionResult},
     kernel_info::KernelInfoReply,
     message_type::JupyterMessageType,

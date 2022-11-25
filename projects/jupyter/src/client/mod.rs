@@ -2,7 +2,7 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupyterMessage, JupyterMessageType},
-    CommonInfoRequest, DebugRequest, ExecutionRequest, ExecutionResult, JupyterKernelProtocol, KernelInfoReply,
+    CommonInfoRequest, ExecutionRequest, ExecutionResult, JupyterKernelProtocol, KernelInfoReply,
 };
 
 use crate::commands::start::KernelControl;
@@ -285,14 +285,13 @@ impl SealedServer {
         // main reply
         match request.kind() {
             JupyterMessageType::KernelInfoRequest => {
-                let info = executor.context.lock().await.language_info();
-                let cont = KernelInfoReply::build(info);
+                let info = executor.context.lock().await;
+                let cont = KernelInfoReply::build(info.language_info());
                 request.as_reply().with_content(cont)?.send_by(control).await?
             }
 
             JupyterMessageType::DebugRequest => {
-                let debugged = request.recast::<DebugRequest>()?;
-                let result = debugged.as_reply(executor).await?;
+                let result = request.debug_response(executor).await?;
                 request.as_reply().with_content(result)?.send_by(control).await?;
             }
             JupyterMessageType::InterruptRequest => {

@@ -2,49 +2,17 @@
 
 use crate::{
     client::ExecuteProvider,
+    jupyter_message::JupyterMessage,
     value_type::{InspectModule, InspectVariable, InspectVariableRequest},
     ExecutionResult, JupyterKernelProtocol, JupyterResult,
 };
-use serde::{
-    de::{MapAccess, Visitor},
-    ser::SerializeMap,
-    Deserialize, Deserializer, Serialize, Serializer,
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use serde_lsp::dap::{
+    DebugCapability, Module, ModulesResponseBody, Request, Response, Variable, VariablesArguments, VariablesResponseBody,
 };
-use serde_json::{to_value, Value};
-use serde_lsp::dap::{DebugCapability, Module, ModulesResponseBody, Variable, VariablesArguments, VariablesResponseBody};
-use std::{collections::HashMap, fmt::Formatter, ops::Deref};
+use std::{collections::HashMap, ops::Deref};
 use uuid::Uuid;
-
-#[derive(Clone, Debug)]
-pub struct DebugRequest {
-    command: String,
-    seq: u32,
-    r#type: String,
-    arguments: Value,
-}
-
-#[derive(Clone, Debug)]
-pub struct DapResponse<T> {
-    success: bool,
-    command: String,
-    request_seq: u32,
-    body: T,
-}
-
-impl<T: Serialize> Serialize for DapResponse<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_map(Some(5))?;
-        s.serialize_entry("type", "response")?;
-        s.serialize_entry("command", &self.command)?;
-        s.serialize_entry("request_seq", &self.request_seq)?;
-        s.serialize_entry("success", &self.success)?;
-        s.serialize_entry("body", &self.body)?;
-        s.end()
-    }
-}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct DebugInfoResponse {
@@ -109,78 +77,10 @@ pub struct RichInspectVariables {
     data: HashMap<String, String>,
     metadata: HashMap<String, String>,
 }
-impl<T> DapResponse<T> {
-    pub fn success(request: &DebugRequest, body: T) -> JupyterResult<Value>
-    where
-        T: Serialize,
-    {
-        let item = Self { success: true, command: request.command.clone(), request_seq: request.seq, body };
-        Ok(to_value(item)?)
-    }
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DebugSource {
     content: String,
-}
-
-impl DebugRequest {
-    pub async fn as_reply<K: JupyterKernelProtocol>(&self, kernel: ExecuteProvider<K>) -> JupyterResult<Value> {
-        match self.command.as_str() {
-            "debugInfo" => {
-                let mut start = kernel.debugging.lock().await;
-                if *start {
-                    DapResponse::success(self, DebugInfoResponse::new(true))
-                }
-                else {
-                    *start = true;
-                    DapResponse::success(self, DebugInfoResponse::new(false))
-                }
-            }
-            "initialize" => DapResponse::success(self, DebugCapability::default()),
-            // Root variable query event when first opened
-            "inspectVariables" => {
-                let runner = kernel.context.lock().await;
-                DapResponse::success(self, VariablesResponseBody::from_iter(runner.inspect_variables(None)))
-            }
-            // Subquery event after manual click on variable
-            "variables" => {
-                let request = VariablesArguments::deserialize(&self.arguments)?;
-                let runner = kernel.context.lock().await;
-                let variables = runner.inspect_variables(Some(InspectVariableRequest {
-                    id: request.variables_reference,
-                    filter: request.filter,
-                    start: request.start,
-                    limit: request.count,
-                }));
-                DapResponse::success(self, VariablesResponseBody::from_iter(variables))
-            }
-            "richInspectVariables" => {
-                let runner = kernel.context.lock().await;
-                let result = runner.inspect_details(&InspectVariable::default());
-                DapResponse::success(self, ExecutionResult::new(result.deref()))
-            }
-            "source" => {
-                let runner = kernel.context.lock().await;
-                let content = runner.inspect_sources();
-                DapResponse::success(self, DebugSource { content })
-            }
-            "dumpCell" => DapResponse::success(self, DumpCell { sourcePath: "sourcePath".to_string() }),
-            "modules" => {
-                let runner = kernel.context.lock().await;
-                let modules = runner.inspect_modules(0);
-                DapResponse::success(self, ModulesResponseBody::from_iter(modules))
-            }
-            "attach" => {
-                tracing::error!("Unimplemented DAP command: attach");
-                DapResponse::success(self, "")
-            }
-            _ => {
-                tracing::error!("Unknown DAP command: {}\n{:#?}", self.command, self.arguments);
-                Ok(Value::Null)
-            }
-        }
-    }
 }
 
 impl From<InspectModule> for Module {
@@ -211,52 +111,63 @@ impl From<InspectVariable> for Variable {
     }
 }
 
-impl Default for DebugRequest {
-    fn default() -> Self {
-        Self { command: "".to_string(), seq: 0, r#type: "".to_string(), arguments: Value::Null }
-    }
-}
-
-pub struct DebugInfoVisitor<'i> {
-    wrapper: &'i mut DebugRequest,
-}
-
-impl<'de> Deserialize<'de> for DebugRequest {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let mut out = Self::default();
-        deserializer.deserialize_map(DebugInfoVisitor { wrapper: &mut out })?;
-        Ok(out)
-    }
-    fn deserialize_in_place<D>(deserializer: D, place: &mut Self) -> Result<(), D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_map(DebugInfoVisitor { wrapper: place })
-    }
-}
-
-impl<'i, 'de> Visitor<'de> for DebugInfoVisitor<'i> {
-    type Value = ();
-
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("struct DebugInfo")
-    }
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        while let Some(key) = map.next_key::<String>()? {
-            match key.as_str() {
-                "command" => self.wrapper.command = map.next_value()?,
-                "seq" => self.wrapper.seq = map.next_value()?,
-                "type" => self.wrapper.r#type = map.next_value()?,
-                "arguments" => self.wrapper.arguments = map.next_value()?,
-                _ => {}
+impl JupyterMessage {
+    pub(crate) async fn debug_response<K: JupyterKernelProtocol>(&self, kernel: ExecuteProvider<K>) -> JupyterResult<Value> {
+        let request = self.recast::<Request>()?;
+        let response = match request.command.as_str() {
+            "debugInfo" => {
+                let mut start = kernel.debugging.lock().await;
+                if *start {
+                    Response::success(request, DebugInfoResponse::new(true))?
+                }
+                else {
+                    *start = true;
+                    Response::success(request, DebugInfoResponse::new(false))?
+                }
             }
-        }
-        Ok(())
+            "initialize" => Response::success(request, DebugCapability::default())?,
+            // Root variable query event when first opened
+            "inspectVariables" => {
+                let runner = kernel.context.lock().await;
+                Response::success(request, VariablesResponseBody::from_iter(runner.inspect_variables(None)))?
+            }
+            // Subquery event after manual click on variable
+            "variables" => {
+                let args = request.recast::<VariablesArguments>()?;
+                let runner = kernel.context.lock().await;
+                let variables = runner.inspect_variables(Some(InspectVariableRequest {
+                    id: args.variables_reference,
+                    filter: args.filter,
+                    start: args.start,
+                    limit: args.count,
+                }));
+                Response::success(request, VariablesResponseBody::from_iter(variables))?
+            }
+            "richInspectVariables" => {
+                let runner = kernel.context.lock().await;
+                let result = runner.inspect_details(&InspectVariable::default());
+                Response::success(request, ExecutionResult::new(result.deref()))?
+            }
+            "source" => {
+                let runner = kernel.context.lock().await;
+                let content = runner.inspect_sources();
+                Response::success(request, DebugSource { content })?
+            }
+            "dumpCell" => Response::success(request, DumpCell { sourcePath: "sourcePath".to_string() })?,
+            "modules" => {
+                let runner = kernel.context.lock().await;
+                let modules = runner.inspect_modules(0);
+                Response::success(request, ModulesResponseBody::from_iter(modules))?
+            }
+            "attach" => {
+                tracing::error!("Unimplemented DAP command: attach");
+                Response::success(request, "")?
+            }
+            _ => {
+                tracing::error!("Unknown DAP command: {}\n{:#?}", request.command, request.arguments);
+                Value::Null
+            }
+        };
+        Ok(response)
     }
 }
