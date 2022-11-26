@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     connection::Connection,
-    jupyter_message::{JupyterMessage, JupyterMessageHeader, JupyterMessageType},
+    jupyter_message::{JupyterMessage, JupyterMessageType},
 };
 use serde::Serialize;
 use std::path::PathBuf;
@@ -17,32 +17,24 @@ pub struct JupyterConnection {
 }
 
 /// The sockets for Jupyter kernel.
+#[derive(Clone, Default)]
 pub struct JupyterKernelSockets {
-    // pub(crate) execute_channel: Option<Arc<Mutex<UnboundedSender<ExecutionResult>>>>,
+    pub(crate) execute_count: Arc<Mutex<usize>>,
     pub(crate) io_channel: Option<Arc<Mutex<Connection<PubSocket>>>>,
-}
-
-impl Default for JupyterKernelSockets {
-    fn default() -> Self {
-        Self { io_channel: None }
-    }
 }
 
 impl Debug for JupyterKernelSockets {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let count = self.get_counter();
         let io_channel = match &self.io_channel {
             Some(c) => c.try_lock().is_ok(),
             None => false,
         };
-        f.debug_struct("JupyterKernelSockets").field("ui_channel", &io_channel).finish()
-    }
-}
-impl Clone for JupyterKernelSockets {
-    fn clone(&self) -> Self {
-        Self { io_channel: self.io_channel.clone() }
+        f.debug_struct("JupyterKernelSockets").field("count", &count).field("io_channel", &io_channel).finish()
     }
 }
 
+/// Represents a stream via standard output
 #[derive(Debug, Serialize)]
 pub struct JupyterStream {
     name: &'static str,
@@ -50,6 +42,7 @@ pub struct JupyterStream {
 }
 
 impl JupyterStream {
+    /// Display via standard output
     pub fn std_out<S: ToString>(text: S) -> Self {
         JupyterStream { name: "stdout", text: text.to_string() }
     }
@@ -57,21 +50,46 @@ impl JupyterStream {
 
 impl JupyterKernelSockets {
     /// Send an executed result.
-    pub async fn send_executed(&self, executed: impl Executed, count: u32, parent: &JupyterMessage) {
-        self.try_send_executed(executed, count, parent).await.ok();
+    pub async fn send_executed(&self, executed: impl Executed, parent: &JupyterMessage) {
+        self.try_send_executed(executed, parent).await.ok();
     }
     /// Send information through io stream, such as `print`
     pub async fn send_stream(&self, stream: JupyterStream, parent: &JupyterMessage) {
         self.try_send_io_stream(stream, parent).await.ok();
     }
+    /// Read counter
+    pub fn get_counter(&self) -> usize {
+        match self.execute_count.try_lock() {
+            Ok(o) => *o,
+            Err(_) => 0,
+        }
+    }
+    /// reset counter
+    pub fn set_counter(&self, count: usize) -> bool {
+        match self.execute_count.try_lock() {
+            Ok(mut o) => {
+                *o = count;
+                true
+            }
+            Err(_) => false,
+        }
+    }
 
-    async fn try_send_executed(&self, executed: impl Executed, count: u32, parent: &JupyterMessage) -> JupyterResult<()> {
+    async fn try_send_executed(&self, executed: impl Executed, parent: &JupyterMessage) -> JupyterResult<()> {
         let data = ExecutionResult::default().with_data(executed.mime_type(), executed.as_json(&JupyterContext::default()));
         match &self.io_channel {
             Some(channel) => {
+                let counter = match self.execute_count.try_lock() {
+                    Ok(mut o) => {
+                        *o += 1;
+                        *o
+                    }
+                    Err(_) => 0,
+                };
+
                 parent
                     .as_reply()
-                    .with_content(data.with_count(count))?
+                    .with_content(data.with_count(counter))?
                     .with_message_type(JupyterMessageType::ExecuteResult)
                     .send_by(&mut &mut channel.lock().await)
                     .await

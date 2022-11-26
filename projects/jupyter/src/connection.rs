@@ -16,7 +16,8 @@ pub(crate) const LINT_LICENSE: &[u8] = include_bytes!("../third_party/CodeMirror
 
 pub(crate) type HmacSha256 = Hmac<Sha256>;
 
-pub(crate) struct Connection<S> {
+#[derive(Debug)]
+pub struct Connection<S> {
     pub(crate) socket: S,
     /// Will be None if our key was empty (digest authentication disabled).
     pub(crate) mac: Option<HmacSha256>,

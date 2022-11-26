@@ -34,19 +34,19 @@ impl JupyterKernelProtocol for CalculatorContext {
     }
 
     async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply {
-        self.sockets.send_executed(true, code.execution_count, &code.header).await;
-        self.sockets.send_executed(0, code.execution_count + 1, &code.header).await;
-        self.sockets.send_executed(-std::f64::consts::PI, code.execution_count + 2, &code.header).await;
-        self.sockets.send_executed('c', code.execution_count + 3, &code.header).await;
-        self.sockets.send_executed("string", code.execution_count + 4, &code.header).await;
+        self.sockets.send_executed(true, &code.header).await;
+        self.sockets.send_executed(0, &code.header).await;
+        self.sockets.send_executed(-std::f64::consts::PI, &code.header).await;
+        self.sockets.send_executed('c', &code.header).await;
+        self.sockets.send_executed("string", &code.header).await;
         self.sockets.send_stream(JupyterStream::std_out("ok"), &code.header).await;
-        self.sockets.send_executed(test_json(), code.execution_count + 5, &code.header).await;
-        self.sockets.send_executed(test_url(), code.execution_count + 6, &code.header).await;
-        self.sockets.send_executed(test_mathml(), code.execution_count + 7, &code.header).await;
-        self.sockets.send_executed(test_png(), code.execution_count + 8, &code.header).await;
-        self.sockets.send_executed(test_array1(), code.execution_count + 9, &code.header).await;
-        self.sockets.send_executed(test_array2(), code.execution_count + 10, &code.header).await;
-        ExecutionReply::new(true, code.execution_count)
+        self.sockets.send_executed(test_json(), &code.header).await;
+        self.sockets.send_executed(test_url(), &code.header).await;
+        self.sockets.send_executed(test_mathml(), &code.header).await;
+        self.sockets.send_executed(test_png(), &code.header).await;
+        self.sockets.send_executed(test_array1(), &code.header).await;
+        self.sockets.send_executed(test_array2(), &code.header).await;
+        ExecutionReply::new(true)
     }
     fn running_time(&self, _: f64) -> String {
         String::new()

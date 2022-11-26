@@ -12,7 +12,7 @@ use std::{
     fmt::{Debug, Formatter},
     sync::Arc,
 };
-use tokio::sync::{mpsc::UnboundedSender, Mutex};
+use tokio::sync::Mutex;
 
 /// A executed result that can be render in jupyter notebook.
 pub trait Executed: Send {

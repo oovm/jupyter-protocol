@@ -27,22 +27,23 @@ pub(crate) struct SealedServer {
 }
 
 pub struct ExecuteProvider<T> {
-    pub context: Arc<Mutex<T>>,
-    pub debugging: Arc<Mutex<bool>>,
+    pub(crate) context: Arc<Mutex<T>>,
+    pub(crate) debugging: Arc<Mutex<bool>>,
+    pub(crate) sockets: JupyterKernelSockets,
 }
 
 impl<T> Clone for ExecuteProvider<T> {
     fn clone(&self) -> Self {
-        Self { context: self.context.clone(), debugging: Arc::new(Default::default()) }
+        Self { context: self.context.clone(), debugging: self.debugging.clone(), sockets: self.sockets.clone() }
     }
 }
 
 impl<T> ExecuteProvider<T> {
-    pub fn new(context: T) -> Self
+    pub fn new(context: T, sockets: JupyterKernelSockets) -> Self
     where
         T: JupyterKernelProtocol + 'static,
     {
-        Self { context: Arc::new(Mutex::new(context)), debugging: Arc::new(Default::default()) }
+        Self { context: Arc::new(Mutex::new(context)), debugging: Arc::new(Default::default()), sockets }
     }
 }
 
@@ -98,15 +99,9 @@ impl SealedServer {
         let io_pub = Arc::new(Mutex::new(io_pub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
         let latest_execution_request = Arc::new(Mutex::new(None));
+        let sockets = JupyterKernelSockets { execute_count: Arc::new(Default::default()), io_channel: Some(io_pub.clone()) };
 
-        let setup = JupyterConnection {
-            boot_path: Default::default(),
-            sockets: JupyterKernelSockets {
-                // parent_buffer: latest_execution_request.clone(),
-                // execute_channel: None,
-                io_channel: Some(io_pub.clone()),
-            },
-        };
+        let setup = JupyterConnection { boot_path: Default::default(), sockets: sockets.clone() };
         server.connected(setup);
         // server.bind_execution_socket(execution_result_sender).await;
         let here = SealedServer {
@@ -120,7 +115,7 @@ impl SealedServer {
             tokio_handle,
             shell_socket: Arc::new(Mutex::new(shell_socket)),
         };
-        let context = ExecuteProvider::new(server);
+        let context = ExecuteProvider::new(server, sockets);
         here.clone().spawn_heart_beat();
         here.clone().spawn_shell_execution(context.clone());
         // server.clone().spawn_execution_queue(context.clone());
@@ -157,17 +152,16 @@ impl SealedServer {
     where
         T: JupyterKernelProtocol + Send + 'static,
     {
-        let mut count = 0;
         tokio::spawn(async move {
             tracing::info!("Shell Executor Spawned");
             loop {
-                if let Err(e) = self.clone().handle_shell(executor.clone(), &mut count).await {
+                if let Err(e) = self.clone().handle_shell(executor.clone()).await {
                     tracing::error!("Error sending shell execution: {:?}", e);
                 }
             }
         })
     }
-    async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>, count: &mut u32) -> JupyterResult<()>
+    async fn handle_shell<'a, T>(self, executor: ExecuteProvider<T>) -> JupyterResult<()>
     where
         T: JupyterKernelProtocol + Send + 'static,
     {
@@ -185,19 +179,18 @@ impl SealedServer {
             JupyterMessageType::ExecuteRequest => {
                 let time = SystemTime::now();
                 // *self.latest_execution_request.lock().await = Some(request);
-                *count += 1;
                 let mut task = request.recast::<ExecutionRequest>()?;
-                task.execution_count = *count;
                 task.header = request.clone();
                 // reply busy event
                 let mut runner = executor.context.lock().await;
-                let reply = runner.running(task.clone()).await;
+                let count = executor.sockets.get_counter();
+                let reply = runner.running(task.clone()).await.with_count(count);
                 // Check elapsed time
                 match time.elapsed() {
                     Ok(o) => {
                         let escape = runner.running_time(o.as_secs_f64());
                         if !escape.is_empty() {
-                            let time = task.as_result("text/html".to_string(), Value::String(escape)).with_count(*count);
+                            let time = task.as_result("text/html".to_string(), Value::String(escape));
                             request
                                 .as_reply()
                                 .with_message_type(JupyterMessageType::ExecuteResult)

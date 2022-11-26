@@ -3,7 +3,7 @@ use super::*;
 /// The result of executing code
 #[derive(Clone, Debug)]
 pub struct ExecutionResult {
-    execution_count: u32,
+    execution_count: usize,
     data: BTreeMap<String, Value>,
     metadata: Map<String, Value>,
     transient: Map<String, Value>,
@@ -45,14 +45,15 @@ pub struct ExecutionRequest {
     /// A mapping of names to expressions to be evaluated in the user's dict.
     #[serde(skip_deserializing)]
     pub execution_count: u32,
+    /// Specify which request the execution results should be attached to
     #[serde(skip_deserializing)]
     pub header: JupyterMessage,
 }
 
 impl ExecutionRequest {
     /// Create a new execution request
-    pub fn as_reply(&self, success: bool, count: u32) -> ExecutionReply {
-        ExecutionReply::new(success, count)
+    pub fn as_reply(&self, success: bool, count: usize) -> ExecutionReply {
+        ExecutionReply::new(success).with_count(count)
     }
     /// Create a new execution request
     pub fn as_result(&self, mime: String, data: Value) -> ExecutionResult {
@@ -74,7 +75,7 @@ impl ExecutionResult {
     }
 
     /// Create a new execution result
-    pub fn with_count(mut self, count: u32) -> ExecutionResult {
+    pub fn with_count(mut self, count: usize) -> ExecutionResult {
         self.execution_count = count;
         self
     }

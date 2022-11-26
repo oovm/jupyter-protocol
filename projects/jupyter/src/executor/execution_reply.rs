@@ -8,7 +8,7 @@ use serde::{
 #[derive(Clone, Debug)]
 pub struct ExecutionReply {
     success: bool,
-    execution_count: u32,
+    execution_count: usize,
     payload: Vec<ExecutionPayload>,
 }
 
@@ -76,7 +76,16 @@ impl Serialize for ExecutionPayload {
 
 impl ExecutionReply {
     /// Create a new execution reply
-    pub fn new(success: bool, execution_count: u32) -> Self {
-        Self { success, execution_count, payload: vec![] }
+    pub fn new(success: bool) -> Self {
+        Self { success, execution_count: 0, payload: vec![] }
+    }
+    /// Set the execution count
+    pub fn with_count(self, count: usize) -> Self {
+        Self { execution_count: count, ..self }
+    }
+    ///  Add a payload to the reply
+    pub fn with_payload(mut self, payload: ExecutionPayload) -> Self {
+        self.payload.push(payload);
+        self
     }
 }
