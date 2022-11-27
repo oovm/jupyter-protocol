@@ -28,13 +28,12 @@ pub(crate) struct SealedServer {
 
 pub struct ExecuteProvider<T> {
     pub(crate) context: Arc<Mutex<T>>,
-    pub(crate) debugging: Arc<Mutex<bool>>,
     pub(crate) sockets: JupyterKernelSockets,
 }
 
 impl<T> Clone for ExecuteProvider<T> {
     fn clone(&self) -> Self {
-        Self { context: self.context.clone(), debugging: self.debugging.clone(), sockets: self.sockets.clone() }
+        Self { context: self.context.clone(), sockets: self.sockets.clone() }
     }
 }
 
@@ -43,7 +42,7 @@ impl<T> ExecuteProvider<T> {
     where
         T: JupyterKernelProtocol + 'static,
     {
-        Self { context: Arc::new(Mutex::new(context)), debugging: Arc::new(Default::default()), sockets }
+        Self { context: Arc::new(Mutex::new(context)), sockets }
     }
 }
 
@@ -99,7 +98,11 @@ impl SealedServer {
         let io_pub = Arc::new(Mutex::new(io_pub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
         let latest_execution_request = Arc::new(Mutex::new(None));
-        let sockets = JupyterKernelSockets { execute_count: Arc::new(Mutex::new(1)), io_channel: Some(io_pub.clone()) };
+        let sockets = JupyterKernelSockets {
+            execute_count: Arc::new(Mutex::new(1)),
+            io_channel: Some(io_pub.clone()),
+            debugging: Arc::new(Mutex::new(false)),
+        };
         let setup = JupyterConnection { boot_path: Default::default(), sockets: sockets.clone() };
         server.connected(setup);
         // server.bind_execution_socket(execution_result_sender).await;

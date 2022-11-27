@@ -1,6 +1,6 @@
 [package]
 name = "serde-lsp"
-version = "0.0.0"
+version = "0.0.1"
 license = "MIT OR Apache-2.0"
 description = "Language Server Protocol via serde"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"

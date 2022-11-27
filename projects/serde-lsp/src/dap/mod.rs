@@ -31,6 +31,7 @@ pub struct DebugCapability {
     pub supports_hit_conditional_breakpoints: bool,
     #[serde(rename = "supportsLogPoints")]
     pub supports_log_points: bool,
+    /// The debug adapter supports the `modules` request.
     #[serde(rename = "supportsModulesRequest")]
     pub supports_modules_request: bool,
     #[serde(rename = "supportsSetExpression")]
@@ -165,14 +166,14 @@ pub struct ModulesArguments {
     ///
     /// if omitted modules start at 0.
     #[serde(rename = "startModule")]
-    start: usize,
+    pub start: usize,
     /// The number of modules to return.
     ///
     /// If `moduleCount` is not specified or 0, all modules are returned.
     #[serde(rename = "moduleCount")]
-    count: Option<NonZeroUsize>,
+    pub count: Option<NonZeroUsize>,
 }
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ModulesResponseBody {
     pub modules: Vec<Module>,
     #[serde(rename = "totalModules")]
@@ -191,7 +192,7 @@ impl<M: Into<Module>> FromIterator<M> for ModulesResponseBody {
 }
 
 /// An identifier for a module.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Module {
     /// The module's identifier.
     pub id: u32,

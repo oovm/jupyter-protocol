@@ -117,12 +117,11 @@ impl JupyterMessage {
         let request = self.recast::<Request>()?;
         let response = match request.command.as_str() {
             "debugInfo" => {
-                let mut start = kernel.debugging.lock().await;
-                if *start {
+                if kernel.sockets.get_debug_mode() {
                     Response::success(request, DebugInfoResponse::new(true))?
                 }
                 else {
-                    *start = true;
+                    kernel.sockets.set_debug_mode(true);
                     Response::success(request, DebugInfoResponse::new(false))?
                 }
             }
@@ -160,13 +159,12 @@ impl JupyterMessage {
                 let modules = runner.inspect_modules(0);
                 Response::success(request, ModulesResponseBody::from_iter(modules))?
             }
-            "attach" => Response::success(request, Value::Null)?,
-
+            "attach" => Response::success(request, "")?,
             "disconnect" => {
                 // let runner = kernel.context.lock().await;
                 let dis = request.recast::<DisconnectArguments>()?;
-                tracing::info!("Disconnecting: {:?}", dis);
-                Response::success(request, Value::Null)?
+                tracing::info!("Disconnecting Debugger, {:?}", dis);
+                Response::success(request, "")?
             }
             _ => {
                 tracing::error!("Unknown DAP command: {}\n{:#?}", request.command, request.arguments);

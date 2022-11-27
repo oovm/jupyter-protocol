@@ -20,9 +20,11 @@ pub struct JupyterConnection {
 #[derive(Clone, Default)]
 pub struct JupyterKernelSockets {
     // Need to start from 1, otherwise `*` will be displayed
-    pub(crate) execute_count: Arc<Mutex<usize>>,
     pub(crate) io_channel: Option<Arc<Mutex<Connection<PubSocket>>>>,
+    pub(crate) execute_count: Arc<Mutex<usize>>,
+    pub(crate) debugging: Arc<Mutex<bool>>,
 }
+
 impl Debug for JupyterKernelSockets {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let count = self.get_counter();
@@ -78,6 +80,23 @@ impl JupyterKernelSockets {
         match self.execute_count.try_lock() {
             Ok(mut o) => {
                 *o = count;
+                true
+            }
+            Err(_) => false,
+        }
+    }
+    /// Get current debug state
+    pub fn get_debug_mode(&self) -> bool {
+        match self.debugging.try_lock() {
+            Ok(o) => *o,
+            Err(_) => false,
+        }
+    }
+    /// Set current debug state
+    pub fn set_debug_mode(&self, on: bool) -> bool {
+        match self.debugging.try_lock() {
+            Ok(mut o) => {
+                *o = on;
                 true
             }
             Err(_) => false,

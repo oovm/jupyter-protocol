@@ -1,6 +1,6 @@
 [package]
 name = "jupyter"
-version = "0.1.12"
+version = "0.2.0"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
@@ -42,7 +42,7 @@ base64 = { version = "0.21.3", optional = true }
 image = { version = "0.24.7", optional = true, default-features = false, features = ["png"] }
 
 [dependencies.serde-lsp]
-version = "0.0.0"
+version = "0.0.1"
 path = "../serde-lsp"
 
 [features]

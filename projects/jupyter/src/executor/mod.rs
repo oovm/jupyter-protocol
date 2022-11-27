@@ -8,7 +8,6 @@ use crate::{
 };
 use async_trait::async_trait;
 use serde_json::Value;
-use serde_lsp::dap::DisconnectArguments;
 use std::{
     fmt::{Debug, Formatter},
     sync::Arc,
@@ -60,7 +59,7 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
         vec![InspectVariable::new("inspect_variables").with_type("Unimplemented").with_key(1)]
     }
 
-    /// The render
+    /// View and render an object's value
     fn inspect_details(&self, parent: &InspectVariable) -> Box<dyn Executed> {
         // TODO: Replace with `impl Executed` when <https://github.com/rust-lang/rust/issues/91611> stable
         Box::new(JupyterError::custom("`JupyterKernelProtocol::inspect_details` is not yet implemented."))
