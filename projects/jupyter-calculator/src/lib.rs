@@ -38,8 +38,7 @@ impl JupyterKernelProtocol for CalculatorContext {
         self.sockets.send_executed(0, &code.header).await;
         self.sockets.send_executed(-std::f64::consts::PI, &code.header).await;
         self.sockets.send_executed('c', &code.header).await;
-        self.sockets.send_executed("string", &code.header).await;
-        self.sockets.send_stream(JupyterStream::std_out("ok"), &code.header).await;
+        self.sockets.send_stream(JupyterStream::std_out("string"), &code.header).await;
         self.sockets.send_executed(test_json(), &code.header).await;
         self.sockets.send_executed(test_url(), &code.header).await;
         self.sockets.send_executed(test_mathml(), &code.header).await;

@@ -8,6 +8,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use serde_json::Value;
+use serde_lsp::dap::DisconnectArguments;
 use std::{
     fmt::{Debug, Formatter},
     sync::Arc,
@@ -86,6 +87,7 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     fn inspect_sources(&self) -> String {
         "`JupyterKernelProtocol::inspect_sources` is not yet implemented.".to_string()
     }
+
     /// Query the currently loaded modules
     ///
     /// # Arguments

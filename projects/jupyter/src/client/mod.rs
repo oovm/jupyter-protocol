@@ -99,8 +99,7 @@ impl SealedServer {
         let io_pub = Arc::new(Mutex::new(io_pub_socket));
         let (shutdown_sender, shutdown_receiver) = crossbeam_channel::unbounded();
         let latest_execution_request = Arc::new(Mutex::new(None));
-        let sockets = JupyterKernelSockets { execute_count: Arc::new(Default::default()), io_channel: Some(io_pub.clone()) };
-
+        let sockets = JupyterKernelSockets { execute_count: Arc::new(Mutex::new(1)), io_channel: Some(io_pub.clone()) };
         let setup = JupyterConnection { boot_path: Default::default(), sockets: sockets.clone() };
         server.connected(setup);
         // server.bind_execution_socket(execution_result_sender).await;

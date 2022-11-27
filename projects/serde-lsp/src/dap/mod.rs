@@ -248,3 +248,29 @@ pub enum SteppingGranularity {
     /// The step should allow one instruction to execute (e.g. one x86 instruction)
     Instruction,
 }
+
+/// The disconnect request asks the debug adapter to disconnect from the debuggee (thus ending the debug session) and then to shut down itself (the debug adapter).
+///
+/// In addition, the debug adapter must terminate the debuggee if it was started with the launch request. If an attach request was used to connect to the debuggee, then the debug adapter must not terminate the debuggee.
+///
+/// This implicit behavior of when to terminate the debuggee can be overridden with the terminateDebuggee argument (which is only supported by a debug adapter if the corresponding capability supportTerminateDebuggee is true).
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct DisconnectArguments {
+    /// A value of true indicates that this `disconnect` request is part of a
+    /// restart sequence.
+    pub restart: bool,
+
+    /// Indicates whether the debuggee should be terminated when the debugger is disconnected.
+    /// If unspecified, the debug adapter is free to do whatever it thinks is best.
+    /// The attribute is only honored by a debug adapter if the corresponding
+    /// capability `supportTerminateDebuggee` is true.
+    #[serde(default, rename = "terminateDebuggee")]
+    pub terminate_debuggee: bool,
+
+    /// Indicates whether the debuggee should stay suspended when the debugger is disconnected.
+    /// If unspecified, the debuggee should resume execution.
+    /// The attribute is only honored by a debug adapter if the corresponding
+    /// capability `supportSuspendDebuggee` is true.
+    #[serde(default, rename = "suspendDebuggee")]
+    pub suspend_debuggee: bool,
+}

@@ -9,7 +9,8 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_lsp::dap::{
-    DebugCapability, Module, ModulesResponseBody, Request, Response, Variable, VariablesArguments, VariablesResponseBody,
+    DebugCapability, DisconnectArguments, Module, ModulesResponseBody, Request, Response, Variable, VariablesArguments,
+    VariablesResponseBody,
 };
 use std::{collections::HashMap, ops::Deref};
 use uuid::Uuid;
@@ -159,9 +160,13 @@ impl JupyterMessage {
                 let modules = runner.inspect_modules(0);
                 Response::success(request, ModulesResponseBody::from_iter(modules))?
             }
-            "attach" => {
-                tracing::error!("Unimplemented DAP command: attach");
-                Response::success(request, "")?
+            "attach" => Response::success(request, Value::Null)?,
+
+            "disconnect" => {
+                // let runner = kernel.context.lock().await;
+                let dis = request.recast::<DisconnectArguments>()?;
+                tracing::info!("Disconnecting: {:?}", dis);
+                Response::success(request, Value::Null)?
             }
             _ => {
                 tracing::error!("Unknown DAP command: {}\n{:#?}", request.command, request.arguments);

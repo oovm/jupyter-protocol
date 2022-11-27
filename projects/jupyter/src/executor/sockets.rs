@@ -19,10 +19,10 @@ pub struct JupyterConnection {
 /// The sockets for Jupyter kernel.
 #[derive(Clone, Default)]
 pub struct JupyterKernelSockets {
+    // Need to start from 1, otherwise `*` will be displayed
     pub(crate) execute_count: Arc<Mutex<usize>>,
     pub(crate) io_channel: Option<Arc<Mutex<Connection<PubSocket>>>>,
 }
-
 impl Debug for JupyterKernelSockets {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let count = self.get_counter();
@@ -42,6 +42,11 @@ pub struct JupyterStream {
 }
 
 impl JupyterStream {
+    /// Create a new stream with given channel
+    pub fn custom<S: ToString>(channel: &'static str, text: S) -> Self {
+        JupyterStream { name: channel, text: text.to_string() }
+    }
+
     /// Display via standard output
     pub fn std_out<S: ToString>(text: S) -> Self {
         JupyterStream { name: "stdout", text: text.to_string() }
@@ -50,10 +55,14 @@ impl JupyterStream {
 
 impl JupyterKernelSockets {
     /// Send an executed result.
+    ///
+    /// Cell counter will be +1
     pub async fn send_executed(&self, executed: impl Executed, parent: &JupyterMessage) {
         self.try_send_executed(executed, parent).await.ok();
     }
     /// Send information through io stream, such as `print`
+    ///
+    /// Cell counter will not +1
     pub async fn send_stream(&self, stream: JupyterStream, parent: &JupyterMessage) {
         self.try_send_io_stream(stream, parent).await.ok();
     }
@@ -81,12 +90,12 @@ impl JupyterKernelSockets {
             Some(channel) => {
                 let counter = match self.execute_count.try_lock() {
                     Ok(mut o) => {
+                        let old = *o;
                         *o += 1;
-                        *o
+                        old
                     }
                     Err(_) => 0,
                 };
-
                 parent
                     .as_reply()
                     .with_content(data.with_count(counter))?
