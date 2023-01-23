@@ -11,12 +11,12 @@ mod commands;
 mod connection;
 mod errors;
 mod executor;
-mod jupyter_message;
+pub(crate) mod jupyter_message;
 pub mod value_type;
 
 pub use async_trait::async_trait;
 
-pub(crate) use crate::jupyter_message::*;
+pub use crate::jupyter_message::JupyterMessage;
 #[allow(deprecated)]
 pub use crate::{
     commands::{InstallAction, OpenAction, StartAction, UninstallAction},

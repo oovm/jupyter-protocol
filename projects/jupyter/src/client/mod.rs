@@ -2,10 +2,13 @@ use crate::{
     connection::Connection,
     errors::JupyterResult,
     jupyter_message::{JupyterMessage, JupyterMessageType},
-    CommonInfoRequest, ExecutionRequest, JupyterConnection, JupyterKernelProtocol, JupyterKernelSockets, KernelInfoReply,
+    ExecutionRequest, JupyterConnection, JupyterKernelProtocol, JupyterKernelSockets,
 };
 
-use crate::commands::start::KernelControl;
+use crate::{
+    commands::start::KernelControl,
+    jupyter_message::{CommonInfoRequest, KernelInfoReply},
+};
 use serde_json::Value;
 use std::{sync::Arc, time::SystemTime};
 use tokio::{sync::Mutex, task::JoinHandle};

@@ -107,7 +107,7 @@ impl RawMessage {
         }
     }
 }
-
+/// Represent a message from jupyter client
 #[derive(Clone, Debug)]
 pub struct JupyterMessage {
     zmq_identities: Vec<Bytes>,
@@ -200,7 +200,7 @@ impl JupyterMessage {
         })
     }
 
-    // Creates a new child message of this message. ZMQ identities are not transferred.
+    /// Creates a new child message of this message. ZMQ identities are not transferred.
     pub fn create_message(&self, kind: JupyterMessageType) -> JupyterMessage {
         JupyterMessage {
             zmq_identities: Vec::new(),
@@ -224,8 +224,8 @@ impl JupyterMessage {
         let msg = self.create_message(JupyterMessageType::StatusReply).with_content(state)?;
         msg.send_by(&mut &mut connection.lock().await).await
     }
-    // Creates a reply to this message. This is a child with the message type determined
-    // automatically by replacing "request" with "reply". ZMQ identities are transferred.
+    /// Creates a reply to this message. This is a child with the message type determined
+    /// automatically by replacing "request" with "reply". ZMQ identities are transferred.
     pub fn as_reply(&self) -> JupyterMessage {
         let mut reply = self.create_message(self.header.msg_type.as_reply());
         reply.zmq_identities = self.zmq_identities.clone();
