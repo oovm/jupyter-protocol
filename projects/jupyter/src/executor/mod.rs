@@ -6,10 +6,10 @@ use crate::{
     value_type::{InspectModule, InspectVariable, InspectVariableRequest, JupyterContext},
     ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError, JupyterResult,
 };
-use async_trait::async_trait;
 use serde_json::Value;
 use std::{
     fmt::{Debug, Formatter},
+    future::Future,
     sync::Arc,
 };
 use tokio::sync::Mutex;
@@ -23,8 +23,6 @@ pub trait Executed: Send {
 }
 
 /// The protocol of the kernel
-#[async_trait]
-// TODO: Remove `async_trait` when <https://github.com/rust-lang/rust/issues/91611> stable
 #[allow(unused_variables)]
 pub trait JupyterKernelProtocol: Send + Sync + 'static {
     /// Get the language info of the kernel.
@@ -36,7 +34,7 @@ pub trait JupyterKernelProtocol: Send + Sync + 'static {
     /// since Generator is not stable, we use sender instead
     ///
     /// `Generator<Yield = dyn Executed, Return = ExecutionReply>`
-    async fn running(&mut self, code: ExecutionRequest) -> ExecutionReply;
+    fn running(&mut self, code: ExecutionRequest) -> impl Future<Output = ExecutionReply> + Send;
 
     /// Show the running time of the code.
     ///

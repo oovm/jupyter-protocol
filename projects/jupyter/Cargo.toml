@@ -1,6 +1,6 @@
 [package]
 name = "jupyter"
-version = "0.2.0"
+version = "0.2.1"
 license = "MIT OR Apache-2.0"
 description = "Jupyter Kernel Protocol in Rust"
 homepage = "https://github.com/oovm/jupyter-protocol/tree/dev/projects/jupyter-calculator"
@@ -14,31 +14,30 @@ edition = "2021"
 exclude = ["third_party/.ipynb_checkpoints/"]
 
 [dependencies]
-clap = "4.4.2"
-clap_derive = "4.4.2"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_json = "1.0.105"
+clap = "4.4.7"
+clap_derive = "4.4.7"
+serde = { version = "1.0.192", features = ["derive"] }
+serde_json = "1.0.108"
 url = { version = "2.4.1", optional = true }
 bytes = "1.5.0"
-tokio = "1.32.0"
-uuid = { version = "1.4.1", features = ["v4", "serde"] }
+tokio = "1.33.0"
+uuid = { version = "1.5.0", features = ["v4", "serde"] }
 hmac = "0.12.1"
-sha2 = "0.10.7"
+sha2 = "0.10.8"
 hex = "0.4.3"
 dirs = "5.0.1"
-chrono = { version = "0.4.30", features = ["serde"] }
+chrono = { version = "0.4.31", features = ["serde"] }
 unicode-segmentation = "1.10.1"
 generic-array = "0.14.7"
 crossbeam-channel = "0.5.8"
-zeromq = { version = "0.3.3", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+zeromq = { version = "0.3.4", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 #syntax-error = "0.0.4"
-tracing = "0.1.37"
-async-trait = "0.1.73"
+tracing = "0.1.40"
 # renderers support
 ndarray = { version = "0.15.6", optional = true }
 mathml-core = { version = "0.1.6", optional = true }
-svg = { version = "0.13.1", optional = true }
-base64 = { version = "0.21.3", optional = true }
+svg = { version = "0.14.0", optional = true }
+base64 = { version = "0.21.5", optional = true }
 image = { version = "0.24.7", optional = true, default-features = false, features = ["png"] }
 
 [dependencies.serde-lsp]

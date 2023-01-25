@@ -5,7 +5,6 @@ pub use crate::engine::{ElementaryAlgebra, Evaluator, Printer, SqrtAlgebra};
 use crate::values::{test_array1, test_array2, test_json, test_mathml, test_png, test_url};
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
-    async_trait,
     value_type::{InspectVariable, InspectVariableRequest},
     Executed, ExecutionReply, ExecutionRequest, InstallAction, JupyterConnection, JupyterKernelProtocol, JupyterKernelSockets,
     JupyterResult, JupyterStream, LanguageInfo, OpenAction, StartAction, UninstallAction,
@@ -17,7 +16,6 @@ pub struct CalculatorContext {
     sockets: JupyterKernelSockets,
 }
 
-#[async_trait]
 impl JupyterKernelProtocol for CalculatorContext {
     fn language_info(&self) -> LanguageInfo {
         let mut info = LanguageInfo::new("calculator", "Calculator")

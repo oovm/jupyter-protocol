@@ -14,8 +14,6 @@ mod executor;
 pub(crate) mod jupyter_message;
 pub mod value_type;
 
-pub use async_trait::async_trait;
-
 pub use crate::jupyter_message::JupyterMessage;
 #[allow(deprecated)]
 pub use crate::{
