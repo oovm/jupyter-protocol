@@ -3,6 +3,7 @@ use crate::{
     connection::Connection,
     jupyter_message::{JupyterMessage, JupyterMessageType},
 };
+use jupyter_types::{Executed, JupyterContext};
 use serde::Serialize;
 use std::path::PathBuf;
 use zeromq::PubSocket;

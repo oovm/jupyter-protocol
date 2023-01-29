@@ -17,8 +17,7 @@ pub use self::{
 use crate::{
     connection::{Connection, HmacSha256},
     errors::JupyterError,
-    value_type::JupyterContext,
-    Executed, ExecutionReply, JupyterResult,
+    ExecutionReply, JupyterResult,
 };
 use bytes::Bytes;
 use chrono::{DateTime, Utc};

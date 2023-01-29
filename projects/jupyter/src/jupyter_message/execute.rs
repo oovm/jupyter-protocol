@@ -1,4 +1,5 @@
 use super::*;
+use jupyter_types::{Executed, JupyterContext};
 
 /// The result of executing code
 #[derive(Clone, Debug)]
