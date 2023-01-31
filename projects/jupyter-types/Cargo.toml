@@ -1,9 +1,10 @@
 [package]
 name = "jupyter-types"
-version = "0.0.1"
+version = "0.0.2"
 license = "MPL-2.0"
 description = "Shared types for jupyter kernel"
 repository = "https://github.com/oovm/jupyter-protocol"
+documentation = "https://docs.rs/jupyter-types"
 readme = "readme.md"
 authors = ["Aster <192607617@qq.com>"]
 edition = "2021"

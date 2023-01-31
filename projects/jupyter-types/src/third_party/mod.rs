@@ -17,6 +17,10 @@ mod for_string;
 #[cfg(feature = "svg")]
 mod for_svg;
 
+mod for_html;
+mod for_latex;
+
+pub use self::{for_html::HtmlText, for_latex::LatexText};
 use crate::{Executed, JupyterContext};
 pub use serde_json::Value;
 
