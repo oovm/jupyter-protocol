@@ -14,26 +14,26 @@ edition = "2021"
 exclude = ["third_party/.ipynb_checkpoints/"]
 
 [dependencies]
-clap = "4.4.7"
-clap_derive = "4.4.7"
-serde = { version = "1.0.192", features = ["derive"] }
-serde_json = "1.0.108"
+clap = "4.5.1"
+clap_derive = "4.5.0"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
 bytes = "1.5.0"
-tokio = "1.33.0"
-uuid = { version = "1.5.0", features = ["v4", "serde"] }
+tokio = "1.36.0"
+uuid = { version = "1.7.0", features = ["v4", "serde"] }
 hmac = "0.12.1"
 sha2 = "0.10.8"
 hex = "0.4.3"
 dirs = "5.0.1"
-chrono = { version = "0.4.31", features = ["serde"] }
-unicode-segmentation = "1.10.1"
+chrono = { version = "0.4.34", features = ["serde"] }
+unicode-segmentation = "1.11.0"
 generic-array = "0.14.7"
-crossbeam-channel = "0.5.8"
-zeromq = { version = "0.3.4", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+crossbeam-channel = "0.5.11"
+zeromq = { version = "0.3.5", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 #syntax-error = "0.0.4"
 tracing = "0.1.40"
 # renderers support
-mathml-core = { version = "0.1.6", optional = true }
+#mathml-core = { version = "0.1.7", optional = true }
 
 [dependencies.jupyter-types]
 version = "0.0.*"
@@ -44,11 +44,12 @@ version = "0.0.1"
 path = "../serde-lsp"
 
 [features]
-#default = ["image", "svg", "ndarray", "url"]
+default = []
 image = ["jupyter-types/image"]
 svg = ["jupyter-types/svg"]
 ndarray = ["jupyter-types/ndarray"]
 url = ["jupyter-types/url"]
+mathml = ["jupyter-types/mathml-core"]
 
 [package.metadata.docs.rs]
 all-features = true

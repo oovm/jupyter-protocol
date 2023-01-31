@@ -26,6 +26,7 @@ pub use crate::{
     },
     jupyter_message::{ExecutionRequest, ExecutionResult},
 };
-pub use jupyter_types::third_party;
+pub use jupyter_types::{third_party, Executed};
 pub use serde::Serialize;
+pub use serde_json::Value;
 pub use tokio::sync::mpsc::UnboundedSender;

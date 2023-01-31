@@ -17,15 +17,15 @@ clap = "4.4.7"
 clap_derive = "4.4.7"
 mathml-core = "0.1.6"
 mathml-latex = "0.0.3"
-svg = "0.15.0"
-tracing-subscriber = "0.3.17"
-image = "0.24.7"
-base64 = "0.21.5"
+svg = "0.15.1"
+tracing-subscriber = "0.3.18"
+image = "0.24.8"
+base64 = "0.21.7"
 
 [dependencies.jupyter]
 version = "*"
 path = "../jupyter"
-features = ["url", "image", "mathml-core", "svg", "ndarray"]
+features = ["url", "image", "mathml", "svg", "ndarray"]
 
 [dependencies.jupyter-derive]
 version = "*"

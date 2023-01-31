@@ -1,6 +1,6 @@
 use crate::{Executed, JupyterContext};
+use mathml_core::MathML;
 use serde_json::Value;
-
 #[cfg(feature = "mathml-core")]
 impl Executed for MathML {
     fn mime_type(&self) -> String {

@@ -2,7 +2,7 @@
 
 //! <https://github.com/gnestor/notebook/blob/master/notebook/static/notebook/js/outputarea.js#L260>
 use image::RgbaImage;
-use jupyter::value_type::{Array1, Array2, MathML, Url};
+use jupyter::third_party::{Array1, Array2, MathML, Url};
 use mathml_core::MathRoot;
 use mathml_latex::{parse_latex, LaTeXEngine};
 use std::str::FromStr;
@@ -20,7 +20,7 @@ pub fn test_svg() -> Document {
 pub fn test_mathml() -> MathML {
     let context = LaTeXEngine::builtin();
     let math = parse_latex(r#"a + \dfrac{1}{b + \dfrac{1}{c + \dfrac{1}{d + \dfrac{1}{e}}}}"#).expect("invalid tex");
-    MathRoot::new(vec![math.as_mathml(&context)]).with_namespace().into()
+    MathRoot::new(vec![math.as_mathml(&context)].into_iter()).with_namespace().into()
 }
 
 pub fn test_url() -> Url {
