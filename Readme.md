@@ -24,7 +24,8 @@ enum JupyterCommands {
 }
 ```
 
-- See more usages in example: [jupyter-calculator](./projects/jupyter-calculator/src/lib.rs)
+- See more usages in source code: [jupyter-calculator](./projects/jupyter-calculator/src/lib.rs)
+- See more usages in notebook: [jupyter-calculator.ipynb](./Readme.ipynb)
 
 Supports jupyter lab and vscode
 
