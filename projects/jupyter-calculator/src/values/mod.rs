@@ -25,3 +25,7 @@ pub fn test_mathml() -> MathML {
 pub fn test_url() -> Url {
     Url::from_str("https://github.com/oovm/jupyter-protocol").expect("invalid url")
 }
+
+pub fn test_json() -> jupyter::Value {
+    toml::from_str(include_str!("../../Cargo.toml")).expect("invalid toml")
+}

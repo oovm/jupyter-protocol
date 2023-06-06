@@ -1,4 +1,4 @@
-use crate::values::{test_mathml, test_url};
+use crate::values::{test_json, test_mathml, test_url};
 use clap_derive::{Parser, Subcommand};
 use jupyter::{
     async_trait, ExecutionReply, ExecutionRequest, ExecutionResult, InstallAction, JupyterKernelProtocol, JupyterKernelSockets,
@@ -32,8 +32,7 @@ impl JupyterKernelProtocol for CalculatorContext {
         self.sockets.send_executed(-std::f64::consts::PI).await;
         self.sockets.send_executed('c').await;
         self.sockets.send_executed("string").await;
-        let json = Value::from_str(include_str!("../package.json"));
-        self.sockets.send_executed(json.expect("package.json is invalid")).await;
+        self.sockets.send_executed(test_json()).await;
         self.sockets.send_executed(test_url()).await;
         self.sockets.send_executed(test_mathml()).await;
         // self.sockets.send_executed(test_svg()).await;
