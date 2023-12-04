@@ -28,7 +28,7 @@ hex = "0.4.3"
 dirs = "5.0.1"
 chrono = { version = "0.4.31", features = ["serde"] }
 unicode-segmentation = "1.10.1"
-generic-array = "0.14.7"
+generic-array = "1.0.0"
 crossbeam-channel = "0.5.8"
 zeromq = { version = "0.3.4", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 #syntax-error = "0.0.4"
