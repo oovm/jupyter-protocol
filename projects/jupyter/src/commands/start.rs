@@ -1,13 +1,13 @@
 use super::*;
 
 use crate::{client::SealedServer, JupyterKernelProtocol};
+
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
 use std::{
     fs::read_to_string,
     path::{Path, PathBuf},
 };
-
 /// To start a jupyter kernel for language.
 #[derive(Clone, Debug, Parser)]
 pub struct StartAction {
@@ -36,7 +36,8 @@ impl StartAction {
         let control_file = PathBuf::from(&self.control_file).canonicalize()?;
         #[cfg(feature = "url")]
         {
-            println!("Starting jupyter kernel with control file: {}", url::Url::from_file_path(&control_file)?);
+            use jupyter_types::third_party::Url;
+            println!("Starting jupyter kernel with control file: {}", Url::from_file_path(&control_file)?);
         }
         // if let Err(error) = legacy_install::update_if_necessary() {
         //     eprintln!("Warning: tried to update client, but failed: {}", error);

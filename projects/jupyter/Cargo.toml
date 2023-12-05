@@ -18,7 +18,6 @@ clap = "4.4.7"
 clap_derive = "4.4.7"
 serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
-url = { version = "2.4.1", optional = true }
 bytes = "1.5.0"
 tokio = "1.33.0"
 uuid = { version = "1.5.0", features = ["v4", "serde"] }
@@ -28,17 +27,13 @@ hex = "0.4.3"
 dirs = "5.0.1"
 chrono = { version = "0.4.31", features = ["serde"] }
 unicode-segmentation = "1.10.1"
-generic-array = "1.0.0"
+generic-array = "0.14.7"
 crossbeam-channel = "0.5.8"
 zeromq = { version = "0.3.4", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 #syntax-error = "0.0.4"
 tracing = "0.1.40"
 # renderers support
-ndarray = { version = "0.15.6", optional = true }
 mathml-core = { version = "0.1.6", optional = true }
-
-base64 = { version = "0.21.5", optional = true }
-image = { version = "0.24.7", optional = true, default-features = false, features = ["png"] }
 
 [dependencies.jupyter-types]
 version = "0.0.*"
@@ -49,9 +44,11 @@ version = "0.0.1"
 path = "../serde-lsp"
 
 [features]
-default = ["svg"]
-image = ["dep:image", "base64"]
+#default = ["image", "svg", "ndarray", "url"]
+image = ["jupyter-types/image"]
 svg = ["jupyter-types/svg"]
+ndarray = ["jupyter-types/ndarray"]
+url = ["jupyter-types/url"]
 
 [package.metadata.docs.rs]
 all-features = true

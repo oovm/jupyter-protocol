@@ -1,4 +1,4 @@
-use crate::{value_type::JupyterContext, Executed};
+use crate::{Executed, JupyterContext};
 use image::{codecs::png::PngEncoder, ColorType, DynamicImage, ImageEncoder, RgbaImage};
 use serde_json::Value;
 
