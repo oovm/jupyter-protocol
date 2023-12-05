@@ -18,7 +18,7 @@ mod for_string;
 mod for_svg;
 
 use crate::{Executed, JupyterContext};
-use serde_json::Value;
+pub use serde_json::Value;
 
 impl Executed for Value {
     fn mime_type(&self) -> String {
