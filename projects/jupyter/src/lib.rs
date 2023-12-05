@@ -22,10 +22,9 @@ pub use crate::{
     executor::{
         execution_reply::{ExecutionPayload, ExecutionReply},
         sockets::{JupyterConnection, JupyterKernelSockets, JupyterStream},
-        Executed, JupyterKernelProtocol, LanguageInfo,
+        JupyterKernelProtocol, LanguageInfo,
     },
     jupyter_message::{ExecutionRequest, ExecutionResult},
 };
 pub use serde::Serialize;
-pub use serde_json::{to_value, Value};
 pub use tokio::sync::mpsc::UnboundedSender;

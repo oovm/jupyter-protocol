@@ -3,10 +3,10 @@ pub mod sockets;
 
 use crate::{
     executor::sockets::JupyterConnection,
-    value_type::{InspectModule, InspectVariable, InspectVariableRequest, JupyterContext},
+    value_type::{InspectModule, InspectVariable, InspectVariableRequest},
     ExecutionReply, ExecutionRequest, ExecutionResult, JupyterError, JupyterResult,
 };
-use serde_json::Value;
+use jupyter_types::Executed;
 use std::{
     fmt::{Debug, Formatter},
     future::Future,
