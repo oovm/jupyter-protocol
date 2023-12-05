@@ -14,14 +14,6 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-/// A executed result that can be render in jupyter notebook.
-pub trait Executed: Send {
-    /// The mime type of the result.
-    fn mime_type(&self) -> String;
-    /// Convert the result to json.
-    fn as_json(&self, context: &JupyterContext) -> Value;
-}
-
 /// The protocol of the kernel
 #[allow(unused_variables)]
 pub trait JupyterKernelProtocol: Send + Sync + 'static {
