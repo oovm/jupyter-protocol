@@ -22,3 +22,6 @@ image = { version = "0.24.7", optional = true, default-features = false, feature
 
 [features]
 image = ["dep:image", "base64"]
+
+[package.metadata.docs.rs]
+all-features = true
