@@ -20,7 +20,7 @@ mathml-latex = "0.0.3"
 svg = "0.16.0"
 tracing-subscriber = "0.3.18"
 image = "0.24.8"
-base64 = "0.21.7"
+base64 = "0.22.0"
 
 [dependencies.jupyter]
 version = "*"
