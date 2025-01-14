@@ -24,7 +24,7 @@ uuid = { version = "1.7.0", features = ["v4", "serde"] }
 hmac = "0.12.1"
 sha2 = "0.10.8"
 hex = "0.4.3"
-dirs = "5.0.1"
+dirs = "6.0.0"
 chrono = { version = "0.4.34", features = ["serde"] }
 unicode-segmentation = "1.11.0"
 generic-array = "1.1.0"
