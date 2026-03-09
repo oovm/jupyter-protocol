@@ -12,7 +12,7 @@ exclude = []
 
 [dependencies]
 num = "0.4.1"
-toml = "0.9.4"
+toml = "1.0.6"
 clap = "4.4.7"
 clap_derive = "4.4.7"
 mathml-core = "0.1.6"
