@@ -29,7 +29,7 @@ chrono = { version = "0.4.34", features = ["serde"] }
 unicode-segmentation = "1.11.0"
 generic-array = "1.1.0"
 crossbeam-channel = "0.5.11"
-zeromq = { version = "0.5.0", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
+zeromq = { version = "0.6.0", default-features = false, features = ["tokio-runtime", "tcp-transport"] }
 #syntax-error = "0.0.4"
 tracing = "0.1.40"
 # renderers support
